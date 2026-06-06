@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { Clock, Coins, Gift, Pencil } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
@@ -5,6 +6,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Card } from '@/components/ui/Card';
 import { Text } from '@/components/ui/Text';
+import { qk } from '@/lib/queryKeys';
 import { theme } from '@/theme/theme';
 import type { Reward } from '../hooks/useStore';
 
@@ -18,23 +20,35 @@ export function RewardCard({
   onBuy: (reward: Reward) => void;
 }) {
   const router = useRouter();
+  const qc = useQueryClient();
   const [now, setNow] = useState<number | null>(null);
   const cooldownUntil = useMemo(() => getCooldownUntil(reward), [reward]);
-  const remainingMs = cooldownUntil && now ? Math.max(0, cooldownUntil - now) : 0;
+  const remainingMs = cooldownUntil ? Math.max(0, cooldownUntil - (now ?? cooldownUntil - (reward.cooldown_minutes ?? 0) * 60_000)) : 0;
   const inCooldown = !!cooldownUntil && (!now || remainingMs > 0);
-  const outOfStock = reward.has_stock && (reward.current_stock ?? 0) <= 0;
-  const canAfford = gold >= reward.cost && !outOfStock && !inCooldown;
+  const effectiveStock = getEffectiveStock(reward, inCooldown);
+  const outOfStock = reward.has_stock && effectiveStock <= 0;
+  const alreadyPurchased = !reward.is_repurchasable && !!reward.last_purchased_at;
+  const hasGold = gold >= reward.cost;
+  const canBuy = hasGold && !outOfStock && !inCooldown && !alreadyPurchased;
 
   useEffect(() => {
     if (!cooldownUntil) return;
     const tick = () => setNow(new Date().getTime());
-    const firstTick = setTimeout(tick, 0);
-    const timer = setInterval(() => setNow(Date.now()), 1000);
+    tick();
+    const timer = setInterval(tick, 1000);
+    const restockTimer = setTimeout(() => {
+      tick();
+      qc.setQueryData<Reward[]>(qk.rewards, (current) => current?.map((item) => {
+        if (item.id !== reward.id || !item.has_stock || (item.current_stock ?? 0) > 0) return item;
+        return { ...item, current_stock: item.max_stock ?? item.current_stock };
+      }));
+      void qc.invalidateQueries({ queryKey: qk.rewards });
+    }, Math.max(0, cooldownUntil - new Date().getTime()) + 250);
     return () => {
-      clearTimeout(firstTick);
       clearInterval(timer);
+      clearTimeout(restockTimer);
     };
-  }, [cooldownUntil]);
+  }, [cooldownUntil, qc, reward.id]);
 
   return (
     <Card accent={theme.colors.gold}>
@@ -48,14 +62,14 @@ export function RewardCard({
           <View style={styles.metaRow}>
             {reward.has_stock && (
               <Text variant="bodyMuted">
-                Estoque: {reward.current_stock ?? 0}/{reward.max_stock ?? 0}
+                Estoque: {effectiveStock}/{reward.max_stock ?? 0}
               </Text>
             )}
             {reward.cooldown_minutes ? (
               <View style={[styles.cooldownPill, inCooldown && styles.cooldownPillActive]}>
                 <Clock color={inCooldown ? theme.colors.primary : theme.colors.textMuted} size={14} />
                 <Text variant="bodyMuted" color={inCooldown ? theme.colors.primary : theme.colors.textMuted}>
-                  {inCooldown ? formatCountdown(remainingMs) : `${reward.cooldown_minutes}min`}
+                  {inCooldown ? `Volta em ${formatCountdown(remainingMs)}` : `Cooldown apos uso: ${reward.cooldown_minutes}min`}
                 </Text>
               </View>
             ) : null}
@@ -72,13 +86,13 @@ export function RewardCard({
       </View>
       <Pressable
         onPress={() => onBuy(reward)}
-        disabled={!canAfford}
-        style={[styles.buy, !canAfford && styles.disabled]}
+        disabled={!canBuy}
+        style={[styles.buy, !canBuy && styles.disabled]}
         accessibilityRole="button"
       >
         <Coins color={theme.colors.gold} size={16} />
-        <Text variant="bodyMedium" color={canAfford ? theme.colors.text : theme.colors.textMuted}>
-          {outOfStock ? 'Esgotado' : inCooldown ? `Disponível em ${formatCountdown(remainingMs)}` : reward.cost}
+        <Text variant="bodyMedium" color={canBuy ? theme.colors.text : theme.colors.textMuted}>
+          {buyLabel({ alreadyPurchased, hasGold, inCooldown, outOfStock, remainingMs, cost: reward.cost })}
         </Text>
       </Pressable>
     </Card>
@@ -88,6 +102,38 @@ export function RewardCard({
 function getCooldownUntil(reward: Reward) {
   if (!reward.cooldown_minutes || !reward.last_purchased_at) return null;
   return new Date(reward.last_purchased_at).getTime() + reward.cooldown_minutes * 60_000;
+}
+
+function getEffectiveStock(reward: Reward, inCooldown: boolean) {
+  if (!reward.has_stock) return Number.POSITIVE_INFINITY;
+  const current = reward.current_stock ?? 0;
+  if (current > 0) return current;
+  if (reward.cooldown_minutes && reward.last_purchased_at && !inCooldown) {
+    return reward.max_stock ?? 0;
+  }
+  return current;
+}
+
+function buyLabel({
+  alreadyPurchased,
+  hasGold,
+  inCooldown,
+  outOfStock,
+  remainingMs,
+  cost,
+}: {
+  alreadyPurchased: boolean;
+  hasGold: boolean;
+  inCooldown: boolean;
+  outOfStock: boolean;
+  remainingMs: number;
+  cost: number;
+}) {
+  if (outOfStock) return 'Esgotado';
+  if (alreadyPurchased) return 'Ja resgatado';
+  if (inCooldown) return `Disponivel em ${formatCountdown(remainingMs)}`;
+  if (!hasGold) return `Precisa de ${cost}`;
+  return cost;
 }
 
 function formatCountdown(ms: number) {
