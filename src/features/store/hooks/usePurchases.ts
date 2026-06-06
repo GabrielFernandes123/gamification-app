@@ -28,9 +28,7 @@ export function usePurchaseReward() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ rewardId }: { rewardId: string }) => {
-      const { data, error } = await supabase.rpc('purchase_reward', { p_reward_id: rewardId });
-      if (error) throw error;
-      return data as unknown as { goldSpent: number };
+      return purchaseRewardWithRestock(rewardId);
     },
     onSuccess: (_result, variables) => {
       qc.setQueryData<Reward[]>(qk.rewards, (current) => current?.map((reward) => {
@@ -47,6 +45,40 @@ export function usePurchaseReward() {
       qc.invalidateQueries({ queryKey: qk.purchases });
     },
   });
+}
+
+async function purchaseRewardWithRestock(rewardId: string) {
+  const first = await supabase.rpc('purchase_reward', { p_reward_id: rewardId });
+  if (!first.error) return first.data as unknown as { goldSpent: number };
+
+  if (!isOutOfStockError(first.error)) throw first.error;
+
+  const reward = await loadReward(rewardId);
+  if (!reward || effectiveStock(reward) <= 0) throw first.error;
+
+  const { error: updateError } = await supabase
+    .from('rewards')
+    .update({ current_stock: reward.max_stock ?? 0 })
+    .eq('id', rewardId);
+  if (updateError) throw first.error;
+
+  const retry = await supabase.rpc('purchase_reward', { p_reward_id: rewardId });
+  if (retry.error) throw retry.error;
+  return retry.data as unknown as { goldSpent: number };
+}
+
+async function loadReward(rewardId: string) {
+  const { data, error } = await supabase
+    .from('rewards')
+    .select('*')
+    .eq('id', rewardId)
+    .maybeSingle();
+  if (error) return null;
+  return data as Reward | null;
+}
+
+function isOutOfStockError(error: { message?: string }) {
+  return (error.message ?? '').toLowerCase().includes('fora de estoque');
 }
 
 function effectiveStock(reward: Reward) {
