@@ -1,18 +1,25 @@
 {
   "expo": {
-    "name": "_expoinit",
-    "slug": "_expoinit",
+    "name": "Evolve",
+    "slug": "evolve",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "expoinit",
-    "userInterfaceStyle": "automatic",
+    "icon": "./assets/logo.png",
+    "scheme": "evolve",
+    "userInterfaceStyle": "dark",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "userInterfaceStyle": "dark",
+      "supportsTablet": false,
+      "bundleIdentifier": "com.gabriel.evolve",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
+      "userInterfaceStyle": "dark",
+      "package": "com.gabriel.evolve",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0F1115",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -28,17 +35,30 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#0F1115",
           "android": {
             "image": "./assets/images/splash-icon.png",
             "imageWidth": 76
           }
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#F97316"
+        }
       ]
     ],
     "experiments": {
       "typedRoutes": true,
-      "reactCompiler": true
+      "reactCompiler": false
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "91d600d6-cc8c-43a2-ac83-8c25e4b677c7"
+      }
     }
   }
 }

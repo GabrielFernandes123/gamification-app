@@ -1,20 +1,26 @@
 import { useRouter } from 'expo-router';
-import { Coins, Plus } from 'lucide-react-native';
+import { Coins, Gift, Plus, Sparkles, Swords } from 'lucide-react-native';
 import { useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { IconSegmented } from '@/components/ui/IconSegmented';
 import { Text } from '@/components/ui/Text';
+import { useEquipmentCatalog, usePurchaseEquipment, usePurchaseEquipmentEssencia } from '@/features/build/hooks/useEquipment';
 import { useCharacter } from '@/features/character/hooks/useCharacter';
 import { useHabits } from '@/features/habits/hooks/useHabits';
+import { EquipmentCatalogCard } from '@/features/store/components/EquipmentCatalogCard';
 import { RewardCard } from '@/features/store/components/RewardCard';
 import { SystemItemCard } from '@/features/store/components/SystemItemCard';
 import { usePurchaseReward, usePurchaseSystemItem } from '@/features/store/hooks/usePurchases';
 import { useRewards, useSystemItems, type Reward, type SystemItem } from '@/features/store/hooks/useStore';
 import { scheduleRewardCooldownNotification } from '@/features/store/notifications';
 import { theme } from '@/theme/theme';
+import type { EquipmentCatalogItem } from '@/types/build';
+
+type StoreMode = 'magic' | 'equipment' | 'rewards';
 
 export default function StoreScreen() {
   const router = useRouter();
@@ -22,11 +28,17 @@ export default function StoreScreen() {
   const items = useSystemItems();
   const rewards = useRewards();
   const habits = useHabits();
+  const equipment = useEquipmentCatalog();
   const buyItem = usePurchaseSystemItem();
   const buyReward = usePurchaseReward();
+  const buyEquipment = usePurchaseEquipment();
+  const buyEquipmentEssencia = usePurchaseEquipmentEssencia();
 
   const gold = character.data?.gold ?? 0;
+  const essencia = character.data?.essencia ?? 0;
+  const level = character.data?.level ?? 1;
   const [streakItem, setStreakItem] = useState<SystemItem | null>(null);
+  const [mode, setMode] = useState<StoreMode>('magic');
 
   function handleBuyItem(item: SystemItem) {
     if (item.type === 'streak_recovery') {
@@ -59,8 +71,44 @@ export default function StoreScreen() {
     );
   }
 
+  function handleBuyEquipment(item: EquipmentCatalogItem) {
+    Alert.alert('Comprar?', `Gastar ${item.cost_gold} de ouro em "${item.name}"?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Comprar',
+        onPress: () =>
+          buyEquipment.mutate(
+            { catalogId: item.id },
+            {
+              onSuccess: () => Alert.alert('Comprado!', 'Item adicionado ao inventário.'),
+              onError: (e) => Alert.alert('Ops', e instanceof Error ? e.message : 'Erro'),
+            },
+          ),
+      },
+    ]);
+  }
+
+  function handleBuyEquipmentEssencia(item: EquipmentCatalogItem) {
+    Alert.alert('Comprar?', `Gastar ${item.cost_essencia} de Essência em "${item.name}"?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Comprar',
+        onPress: () =>
+          buyEquipmentEssencia.mutate(
+            { catalogId: item.id },
+            {
+              onSuccess: () => Alert.alert('Comprado!', 'Item adicionado ao inventário.'),
+              onError: (e) => Alert.alert('Ops', e instanceof Error ? e.message : 'Erro'),
+            },
+          ),
+      },
+    ]);
+  }
+
   function handleBuyReward(reward: Reward) {
-    Alert.alert('Resgatar?', `Gastar ${reward.cost} de ouro em "${reward.name}"?`, [
+    const essenciaCost = reward.cost_essencia ?? null;
+    const priceLabel = essenciaCost == null ? `${reward.cost} de ouro` : `${essenciaCost} de Essência`;
+    Alert.alert('Resgatar?', `Gastar ${priceLabel} em "${reward.name}"?`, [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Resgatar',
@@ -70,7 +118,7 @@ export default function StoreScreen() {
             {
               onSuccess: () => {
                 void scheduleRewardCooldownNotification(reward);
-                Alert.alert('Resgatado!', 'Aproveite 🎉');
+                Alert.alert('Resgatado!', 'Aproveite!');
               },
               onError: (e) => Alert.alert('Ops', e instanceof Error ? e.message : 'Erro'),
             },
@@ -83,55 +131,105 @@ export default function StoreScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
         <Text variant="h1">Loja</Text>
-        <View style={styles.goldPill}>
-          <Coins color={theme.colors.gold} size={18} />
-          <Text variant="bodyMedium" color={theme.colors.gold}>
-            {gold}
-          </Text>
+        <View style={styles.wallet}>
+          <View style={styles.currencyPill}>
+            <Coins color={theme.colors.gold} size={18} />
+            <Text variant="bodyMedium" color={theme.colors.gold}>
+              {gold}
+            </Text>
+          </View>
+          <View style={styles.currencyPill}>
+            <Sparkles color={theme.colors.essencia} size={18} />
+            <Text variant="bodyMedium" color={theme.colors.essencia}>
+              {essencia}
+            </Text>
+          </View>
         </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text variant="h2">Itens Mágicos</Text>
-        {(items.data ?? []).map((item) => (
-          <SystemItemCard key={item.id} item={item} gold={gold} onBuy={handleBuyItem} />
-        ))}
+        <IconSegmented<StoreMode>
+          value={mode}
+          onChange={setMode}
+          options={[
+            { value: 'magic', label: 'Mágicos', icon: Sparkles, color: theme.colors.skill },
+            { value: 'equipment', label: 'Equip.', icon: Swords, color: theme.colors.primary },
+            { value: 'rewards', label: 'Recomp.', icon: Gift, color: theme.colors.gold },
+          ]}
+        />
 
-        <View style={styles.sectionHeader}>
-          <Text variant="h2">Recompensas Pessoais</Text>
-          <Pressable
-            onPress={() => router.push('/(app)/rewards/new')}
-            style={styles.addBtn}
-            accessibilityLabel="Nova recompensa"
-          >
-            <Plus color={theme.colors.textInverse} size={20} />
-          </Pressable>
-        </View>
-        {(rewards.data ?? []).length === 0 ? (
-          <Text variant="bodyMuted">
-            Crie recompensas pra você (ex.: assistir um filme) e gaste seu ouro nelas.
-          </Text>
-        ) : (
-          (rewards.data ?? []).map((reward) => (
-            <RewardCard key={reward.id} reward={reward} gold={gold} onBuy={handleBuyReward} />
-          ))
-        )}
+        {mode === 'magic' ? (
+          <>
+            <Text variant="h2">Itens Mágicos</Text>
+            {(items.data ?? []).map((item) => (
+              <SystemItemCard key={item.id} item={item} gold={gold} onBuy={handleBuyItem} />
+            ))}
+          </>
+        ) : null}
+
+        {mode === 'equipment' ? (
+          <>
+            <Text variant="h2">Equipamentos</Text>
+            {(equipment.data ?? []).length === 0 ? (
+              <Text variant="bodyMuted">Nenhum equipamento à venda no momento.</Text>
+            ) : (
+              (equipment.data ?? []).map((item) => (
+                <EquipmentCatalogCard
+                  key={item.id}
+                  item={item}
+                  gold={gold}
+                  essencia={essencia}
+                  level={level}
+                  onBuyGold={handleBuyEquipment}
+                  onBuyEssencia={handleBuyEquipmentEssencia}
+                />
+              ))
+            )}
+          </>
+        ) : null}
+
+        {mode === 'rewards' ? (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text variant="h2">Recompensas Pessoais</Text>
+              <Pressable
+                onPress={() => router.push('/(app)/rewards/new')}
+                style={styles.addBtn}
+                accessibilityLabel="Nova recompensa"
+              >
+                <Plus color={theme.colors.textInverse} size={20} />
+              </Pressable>
+            </View>
+            {(rewards.data ?? []).length === 0 ? (
+              <Text variant="bodyMuted">Crie recompensas para você e gaste seu ouro nelas.</Text>
+            ) : (
+              (rewards.data ?? []).map((reward) => (
+                <RewardCard key={reward.id} reward={reward} gold={gold} essencia={essencia} onBuy={handleBuyReward} />
+              ))
+            )}
+          </>
+        ) : null}
       </ScrollView>
 
-      {/* Seletor de hábito para o Amuleto de Streak */}
       <Modal visible={!!streakItem} transparent animationType="fade" onRequestClose={() => setStreakItem(null)}>
         <View style={styles.backdrop}>
           <Card style={styles.pickerCard}>
             <Text variant="h2">Restaurar streak de qual hábito?</Text>
             <ScrollView style={styles.pickerList} contentContainerStyle={styles.pickerContent}>
               {(habits.data ?? []).map((h) => (
-                <Pressable key={h.id} onPress={() => buyStreakFor(h.id)} style={styles.pickerRow}>
+                <Pressable
+                  key={h.id}
+                  onPress={() => buyStreakFor(h.id)}
+                  style={[styles.pickerRow, buyItem.isPending && styles.rowDisabled]}
+                  disabled={buyItem.isPending}
+                >
                   <Text variant="bodyMedium">{h.name}</Text>
                   <Text variant="bodyMuted">streak {h.current_streak} · melhor {h.best_streak}</Text>
                 </Pressable>
               ))}
             </ScrollView>
-            <Button label="Cancelar" variant="outline" onPress={() => setStreakItem(null)} fullWidth />
+            {buyItem.isPending ? <ActivityIndicator color={theme.colors.primary} /> : null}
+            <Button label="Cancelar" variant="outline" onPress={() => setStreakItem(null)} fullWidth disabled={buyItem.isPending} />
           </Card>
         </View>
       </Modal>
@@ -149,7 +247,14 @@ const styles = StyleSheet.create({
     paddingTop: theme.spacing.md,
     paddingBottom: theme.spacing.sm,
   },
-  goldPill: {
+  wallet: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+  },
+  currencyPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.xs,
@@ -163,7 +268,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: theme.spacing.lg,
   },
   addBtn: {
     width: 40,
@@ -183,4 +287,5 @@ const styles = StyleSheet.create({
     padding: theme.spacing.md,
     gap: 2,
   },
+  rowDisabled: { opacity: 0.6 },
 });

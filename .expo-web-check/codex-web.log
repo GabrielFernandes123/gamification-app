@@ -1,0 +1,39 @@
+  --non-interactive is not supported, use $CI=1 instead
+env: load .env
+env: export EXPO_PUBLIC_SUPABASE_ANON_KEY EXPO_PUBLIC_SUPABASE_URL
+Starting project at C:\Users\Gabriel\Desktop\Projetos Pessoais\gamificacao-app
+Using src/app as the root directory for Expo Router.
+Starting Metro Bundler
+
+Waiting on http://localhost:8082
+Logs for your project will appear below.
+λ Bundled 3209ms node_modules\expo\node_modules\@expo\cli\node_modules\@expo\router-server\node\render.js (3271 modules)
+[expo-notifications] Listening to push token changes is not yet fully supported on web. Adding a listener will have no effect.
+ReferenceError: window is not defined
+    at C:/Users/Gabriel/Desktop/Projetos Pessoais/gamificacao-app/node_modules/expo/node_modules/@expo/cli/node_modules/@expo/router-server/node/render.js.bundle?platform=web&dev=true&hot=false&transform.engine=hermes&transform.routerRoot=src%2Fapp&resolver.environment=node&transform.environment=node&unstable_transformProfile=hermes-stable:227786:54
+    at C:/Users/Gabriel/Desktop/Projetos Pessoais/gamificacao-app/node_modules/expo/node_modules/@expo/cli/node_modules/@expo/router-server/node/render.js.bundle?platform=web&dev=true&hot=false&transform.engine=hermes&transform.routerRoot=src%2Fapp&resolver.environment=node&transform.environment=node&unstable_transformProfile=hermes-stable:227762:23
+    at new Promise (<anonymous>)
+    at createPromise (C:/Users/Gabriel/Desktop/Projetos Pessoais/gamificacao-app/node_modules/expo/node_modules/@expo/cli/node_modules/@expo/router-server/node/render.js.bundle?platform=web&dev=true&hot=false&transform.engine=hermes&transform.routerRoot=src%2Fapp&resolver.environment=node&transform.environment=node&unstable_transformProfile=hermes-stable:227760:12)
+    at Object.getItem (C:/Users/Gabriel/Desktop/Projetos Pessoais/gamificacao-app/node_modules/expo/node_modules/@expo/cli/node_modules/@expo/router-server/node/render.js.bundle?platform=web&dev=true&hot=false&transform.engine=hermes&transform.routerRoot=src%2Fapp&resolver.environment=node&transform.environment=node&unstable_transformProfile=hermes-stable:227786:14)
+    at getItemAsync (C:/Users/Gabriel/Desktop/Projetos Pessoais/gamificacao-app/node_modules/expo/node_modules/@expo/cli/node_modules/@expo/router-server/node/render.js.bundle?platform=web&dev=true&hot=false&transform.engine=hermes&transform.routerRoot=src%2Fapp&resolver.environment=node&transform.environment=node&unstable_transformProfile=hermes-stable:245419:33)
+    at SupabaseAuthClient._recoverAndRefresh (C:/Users/Gabriel/Desktop/Projetos Pessoais/gamificacao-app/node_modules/expo/node_modules/@expo/cli/node_modules/@expo/router-server/node/render.js.bundle?platform=web&dev=true&hot=false&transform.engine=hermes&transform.routerRoot=src%2Fapp&resolver.environment=node&transform.environment=node&unstable_transformProfile=hermes-stable:250677:65)
+    at SupabaseAuthClient._initialize (C:/Users/Gabriel/Desktop/Projetos Pessoais/gamificacao-app/node_modules/expo/node_modules/@expo/cli/node_modules/@expo/router-server/node/render.js.bundle?platform=web&dev=true&hot=false&transform.engine=hermes&transform.routerRoot=src%2Fapp&resolver.environment=node&transform.environment=node&unstable_transformProfile=hermes-stable:246677:20)
+    at C:/Users/Gabriel/Desktop/Projetos Pessoais/gamificacao-app/node_modules/expo/node_modules/@expo/cli/node_modules/@expo/router-server/node/render.js.bundle?platform=web&dev=true&hot=false&transform.engine=hermes&transform.routerRoot=src%2Fapp&resolver.environment=node&transform.environment=node&unstable_transformProfile=hermes-stable:246609:27
+    at SupabaseAuthClient.initialize (C:/Users/Gabriel/Desktop/Projetos Pessoais/gamificacao-app/node_modules/expo/node_modules/@expo/cli/node_modules/@expo/router-server/node/render.js.bundle?platform=web&dev=true&hot=false&transform.engine=hermes&transform.routerRoot=src%2Fapp&resolver.environment=node&transform.environment=node&unstable_transformProfile=hermes-stable:246610:9)
+C:\Users\Gabriel\Desktop\Projetos Pessoais\gamificacao-app\node_modules\expo\node_modules\@expo\cli\build\src\utils\errors.js:130
+    throw error;
+    ^
+
+ReferenceError: window is not defined
+    at C:/Users/Gabriel/Desktop/Projetos Pessoais/gamificacao-app/node_modules/expo/node_modules/@expo/cli/node_modules/@expo/router-server/node/render.js.bundle?platform=web&dev=true&hot=false&transform.engine=hermes&transform.routerRoot=src%2Fapp&resolver.environment=node&transform.environment=node&unstable_transformProfile=hermes-stable:227786:54
+    at C:/Users/Gabriel/Desktop/Projetos Pessoais/gamificacao-app/node_modules/expo/node_modules/@expo/cli/node_modules/@expo/router-server/node/render.js.bundle?platform=web&dev=true&hot=false&transform.engine=hermes&transform.routerRoot=src%2Fapp&resolver.environment=node&transform.environment=node&unstable_transformProfile=hermes-stable:227762:23
+    at new Promise (<anonymous>)
+    at createPromise (C:/Users/Gabriel/Desktop/Projetos Pessoais/gamificacao-app/node_modules/expo/node_modules/@expo/cli/node_modules/@expo/router-server/node/render.js.bundle?platform=web&dev=true&hot=false&transform.engine=hermes&transform.routerRoot=src%2Fapp&resolver.environment=node&transform.environment=node&unstable_transformProfile=hermes-stable:227760:12)
+    at Object.getItem (C:/Users/Gabriel/Desktop/Projetos Pessoais/gamificacao-app/node_modules/expo/node_modules/@expo/cli/node_modules/@expo/router-server/node/render.js.bundle?platform=web&dev=true&hot=false&transform.engine=hermes&transform.routerRoot=src%2Fapp&resolver.environment=node&transform.environment=node&unstable_transformProfile=hermes-stable:227786:14)
+    at getItemAsync (C:/Users/Gabriel/Desktop/Projetos Pessoais/gamificacao-app/node_modules/expo/node_modules/@expo/cli/node_modules/@expo/router-server/node/render.js.bundle?platform=web&dev=true&hot=false&transform.engine=hermes&transform.routerRoot=src%2Fapp&resolver.environment=node&transform.environment=node&unstable_transformProfile=hermes-stable:245419:33)
+    at SupabaseAuthClient.__loadSession (C:/Users/Gabriel/Desktop/Projetos Pessoais/gamificacao-app/node_modules/expo/node_modules/@expo/cli/node_modules/@expo/router-server/node/render.js.bundle?platform=web&dev=true&hot=false&transform.engine=hermes&transform.routerRoot=src%2Fapp&resolver.environment=node&transform.environment=node&unstable_transformProfile=hermes-stable:248948:63)
+    at SupabaseAuthClient._useSession (C:/Users/Gabriel/Desktop/Projetos Pessoais/gamificacao-app/node_modules/expo/node_modules/@expo/cli/node_modules/@expo/router-server/node/render.js.bundle?platform=web&dev=true&hot=false&transform.engine=hermes&transform.routerRoot=src%2Fapp&resolver.environment=node&transform.environment=node&unstable_transformProfile=hermes-stable:248929:35)
+    at SupabaseAuthClient._emitInitialSession (C:/Users/Gabriel/Desktop/Projetos Pessoais/gamificacao-app/node_modules/expo/node_modules/@expo/cli/node_modules/@expo/router-server/node/render.js.bundle?platform=web&dev=true&hot=false&transform.engine=hermes&transform.routerRoot=src%2Fapp&resolver.environment=node&transform.environment=node&unstable_transformProfile=hermes-stable:250203:25)
+    at C:/Users/Gabriel/Desktop/Projetos Pessoais/gamificacao-app/node_modules/expo/node_modules/@expo/cli/node_modules/@expo/router-server/node/render.js.bundle?platform=web&dev=true&hot=false&transform.engine=hermes&transform.routerRoot=src%2Fapp&resolver.environment=node&transform.environment=node&unstable_transformProfile=hermes-stable:250193:22
+
+Node.js v24.16.0

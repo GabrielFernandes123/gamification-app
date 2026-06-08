@@ -1,0 +1,12 @@
+
+> expoinit@1.0.0 web
+> expo start --web --port 8097 --host localhost
+
+env: load .env
+env: export EXPO_PUBLIC_API_URL EXPO_PUBLIC_SUPABASE_ANON_KEY EXPO_PUBLIC_SUPABASE_URL
+Starting project at C:\Users\Gabriel\Desktop\Projetos Pessoais\gamificacao-app
+Using src/app as the root directory for Expo Router.
+Starting Metro Bundler
+
+Waiting on http://localhost:8097
+Logs for your project will appear below.

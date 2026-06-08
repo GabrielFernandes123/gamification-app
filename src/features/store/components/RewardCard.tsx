@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { Clock, Coins, Gift, Pencil } from 'lucide-react-native';
+import { Clock, Coins, Gift, Pencil, Sparkles } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -13,10 +13,12 @@ import type { Reward } from '../hooks/useStore';
 export function RewardCard({
   reward,
   gold,
+  essencia,
   onBuy,
 }: {
   reward: Reward;
   gold: number;
+  essencia: number;
   onBuy: (reward: Reward) => void;
 }) {
   const router = useRouter();
@@ -28,8 +30,10 @@ export function RewardCard({
   const effectiveStock = getEffectiveStock(reward, inCooldown);
   const outOfStock = reward.has_stock && effectiveStock <= 0;
   const alreadyPurchased = !reward.is_repurchasable && !!reward.last_purchased_at;
-  const hasGold = gold >= reward.cost;
-  const canBuy = hasGold && !outOfStock && !inCooldown && !alreadyPurchased;
+  const essenciaCost = reward.cost_essencia ?? null;
+  const usesEssencia = essenciaCost != null;
+  const hasCurrency = usesEssencia ? essencia >= essenciaCost : gold >= reward.cost;
+  const canBuy = hasCurrency && !outOfStock && !inCooldown && !alreadyPurchased;
 
   useEffect(() => {
     if (!cooldownUntil) return;
@@ -69,7 +73,7 @@ export function RewardCard({
               <View style={[styles.cooldownPill, inCooldown && styles.cooldownPillActive]}>
                 <Clock color={inCooldown ? theme.colors.primary : theme.colors.textMuted} size={14} />
                 <Text variant="bodyMuted" color={inCooldown ? theme.colors.primary : theme.colors.textMuted}>
-                  {inCooldown ? `Volta em ${formatCountdown(remainingMs)}` : `Cooldown apos uso: ${reward.cooldown_minutes}min`}
+                  {inCooldown ? `Volta em ${formatCountdown(remainingMs)}` : `Cooldown após uso: ${reward.cooldown_minutes}min`}
                 </Text>
               </View>
             ) : null}
@@ -90,9 +94,20 @@ export function RewardCard({
         style={[styles.buy, !canBuy && styles.disabled]}
         accessibilityRole="button"
       >
-        <Coins color={theme.colors.gold} size={16} />
+        {usesEssencia ? (
+          <Sparkles color={theme.colors.essencia} size={16} />
+        ) : (
+          <Coins color={theme.colors.gold} size={16} />
+        )}
         <Text variant="bodyMedium" color={canBuy ? theme.colors.text : theme.colors.textMuted}>
-          {buyLabel({ alreadyPurchased, hasGold, inCooldown, outOfStock, remainingMs, cost: reward.cost })}
+          {buyLabel({
+            alreadyPurchased,
+            hasCurrency,
+            inCooldown,
+            outOfStock,
+            remainingMs,
+            cost: usesEssencia ? essenciaCost : reward.cost,
+          })}
         </Text>
       </Pressable>
     </Card>
@@ -116,23 +131,23 @@ function getEffectiveStock(reward: Reward, inCooldown: boolean) {
 
 function buyLabel({
   alreadyPurchased,
-  hasGold,
+  hasCurrency,
   inCooldown,
   outOfStock,
   remainingMs,
   cost,
 }: {
   alreadyPurchased: boolean;
-  hasGold: boolean;
+  hasCurrency: boolean;
   inCooldown: boolean;
   outOfStock: boolean;
   remainingMs: number;
   cost: number;
 }) {
   if (outOfStock) return 'Esgotado';
-  if (alreadyPurchased) return 'Ja resgatado';
-  if (inCooldown) return `Disponivel em ${formatCountdown(remainingMs)}`;
-  if (!hasGold) return `Precisa de ${cost}`;
+  if (alreadyPurchased) return 'Já resgatado';
+  if (inCooldown) return `Disponível em ${formatCountdown(remainingMs)}`;
+  if (!hasCurrency) return `Precisa de ${cost}`;
   return cost;
 }
 

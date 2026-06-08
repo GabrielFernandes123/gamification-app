@@ -1,0 +1,16 @@
+
+> expoinit@1.0.0 web
+> expo start --web --port 8081
+
+env: load .env
+env: export EXPO_PUBLIC_API_URL EXPO_PUBLIC_SUPABASE_ANON_KEY EXPO_PUBLIC_SUPABASE_URL
+Starting project at C:\Users\Gabriel\Desktop\Projetos Pessoais\gamificacao-app
+Using src/app as the root directory for Expo Router.
+Starting Metro Bundler
+
+Waiting on http://localhost:8081
+Logs for your project will appear below.
+λ Bundled 6351ms node_modules\@expo\router-server\node\render.js (3469 modules)
+Web Bundled 7169ms node_modules\expo-router\entry.js (3439 modules)
+λ Bundled 2055ms node_modules\@expo\router-server\node\render.js (1 module)
+Web Bundled 2450ms node_modules\expo-router\entry.js (1 module)

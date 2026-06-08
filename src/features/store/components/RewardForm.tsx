@@ -23,6 +23,8 @@ export function RewardForm({ reward }: { reward?: Reward }) {
   const [name, setName] = useState(r.name ?? '');
   const [description, setDescription] = useState(r.description ?? '');
   const [cost, setCost] = useState<number>(r.cost ?? 50);
+  const [useEssencia, setUseEssencia] = useState((r.cost_essencia ?? null) != null);
+  const [costEssencia, setCostEssencia] = useState<number>(r.cost_essencia ?? 1);
   const [repurchasable, setRepurchasable] = useState(r.is_repurchasable ?? true);
   const [hasStock, setHasStock] = useState(r.has_stock ?? false);
   const [maxStock, setMaxStock] = useState<number>(r.max_stock ?? 1);
@@ -38,7 +40,8 @@ export function RewardForm({ reward }: { reward?: Reward }) {
     const payload = {
       name: name.trim(),
       description: description.trim() || null,
-      cost,
+      cost: useEssencia ? 0 : cost,
+      cost_essencia: useEssencia ? costEssencia : null,
       is_repurchasable: repurchasable,
       has_stock: hasStock,
       max_stock: hasStock ? maxStock : null,
@@ -89,8 +92,22 @@ export function RewardForm({ reward }: { reward?: Reward }) {
         placeholder="Detalhes…"
       />
 
-      <Field label="Custo (ouro)">
-        <NumberStepper value={cost} onChange={setCost} min={1} max={999999} accessibilityLabel="Custo em ouro" />
+      <Row label="Cobrar Essência">
+        <Switch
+          value={useEssencia}
+          onValueChange={setUseEssencia}
+          trackColor={{ true: theme.colors.essencia, false: theme.colors.border }}
+        />
+      </Row>
+
+      <Field label={useEssencia ? 'Custo (Essência)' : 'Custo (ouro)'}>
+        <NumberStepper
+          value={useEssencia ? costEssencia : cost}
+          onChange={useEssencia ? setCostEssencia : setCost}
+          min={1}
+          max={999999}
+          accessibilityLabel={useEssencia ? 'Custo em Essência' : 'Custo em ouro'}
+        />
       </Field>
 
       <Row label="Recomprável">
