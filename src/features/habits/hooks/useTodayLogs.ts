@@ -93,8 +93,13 @@ export function periodDayProgress(
     // dias com execuções de sucesso >= meta diária
     for (const day in succ) if (succ[day] >= dailyT) done++;
   } else {
-    // dias resistidos = dias do período (inclui dias sem registro) com recaídas < limite
-    for (let t = start.getTime(); t <= d.getTime(); t += DAY_MS) {
+    // dias resistidos = dias FECHADOS do período com recaídas < limite
+    // Hoje só entra se o dia já foi encerrado (is_auto log = cron ou "Evitei" manual)
+    const todaySettled = (logs ?? []).some(
+      (l) => l.habit_id === habit.id && l.occurred_on === today && l.is_auto,
+    );
+    const loopEnd = todaySettled ? d.getTime() : d.getTime() - DAY_MS;
+    for (let t = start.getTime(); t <= loopEnd; t += DAY_MS) {
       if ((fail[isoOf(new Date(t))] ?? 0) < dailyT) done++;
     }
   }
