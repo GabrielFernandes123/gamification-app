@@ -1,6 +1,6 @@
 import { Activity, ChevronRight, Dumbbell, Image as ImageIcon, Play, Plus, Ruler, Search, Settings2, Timer, Trophy, X, Zap } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import Svg, { Circle, Line, Polyline, Text as SvgText } from 'react-native-svg';
@@ -149,12 +149,15 @@ function SummaryPanel({ onSelectPart }: { onSelectPart: (part: BodyPart) => void
   const recentSets = useRecentWorkoutSets();
   const records = useWorkoutRecords();
 
-  const completed = (sessions.data ?? []).filter((s) => s.status === 'completed');
-  const weekSessions = completed.filter((s) => daysSince(s.started_at) <= 7);
-  const volume = weekSessions.reduce((sum, s) => sum + Number(s.total_volume ?? 0), 0);
+  const completed = useMemo(() => (sessions.data ?? []).filter((s) => s.status === 'completed'), [sessions.data]);
+  const weekSessions = useMemo(() => completed.filter((s) => daysSince(s.started_at) <= 7), [completed]);
+  const volume = useMemo(() => weekSessions.reduce((sum, s) => sum + Number(s.total_volume ?? 0), 0), [weekSessions]);
   const lastWorkout = completed[0];
   const latestMeasurement = measurements.data?.[0];
-  const alerts = buildBodyAlerts(lastWorkout, latestMeasurement, bodyParts.data ?? [], recentSets.data ?? [], settings.data);
+  const alerts = useMemo(
+    () => buildBodyAlerts(lastWorkout, latestMeasurement, bodyParts.data ?? [], recentSets.data ?? [], settings.data),
+    [bodyParts.data, lastWorkout, latestMeasurement, recentSets.data, settings.data],
+  );
 
   return (
     <View style={styles.stack}>
@@ -273,10 +276,17 @@ function WorkoutsPanel() {
     router.push('/(app)/body/treinos/edit');
   }
 
-  const completedSessions = (sessions.data ?? []).filter((s) => s.status === 'completed').slice(0, 5);
+  const completedSessions = useMemo(
+    () => (sessions.data ?? []).filter((s) => s.status === 'completed').slice(0, 5),
+    [sessions.data],
+  );
   const totalSets = activeSets.data?.length ?? 0;
-  const sessionVolume = (activeSets.data ?? []).reduce((sum, set) => sum + Number(set.weight) * Number(set.reps), 0);
+  const sessionVolume = useMemo(
+    () => (activeSets.data ?? []).reduce((sum, set) => sum + Number(set.weight) * Number(set.reps), 0),
+    [activeSets.data],
+  );
   const list = templates.data ?? [];
+  const activeSetGroups = useMemo(() => groupSetsByExercise(activeSets.data ?? []), [activeSets.data]);
 
   return (
     <View style={styles.stack}>
@@ -290,7 +300,7 @@ function WorkoutsPanel() {
               <MetricItem label="Volume" value={`${Math.round(sessionVolume)}kg`} />
             </View>
             <View style={styles.stackSm}>
-              {groupSetsByExercise(activeSets.data ?? []).map((group) => (
+              {activeSetGroups.map((group) => (
                 <View key={group.name} style={styles.setGroup}>
                   <Text variant="bodyMedium">{group.name}</Text>
                   {group.sets.map((set) => (
@@ -400,8 +410,11 @@ function WorkoutsPanel() {
   );
 }
 
-function TreinoCard({ template, daysAgo, onPress }: { template: WorkoutTemplate; daysAgo: number | null; onPress: () => void }) {
-  const muscles = [...new Set((template.exercises ?? []).map((ex) => ex.exercise?.primaryBodyPart?.name).filter(Boolean) as string[])];
+const TreinoCard = memo(function TreinoCard({ template, daysAgo, onPress }: { template: WorkoutTemplate; daysAgo: number | null; onPress: () => void }) {
+  const muscles = useMemo(
+    () => [...new Set((template.exercises ?? []).map((ex) => ex.exercise?.primaryBodyPart?.name).filter(Boolean) as string[])],
+    [template.exercises],
+  );
   return (
     <Pressable style={styles.treinoCard} onPress={onPress} accessibilityRole="button">
       <MediaThumb uri={template.media_url} size={48} />
@@ -415,7 +428,7 @@ function TreinoCard({ template, daysAgo, onPress }: { template: WorkoutTemplate;
       <ChevronRight color={theme.colors.textMuted} size={18} />
     </Pressable>
   );
-}
+});
 
 function daysAgoOrNull(date: string | undefined) {
   if (!date) return null;
@@ -615,7 +628,7 @@ function GoalsPanel() {
     setGoalModalOpen(true);
   }
 
-  function openEditor(goal: BodyGoal) {
+  const openEditor = useCallback((goal: BodyGoal) => {
     setEditingGoalId(goal.id);
     setType(goal.type);
     setTitle(goal.title);
@@ -630,7 +643,7 @@ function GoalsPanel() {
     setDifficulty(goal.difficulty);
     setManual(goal.is_manual);
     setGoalModalOpen(true);
-  }
+  }, []);
 
   function closeModal() {
     setGoalModalOpen(false);
@@ -683,19 +696,22 @@ function GoalsPanel() {
     }
   }
 
-  async function finishManual(goal: BodyGoal) {
+  const finishManual = useCallback(async (goal: BodyGoal) => {
     try {
       const result = await completeGoal.mutateAsync(goal.id);
       if (result.completed) toast.success('Meta concluída', `${result.title} · +${result.xpGained} XP`);
     } catch (e) {
       toast.error('Erro ao concluir meta', formatErrorMessage(e));
     }
-  }
+  }, [completeGoal, toast]);
 
   const saving = createGoal.isPending || updateGoal.isPending;
   const deleting = deleteGoal.isPending;
-  const activeGoals = (goals.data ?? []).filter((g) => g.status === 'active');
-  const completedGoals = (goals.data ?? []).filter((g) => g.status === 'completed').slice(0, 5);
+  const activeGoals = useMemo(() => (goals.data ?? []).filter((g) => g.status === 'active'), [goals.data]);
+  const completedGoals = useMemo(
+    () => (goals.data ?? []).filter((g) => g.status === 'completed').slice(0, 5),
+    [goals.data],
+  );
   const exerciseOptions = [{ value: '', label: 'Qualquer' }, ...(exercises.data ?? []).map((e) => ({
     value: e.id,
     label: e.name,
@@ -706,147 +722,6 @@ function GoalsPanel() {
 
   return (
     <View style={styles.stack}>
-      <Card style={[styles.panel, styles.hidden]}>
-        <Text variant="title">Nova meta</Text>
-        <Segmented
-          value={type}
-          onChange={(v) => {
-            setType(v);
-            setMetric(v === 'frequency' ? 'workouts_per_week' : v === 'performance' ? 'weight' : 'weight_kg');
-            setDirection(v === 'measurement' ? 'decrease' : 'increase');
-          }}
-          options={[
-            { value: 'frequency', label: 'Frequência' },
-            { value: 'performance', label: 'Performance' },
-            { value: 'measurement', label: 'Medidas' },
-          ]}
-          wrap
-        />
-        <Input label="Título" value={title} onChangeText={setTitle} placeholder="Ex.: Treinar 4x na semana" />
-        <View style={styles.row}>
-          <View style={styles.flex}>
-            <ImageUploadPicker value={goalMediaUrl} onChange={setGoalMediaUrl} />
-          </View>
-        </View>
-        {type === 'frequency' ? (
-          <NumericPickerField
-            label="Alvo"
-            title="Treinos por semana"
-            value={parseOptional(targetValue)}
-            onChange={(value) => setTargetValue(numberToDraft(value))}
-            min={1}
-            max={14}
-            unit="treinos"
-          />
-        ) : null}
-        {type === 'performance' ? (
-          <>
-            <SelectionField label="Exercício" title="Escolher exercício" options={exerciseOptions} value={exerciseId} onChange={setExerciseId} />
-            <Field label="Métrica">
-              <Segmented
-                value={metric}
-                onChange={(v) => {
-                  setMetric(v);
-                  setDirection(['weight_kg', 'waist_cm'].includes(v) ? 'decrease' : 'increase');
-                }}
-                options={[
-                  { value: 'weight', label: 'Carga' },
-                  { value: 'reps', label: 'Reps' },
-                  { value: 'volume', label: 'Volume' },
-                ]}
-                wrap
-              />
-            </Field>
-            <View style={styles.row}>
-              <View style={styles.flex}>
-                <NumericPickerField
-                  label="Alvo"
-                  title={`Alvo de ${metricLabel(metric)}`}
-                  value={parseOptional(targetValue)}
-                  onChange={(value) => setTargetValue(numberToDraft(value))}
-                  {...goalTargetPickerConfig(metric)}
-                />
-              </View>
-              <View style={styles.flex}>
-                <NumericPickerField
-                  label="Reps min."
-                  title="Repeticoes minimas"
-                  value={parseOptional(targetReps)}
-                  onChange={(value) => setTargetReps(numberToDraft(value))}
-                  min={1}
-                  max={100}
-                  unit="reps"
-                />
-              </View>
-            </View>
-          </>
-        ) : null}
-        {type === 'measurement' ? (
-          <>
-            <Field label="Métrica">
-              <Segmented
-                value={metric}
-                onChange={setMetric}
-                options={[
-                  { value: 'weight_kg', label: 'Peso' },
-                  { value: 'waist_cm', label: 'Abdômen' },
-                  { value: 'hip_cm', label: 'Quadril' },
-                  { value: 'chest_cm', label: 'Peito' },
-                  { value: 'right_arm_cm', label: 'Bra?o dir.' },
-                  { value: 'left_arm_cm', label: 'Bra?o esq.' },
-                  { value: 'right_thigh_cm', label: 'Perna dir.' },
-                  { value: 'left_thigh_cm', label: 'Perna esq.' },
-                ]}
-                wrap
-              />
-            </Field>
-            <Field label="Direção">
-              <Segmented
-                value={direction}
-                onChange={setDirection}
-                options={[
-                  { value: 'decrease', label: 'Diminuir' },
-                  { value: 'increase', label: 'Aumentar' },
-                ]}
-                wrap
-              />
-            </Field>
-            <Field label="Valor alvo">
-              <MeasurementRuler
-                key={metric}
-                config={measurementConfigFor(metric)}
-                value={parseOptional(targetValue) ?? defaultMeasurementValue(measurementConfigFor(metric))}
-                onChange={(value) => setTargetValue(numberToDraft(value))}
-              />
-            </Field>
-          </>
-        ) : null}
-        <SelectionField label="Divisão relacionada" title="Escolher divisão" options={bodyPartOptions} value={bodyPartId} onChange={setBodyPartId} />
-        <DatePickerField label="Prazo" value={deadline} onChange={setDeadline} />
-        <Field label="Dificuldade">
-          <Segmented
-            value={difficulty}
-            onChange={setDifficulty}
-            options={[
-              { value: 'trivial', label: 'Trivial' },
-              { value: 'easy', label: 'Fácil' },
-              { value: 'medium', label: 'Média' },
-              { value: 'hard', label: 'Difícil' },
-              { value: 'epic', label: 'Épica' },
-            ]}
-            wrap
-          />
-        </Field>
-        <Pressable style={[styles.toggleRow, manual && styles.toggleRowOn]} onPress={() => setManual((v) => !v)}>
-          <Text variant="bodyMedium">Conclusão manual</Text>
-          <Text variant="bodyMuted">{manual ? 'Sim' : 'Não'}</Text>
-        </Pressable>
-        <Pressable style={styles.primaryBtn} onPress={saveGoal}>
-          <Plus color={theme.colors.textInverse} size={18} />
-          <Text variant="title" color={theme.colors.textInverse}>Criar meta</Text>
-        </Pressable>
-      </Card>
-
       <Card style={styles.panel}>
         <SectionHeader title="Metas" subtitle="Crie metas em uma tela dedicada." />
         <Pressable style={styles.primaryBtn} onPress={openCreate}>
@@ -1032,7 +907,7 @@ function GoalsPanel() {
   );
 }
 
-function GoalRow({ goal, onManualComplete, onPress }: { goal: BodyGoal; onManualComplete?: (goal: BodyGoal) => void; onPress?: (goal: BodyGoal) => void }) {
+const GoalRow = memo(function GoalRow({ goal, onManualComplete, onPress }: { goal: BodyGoal; onManualComplete?: (goal: BodyGoal) => void; onPress?: (goal: BodyGoal) => void }) {
   const detail = (
     <View style={styles.flex}>
       <Text variant="bodyMedium">{goal.title}</Text>
@@ -1068,14 +943,23 @@ function GoalRow({ goal, onManualComplete, onPress }: { goal: BodyGoal; onManual
       {trailing}
     </View>
   );
-}
+});
 
 function BodyPartDetail({ part, onClose }: { part: BodyPart; onClose: () => void }) {
   const exercises = useFitnessExercises();
   const sets = useRecentWorkoutSets();
-  const relatedExercises = (exercises.data ?? []).filter((exercise) => exercise.primary_body_part_id === part.id || exercise.secondary_body_part_id === part.id);
-  const relatedSets = (sets.data ?? []).filter((set) => set.exercise?.primary_body_part_id === part.id || set.exercise?.secondary_body_part_id === part.id);
-  const volume = relatedSets.reduce((sum, set) => sum + Number(set.weight) * Number(set.reps), 0);
+  const relatedExercises = useMemo(
+    () => (exercises.data ?? []).filter((exercise) => exercise.primary_body_part_id === part.id || exercise.secondary_body_part_id === part.id),
+    [exercises.data, part.id],
+  );
+  const relatedSets = useMemo(
+    () => (sets.data ?? []).filter((set) => set.exercise?.primary_body_part_id === part.id || set.exercise?.secondary_body_part_id === part.id),
+    [part.id, sets.data],
+  );
+  const volume = useMemo(
+    () => relatedSets.reduce((sum, set) => sum + Number(set.weight) * Number(set.reps), 0),
+    [relatedSets],
+  );
 
   return (
     <View style={styles.stack}>
@@ -1319,8 +1203,10 @@ function BodyModal({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  if (!visible) return null;
+
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       <KeyboardAvoidingView style={styles.modalBackdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Card style={styles.modalCard}>
           <View style={styles.modalHeader}>
@@ -1375,11 +1261,14 @@ function SelectionField({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const selected = options.find((option) => option.value === value);
-  const filtered = options.filter((option) => {
-    const needle = `${option.label} ${option.description ?? ''}`.toLowerCase();
-    return needle.includes(query.trim().toLowerCase());
-  });
+  const selected = useMemo(() => options.find((option) => option.value === value), [options, value]);
+  const filtered = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    return options.filter((option) => {
+      const needle = `${option.label} ${option.description ?? ''}`.toLowerCase();
+      return needle.includes(normalizedQuery);
+    });
+  }, [options, query]);
 
   function choose(nextValue: string) {
     onChange(nextValue);
@@ -1399,43 +1288,45 @@ function SelectionField({
         </View>
         <ChevronRight color={theme.colors.textMuted} size={18} />
       </Pressable>
-      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <KeyboardAvoidingView style={styles.modalBackdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <Card style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <Text variant="h2">{title}</Text>
-              <Pressable onPress={() => setOpen(false)} hitSlop={10} accessibilityLabel="Fechar">
-                <X color={theme.colors.textMuted} size={22} />
-              </Pressable>
-            </View>
-            <Input value={query} onChangeText={setQuery} placeholder="Buscar" autoCapitalize="none" />
-            <ScrollView contentContainerStyle={styles.selectionList} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-              {filtered.length === 0 ? <Text variant="bodyMuted">{emptyLabel}</Text> : null}
-              {filtered.map((option) => {
-                const isSelected = option.value === value;
-                return (
-                  <Pressable
-                    key={option.value || 'empty-option'}
-                    style={[styles.selectionRow, isSelected && styles.optionRowSelected]}
-                    onPress={() => choose(option.value)}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: isSelected }}
-                  >
-                    <View style={option.mediaUrl ? styles.selectionGlyphMedia : [styles.selectionGlyph, option.color ? { backgroundColor: option.color } : null]}>
-                      {option.mediaUrl ? <ImageIcon color={theme.colors.primary} size={18} /> : null}
-                    </View>
-                    <View style={styles.flex}>
-                      <Text variant="bodyMedium">{option.label}</Text>
-                      {option.description ? <Text variant="bodyMuted">{option.description}</Text> : null}
-                    </View>
-                    {isSelected ? <View style={styles.radioDotInner} /> : null}
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </Card>
-        </KeyboardAvoidingView>
-      </Modal>
+      {open ? (
+        <Modal visible transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+          <KeyboardAvoidingView style={styles.modalBackdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <Card style={styles.modalCard}>
+              <View style={styles.modalHeader}>
+                <Text variant="h2">{title}</Text>
+                <Pressable onPress={() => setOpen(false)} hitSlop={10} accessibilityLabel="Fechar">
+                  <X color={theme.colors.textMuted} size={22} />
+                </Pressable>
+              </View>
+              <Input value={query} onChangeText={setQuery} placeholder="Buscar" autoCapitalize="none" />
+              <ScrollView contentContainerStyle={styles.selectionList} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                {filtered.length === 0 ? <Text variant="bodyMuted">{emptyLabel}</Text> : null}
+                {filtered.map((option) => {
+                  const isSelected = option.value === value;
+                  return (
+                    <Pressable
+                      key={option.value || 'empty-option'}
+                      style={[styles.selectionRow, isSelected && styles.optionRowSelected]}
+                      onPress={() => choose(option.value)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: isSelected }}
+                    >
+                      <View style={option.mediaUrl ? styles.selectionGlyphMedia : [styles.selectionGlyph, option.color ? { backgroundColor: option.color } : null]}>
+                        {option.mediaUrl ? <ImageIcon color={theme.colors.primary} size={18} /> : null}
+                      </View>
+                      <View style={styles.flex}>
+                        <Text variant="bodyMedium">{option.label}</Text>
+                        {option.description ? <Text variant="bodyMuted">{option.description}</Text> : null}
+                      </View>
+                      {isSelected ? <View style={styles.radioDotInner} /> : null}
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </Card>
+          </KeyboardAvoidingView>
+        </Modal>
+      ) : null}
     </Field>
   );
 }

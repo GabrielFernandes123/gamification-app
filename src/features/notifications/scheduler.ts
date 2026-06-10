@@ -1,6 +1,14 @@
 import * as Notifications from 'expo-notifications';
 
-import type { Habit } from '@/features/habits/hooks/useHabits';
+export type SchedulableHabit = {
+  id: string;
+  name: string;
+  type: 'positive' | 'negative';
+  is_active: boolean;
+  schedule: 'weekdays' | 'weekly_count' | 'monthly';
+  weekdays: number[] | null;
+  reminder_times: string[] | null;
+};
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -17,13 +25,13 @@ function parseTime(t: string): { hour: number; minute: number } | null {
   return { hour: h, minute: m };
 }
 
-function content(habit: Habit): Notifications.NotificationContentInput {
+function content(habit: SchedulableHabit): Notifications.NotificationContentInput {
   const title = habit.type === 'positive' ? `Hora de: ${habit.name}` : `Segura firme: ${habit.name}`;
-  const body = habit.type === 'positive' ? 'Registre e ganhe XP.' : 'Evite a recaída e mantenha o streak.';
+  const body = habit.type === 'positive' ? 'Registre e ganhe XP.' : 'Evite a recaida e mantenha o streak.';
   return { title, body, data: { habitId: habit.id } };
 }
 
-async function scheduleForHabit(habit: Habit) {
+async function scheduleForHabit(habit: SchedulableHabit) {
   if (!habit.is_active) return;
   for (const t of habit.reminder_times ?? []) {
     const time = parseTime(t);
@@ -44,8 +52,6 @@ async function scheduleForHabit(habit: Habit) {
         });
       }
     } else {
-      // weekly_count e monthly: lembrete DIÁRIO (não há mais dia fixo do mês —
-      // o agendamento é flexível, "N dias no período").
       await Notifications.scheduleNotificationAsync({
         content: c,
         trigger: {
@@ -76,7 +82,7 @@ async function scheduleBodyAlerts(alerts: string[]) {
   });
 }
 
-export async function syncAppNotifications(habits: Habit[], bodyAlerts: string[] = []) {
+export async function syncAppNotifications(habits: SchedulableHabit[], bodyAlerts: string[] = []) {
   try {
     await Notifications.setNotificationChannelAsync('habits', {
       name: 'Habitos',

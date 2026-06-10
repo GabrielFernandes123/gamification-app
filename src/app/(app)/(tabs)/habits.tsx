@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { Flag, Hexagon, Plus, Repeat } from 'lucide-react-native';
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -51,22 +51,38 @@ export default function HabitsScreen() {
     }
   }, [mode, qc, today, quests]);
 
-  const data = (habits.data ?? []).slice().sort((a, b) => {
-    const da = isDueToday(a, weekday) ? 0 : 1;
-    const db = isDueToday(b, weekday) ? 0 : 1;
-    return da - db;
-  });
+  const data = useMemo(
+    () =>
+      (habits.data ?? []).slice().sort((a, b) => {
+        const da = isDueToday(a, weekday) ? 0 : 1;
+        const db = isDueToday(b, weekday) ? 0 : 1;
+        return da - db;
+      }),
+    [habits.data, weekday],
+  );
+  const progressByHabit = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof habitProgress>>();
+    for (const habit of habits.data ?? []) map.set(habit.id, habitProgress(logs.data, habit.id));
+    return map;
+  }, [habits.data, logs.data]);
+  const periodProgressByHabit = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof periodDayProgress>>();
+    for (const habit of habits.data ?? []) {
+      map.set(habit.id, periodDayProgress(periodLogs.data, habit, today));
+    }
+    return map;
+  }, [habits.data, periodLogs.data, today]);
 
   const renderHabit = useCallback(
     ({ item }: { item: Habit }) => (
       <Row
         habit={item}
-        progress={habitProgress(logs.data, item.id)}
-        periodProgress={periodDayProgress(periodLogs.data, item, today)}
+        progress={progressByHabit.get(item.id) ?? habitProgress(undefined, item.id)}
+        periodProgress={periodProgressByHabit.get(item.id)}
         weekday={weekday}
       />
     ),
-    [logs.data, periodLogs.data, today, weekday],
+    [periodProgressByHabit, progressByHabit, weekday],
   );
 
   const renderQuest = useCallback(({ item }: { item: SideQuest }) => <QuestRow quest={item} />, []);

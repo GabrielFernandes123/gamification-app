@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useToast } from '@/components/ui/Toast';
+import type { UnlockedMap } from '@/features/achievements/useAchievements';
+import type { Character } from '@/features/character/hooks/useCharacter';
 import { showBossProgressToast } from '@/features/season/bossFeedback';
 import { apiFetch } from '@/lib/api';
 import { qk } from '@/lib/queryKeys';
@@ -22,6 +24,44 @@ import type {
   WorkoutSet,
   WorkoutTemplate,
 } from '@/types/body';
+
+type BodyMeasurementResult = BodyMeasurement & {
+  xpGained?: number;
+  goldGained?: number;
+  leveledUp?: boolean;
+  newAchievements?: string[];
+  completedGoals?: CompletedBodyGoal[];
+  isNew?: boolean;
+};
+
+function addCharacterReward(
+  qc: ReturnType<typeof useQueryClient>,
+  data: { xpGained?: number; goldGained?: number; leveledUp?: boolean; newLevel?: number },
+) {
+  const xp = data.xpGained ?? 0;
+  const gold = data.goldGained ?? 0;
+  if (xp === 0 && gold === 0) return;
+  qc.setQueryData<Character>(qk.character, (current) =>
+    current
+      ? {
+          ...current,
+          total_xp: Math.max(0, Number(current.total_xp) + xp),
+          gold: Math.max(0, Number(current.gold) + gold),
+          ...(data.leveledUp && data.newLevel ? { level: data.newLevel } : null),
+        }
+      : current,
+  );
+}
+
+function addAchievements(qc: ReturnType<typeof useQueryClient>, keys: string[] | undefined) {
+  if (!keys?.length) return;
+  const unlockedAt = new Date().toISOString();
+  qc.setQueryData<UnlockedMap>(qk.achievements, (current) => {
+    const next = { ...(current ?? {}) };
+    for (const key of keys) next[key] = next[key] ?? unlockedAt;
+    return next;
+  });
+}
 
 export function useBodyParts() {
   return useQuery({
@@ -45,7 +85,10 @@ export function useCreateBodyPart() {
     mutationFn: async (payload: { name: string; color?: string | null } & BodyMediaPayload & BodyPartAttribute) => {
       return apiFetch<BodyPart>('/body-parts', { method: 'POST', body: payload });
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: qk.bodyParts }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.bodyParts });
+      qc.invalidateQueries({ queryKey: qk.notificationSnapshot });
+    },
   });
 }
 
@@ -55,7 +98,10 @@ export function useUpdateBodyPart() {
     mutationFn: async ({ id, patch }: { id: string; patch: { name?: string; color?: string | null } & BodyMediaPayload & BodyPartAttribute }) => {
       return apiFetch<BodyPart>(`/body-parts/${id}`, { method: 'PATCH', body: patch });
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: qk.bodyParts }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.bodyParts });
+      qc.invalidateQueries({ queryKey: qk.notificationSnapshot });
+    },
   });
 }
 
@@ -68,6 +114,7 @@ export function useDeleteBodyPart() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: qk.bodyParts });
       qc.invalidateQueries({ queryKey: qk.fitnessExercises });
+      qc.invalidateQueries({ queryKey: qk.notificationSnapshot });
     },
   });
 }
@@ -341,17 +388,40 @@ export function useCompleteWorkoutSession() {
     mutationFn: async (sessionId: string) => {
       return apiFetch<CompleteWorkoutResult>(`/workout-sessions/${sessionId}/complete`, { method: 'POST' });
     },
-    onSuccess: (data) => {
+    onSuccess: (data, sessionId) => {
       showBossProgressToast(toast, data.bossProgress);
-      qc.invalidateQueries({ queryKey: qk.workoutSessions });
-      qc.invalidateQueries({ queryKey: qk.completedSessions });
-      qc.invalidateQueries({ queryKey: qk.bodyParts });
+      const endedAt = new Date().toISOString();
+      qc.setQueryData<WorkoutSession[]>(qk.workoutSessions, (current) =>
+        current?.map((session) =>
+          session.id === sessionId
+            ? {
+                ...session,
+                status: 'completed',
+                ended_at: endedAt,
+                duration_minutes: data.durationMinutes,
+                total_sets: data.totalSets,
+                total_volume: data.totalVolume,
+                xp_gained: data.xpGained,
+                gold_gained: data.goldGained,
+              }
+            : session,
+        ),
+      );
+      qc.setQueryData<WorkoutSession[]>(qk.completedSessions, (current) => {
+        const source = qc.getQueryData<WorkoutSession[]>(qk.workoutSessions)?.find((session) => session.id === sessionId);
+        if (!source || current?.some((session) => session.id === sessionId)) return current;
+        return [{ ...source, status: 'completed', ended_at: endedAt }, ...(current ?? [])];
+      });
+      addCharacterReward(qc, data);
+      addAchievements(qc, data.newAchievements);
+      for (const completed of data.completedGoals ?? []) addAchievements(qc, completed.newAchievements);
+      qc.invalidateQueries({ queryKey: qk.bodyParts, refetchType: 'inactive' });
       qc.invalidateQueries({ queryKey: qk.bodyGoals });
-      qc.invalidateQueries({ queryKey: qk.workoutRecords });
-      qc.invalidateQueries({ queryKey: qk.skills });
-      qc.invalidateQueries({ queryKey: qk.character });
-      qc.invalidateQueries({ queryKey: qk.habitLogsRoot });
-      qc.invalidateQueries({ queryKey: qk.currentSeason });
+      qc.invalidateQueries({ queryKey: qk.workoutRecords, refetchType: 'inactive' });
+      qc.invalidateQueries({ queryKey: qk.skills, refetchType: 'inactive' });
+      qc.invalidateQueries({ queryKey: qk.habitLogsRoot, refetchType: 'inactive' });
+      qc.invalidateQueries({ queryKey: qk.currentSeason, refetchType: 'inactive' });
+      qc.invalidateQueries({ queryKey: qk.notificationSnapshot });
     },
   });
 }
@@ -381,17 +451,27 @@ export function useUpsertBodyMeasurement() {
     // Passa pela API: a 1a medida do dia concede XP trivial (_grant) e
     // reavalia as metas corporais (04 §4.4).
     mutationFn: async (payload: Partial<BodyMeasurement> & { measured_on: string } & BodyMediaPayload) => {
-      return apiFetch<BodyMeasurement>('/body-measurements', {
+      return apiFetch<BodyMeasurementResult>('/body-measurements', {
         method: 'POST',
         body: payload,
       });
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: qk.bodyMeasurements });
+    onSuccess: (data) => {
+      qc.setQueryData<BodyMeasurement[]>(qk.bodyMeasurements, (current) => {
+        const existing = current ?? [];
+        const measurement = data as BodyMeasurement;
+        const next = existing.some((item) => item.id === measurement.id)
+          ? existing.map((item) => (item.id === measurement.id ? measurement : item))
+          : [measurement, ...existing];
+        return next.sort((a, b) => String(b.measured_on).localeCompare(String(a.measured_on)));
+      });
+      addCharacterReward(qc, data);
+      addAchievements(qc, data.newAchievements);
+      for (const completed of data.completedGoals ?? []) addAchievements(qc, completed.newAchievements);
       qc.invalidateQueries({ queryKey: qk.bodyGoals });
-      qc.invalidateQueries({ queryKey: qk.bodyParts });
-      qc.invalidateQueries({ queryKey: qk.character });
-      qc.invalidateQueries({ queryKey: qk.currentSeason });
+      qc.invalidateQueries({ queryKey: qk.bodyParts, refetchType: 'inactive' });
+      qc.invalidateQueries({ queryKey: qk.currentSeason, refetchType: 'inactive' });
+      qc.invalidateQueries({ queryKey: qk.notificationSnapshot });
     },
   });
 }
@@ -475,11 +555,12 @@ export function useEvaluateBodyGoals() {
     onSuccess: (data) => {
       for (const completed of data) {
         showBossProgressToast(toast, completed.bossProgress);
+        addCharacterReward(qc, completed);
+        addAchievements(qc, completed.newAchievements);
       }
       qc.invalidateQueries({ queryKey: qk.bodyGoals });
-      qc.invalidateQueries({ queryKey: qk.bodyParts });
-      qc.invalidateQueries({ queryKey: qk.character });
-      qc.invalidateQueries({ queryKey: qk.currentSeason });
+      qc.invalidateQueries({ queryKey: qk.bodyParts, refetchType: 'inactive' });
+      qc.invalidateQueries({ queryKey: qk.currentSeason, refetchType: 'inactive' });
     },
   });
 }
@@ -493,11 +574,12 @@ export function useCompleteBodyGoal() {
     },
     onSuccess: (data) => {
       showBossProgressToast(toast, data.bossProgress);
+      addCharacterReward(qc, data);
+      addAchievements(qc, data.newAchievements);
       qc.invalidateQueries({ queryKey: qk.bodyGoals });
-      qc.invalidateQueries({ queryKey: qk.bodyParts });
-      qc.invalidateQueries({ queryKey: qk.character });
-      qc.invalidateQueries({ queryKey: qk.habitLogsRoot });
-      qc.invalidateQueries({ queryKey: qk.currentSeason });
+      qc.invalidateQueries({ queryKey: qk.bodyParts, refetchType: 'inactive' });
+      qc.invalidateQueries({ queryKey: qk.habitLogsRoot, refetchType: 'inactive' });
+      qc.invalidateQueries({ queryKey: qk.currentSeason, refetchType: 'inactive' });
     },
   });
 }
@@ -518,6 +600,9 @@ export function useUpsertBodyAlertSettings() {
     mutationFn: async (payload: Pick<BodyAlertSettings, 'workout_stale_days' | 'measurement_stale_days' | 'body_part_stale_days'>) => {
       return apiFetch<BodyAlertSettings>('/body-alert-settings', { method: 'PUT', body: payload });
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: qk.bodyAlertSettings }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.bodyAlertSettings });
+      qc.invalidateQueries({ queryKey: qk.notificationSnapshot });
+    },
   });
 }

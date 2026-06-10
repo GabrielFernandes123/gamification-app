@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ChevronLeft, GripVertical, Plus, Trash2, X } from 'lucide-react-native';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Card } from '@/components/ui/Card';
@@ -32,31 +32,39 @@ let keyCounter = 0;
 const nextKey = () => `e${keyCounter++}`;
 
 export default function WorkoutEditScreen() {
-  const router = useRouter();
-  const toast = useToast();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const isEdit = !!id;
   const existing = useWorkoutTemplate(id);
+
+  if (isEdit && existing.isLoading) {
+    return (
+      <Screen contentStyle={styles.center}><ActivityIndicator color={theme.colors.primary} /></Screen>
+    );
+  }
+
+  return <WorkoutEditForm id={id} isEdit={isEdit} initialTemplate={isEdit ? existing.data ?? null : null} />;
+}
+
+function WorkoutEditForm({
+  id,
+  isEdit,
+  initialTemplate,
+}: {
+  id?: string;
+  isEdit: boolean;
+  initialTemplate: WorkoutTemplate | null;
+}) {
+  const router = useRouter();
+  const toast = useToast();
   const exercises = useFitnessExercises();
   const save = useSaveWorkoutTemplate();
 
-  const [name, setName] = useState('');
-  const [mediaUrl, setMediaUrl] = useState('');
-  const [description, setDescription] = useState('');
-  const [items, setItems] = useState<EditorExercise[]>([]);
+  const [name, setName] = useState(() => initialTemplate?.name ?? '');
+  const [mediaUrl, setMediaUrl] = useState(() => initialTemplate?.media_url ?? '');
+  const [description, setDescription] = useState(() => initialTemplate?.description ?? '');
+  const [items, setItems] = useState<EditorExercise[]>(() => (initialTemplate ? draftFromTemplate(initialTemplate) : []));
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [seeded, setSeeded] = useState(false);
   const [error, setError] = useState('');
-
-  useEffect(() => {
-    if (!isEdit || seeded || !existing.data) return;
-    const t = existing.data;
-    setName(t.name);
-    setMediaUrl(t.media_url ?? '');
-    setDescription(t.description ?? '');
-    setItems(draftFromTemplate(t));
-    setSeeded(true);
-  }, [isEdit, seeded, existing.data]);
 
   const exerciseById = useMemo(() => {
     const map = new Map<string, FitnessExercise>();
@@ -125,12 +133,6 @@ export default function WorkoutEditScreen() {
     } catch (e) {
       setError(formatErrorMessage(e));
     }
-  }
-
-  if (isEdit && existing.isLoading) {
-    return (
-      <Screen contentStyle={styles.center}><ActivityIndicator color={theme.colors.primary} /></Screen>
-    );
   }
 
   return (

@@ -1,8 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
+import type { Character } from '@/features/character/hooks/useCharacter';
 import { apiFetch } from '@/lib/api';
 import { qk } from '@/lib/queryKeys';
-import type { Reward } from './useStore';
+import type { Reward, SystemItem } from './useStore';
 
 export function usePurchaseSystemItem() {
   const qc = useQueryClient();
@@ -13,11 +14,33 @@ export function usePurchaseSystemItem() {
         body: { habitId },
       });
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: qk.character });
-      qc.invalidateQueries({ queryKey: qk.activeBuffs });
-      qc.invalidateQueries({ queryKey: qk.habits });
-      qc.invalidateQueries({ queryKey: qk.purchases });
+    onSuccess: (data, variables) => {
+      const item = qc
+        .getQueryData<SystemItem[]>(qk.systemItems)
+        ?.find((systemItem) => systemItem.id === variables.itemId);
+
+      qc.setQueryData<Character>(qk.character, (current) => {
+        if (!current) return current;
+        const next = {
+          ...current,
+          gold: Math.max(0, Number(current.gold) - data.goldSpent),
+        };
+        if (item?.type === 'heal') {
+          next.current_hp = Math.min(
+            Number(current.max_hp),
+            Number(current.current_hp) + Number(item.effect_value ?? 0),
+          );
+        }
+        return next;
+      });
+
+      if (item?.type === 'streak_recovery' && variables.habitId) {
+        qc.invalidateQueries({ queryKey: qk.habits });
+      }
+      if (item?.type === 'damage_reduction') {
+        qc.invalidateQueries({ queryKey: qk.activeBuffs });
+      }
+      qc.invalidateQueries({ queryKey: qk.purchases, refetchType: 'inactive' });
     },
   });
 }
@@ -29,7 +52,7 @@ export function usePurchaseReward() {
       apiFetch<{ goldSpent: number; essenciaSpent: number }>(`/store/rewards/${rewardId}/purchase`, {
         method: 'POST',
       }),
-    onSuccess: (_result, variables) => {
+    onSuccess: (result, variables) => {
       qc.setQueryData<Reward[]>(qk.rewards, (current) =>
         current?.map((reward) => {
           if (reward.id !== variables.rewardId) return reward;
@@ -41,9 +64,17 @@ export function usePurchaseReward() {
           };
         }),
       );
-      qc.invalidateQueries({ queryKey: qk.character });
-      qc.invalidateQueries({ queryKey: qk.rewards });
-      qc.invalidateQueries({ queryKey: qk.purchases });
+      qc.setQueryData<Character>(qk.character, (current) =>
+        current
+          ? {
+              ...current,
+              gold: Math.max(0, Number(current.gold) - result.goldSpent),
+              essencia: Math.max(0, Number(current.essencia ?? 0) - result.essenciaSpent),
+            }
+          : current,
+      );
+      qc.invalidateQueries({ queryKey: qk.rewards, refetchType: 'inactive' });
+      qc.invalidateQueries({ queryKey: qk.purchases, refetchType: 'inactive' });
     },
   });
 }

@@ -12,7 +12,10 @@ export function useCreateHabit() {
   return useMutation({
     mutationFn: (payload: Omit<HabitInsert, 'user_id'>) =>
       apiFetch('/habits', { method: 'POST', body: payload }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: qk.habits }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.habits });
+      qc.invalidateQueries({ queryKey: qk.notificationSnapshot });
+    },
   });
 }
 
@@ -21,7 +24,10 @@ export function useUpdateHabit() {
   return useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: HabitUpdate }) =>
       apiFetch(`/habits/${id}`, { method: 'PATCH', body: patch }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: qk.habits }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.habits });
+      qc.invalidateQueries({ queryKey: qk.notificationSnapshot });
+    },
   });
 }
 
@@ -29,6 +35,9 @@ export function useDeleteHabit() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => apiFetch(`/habits/${id}`, { method: 'DELETE' }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: qk.habits }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.habits });
+      qc.invalidateQueries({ queryKey: qk.notificationSnapshot });
+    },
   });
 }

@@ -6,37 +6,63 @@ type ApiOptions = {
   body?: unknown;
 };
 
+let cachedAccessToken: string | null = null;
+let cachedExpiresAt = 0;
+
 export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promise<T> {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session?.access_token) {
-    throw new Error('Não autenticado');
-  }
-
+  const accessToken = await getAccessToken();
   const url = `${env.API_URL}${path}`;
-  console.log(`[api] ${options.method ?? 'GET'} ${url}`);
+  const startedAt = Date.now();
 
   const response = await fetch(url, {
     method: options.method ?? 'GET',
     headers: {
-      Authorization: `Bearer ${session.access_token}`,
+      Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
     },
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
   });
 
-  console.log(`[api] <- ${response.status} ${url}`);
+  if (__DEV__) {
+    const elapsed = Date.now() - startedAt;
+    if (elapsed > 500) {
+      console.log(`[api] slow ${options.method ?? 'GET'} ${path} ${response.status} ${elapsed}ms`);
+    }
+  }
 
   const payload = await readPayload(response);
 
   if (!response.ok) {
-    console.log(`[api] erro ${response.status} em ${url}:`, getErrorMessage(payload, response.status));
+    if (response.status === 401) {
+      cachedAccessToken = null;
+      cachedExpiresAt = 0;
+    }
+    if (__DEV__) {
+      console.log(`[api] erro ${response.status} em ${path}:`, getErrorMessage(payload, response.status));
+    }
     throw new Error(getErrorMessage(payload, response.status));
   }
 
   return payload as T;
+}
+
+async function getAccessToken(): Promise<string> {
+  const now = Math.floor(Date.now() / 1000);
+  if (cachedAccessToken && cachedExpiresAt - now > 60) {
+    return cachedAccessToken;
+  }
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.access_token) {
+    throw new Error('Nao autenticado');
+  }
+
+  cachedAccessToken = session.access_token;
+  cachedExpiresAt = session.expires_at ?? now + 300;
+  return cachedAccessToken;
 }
 
 async function readPayload(response: Response): Promise<unknown> {

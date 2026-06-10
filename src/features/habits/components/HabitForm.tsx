@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { ChevronRight, Search, X } from 'lucide-react-native';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 
 import { Button } from '@/components/ui/Button';
@@ -48,10 +48,13 @@ export function HabitForm({ habit }: { habit?: Habit }) {
 
   const saving = createH.isPending || updateH.isPending;
 
-  const skillOptions: SelectOption[] = [
-    { value: '', label: 'Nenhuma' },
-    ...(skills.data ?? []).map((s) => ({ value: s.id, label: s.name, color: s.color ?? undefined })),
-  ];
+  const skillOptions: SelectOption[] = useMemo(
+    () => [
+      { value: '', label: 'Nenhuma' },
+      ...(skills.data ?? []).map((s) => ({ value: s.id, label: s.name, color: s.color ?? undefined })),
+    ],
+    [skills.data],
+  );
 
   function toggleWeekday(d: number) {
     setWeekdays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort()));
@@ -267,8 +270,11 @@ function SelectionField({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const selected = options.find((option) => option.value === value);
-  const filtered = options.filter((option) => `${option.label} ${option.description ?? ''}`.toLowerCase().includes(query.trim().toLowerCase()));
+  const selected = useMemo(() => options.find((option) => option.value === value), [options, value]);
+  const filtered = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    return options.filter((option) => `${option.label} ${option.description ?? ''}`.toLowerCase().includes(normalizedQuery));
+  }, [options, query]);
 
   function choose(nextValue: string) {
     onChange(nextValue);
@@ -372,8 +378,10 @@ function TimeWheel({ values, value, onChange }: { values: number[]; value: numbe
 }
 
 function BottomModal({ title, visible, onClose, children }: { title: string; visible: boolean; onClose: () => void; children: React.ReactNode }) {
+  if (!visible) return null;
+
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       <KeyboardAvoidingView style={styles.modalBackdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Card style={styles.modalCard}>
           <View style={styles.modalHeader}>

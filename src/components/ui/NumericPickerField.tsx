@@ -94,78 +94,80 @@ export function NumericPickerField({
         <ChevronRight color={theme.colors.textMuted} size={18} />
       </Pressable>
 
-      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <View style={styles.backdrop}>
-          <Card style={styles.modalCard}>
-            <View style={styles.header}>
-              <Text variant="h2">{title ?? label ?? 'Selecionar valor'}</Text>
-              <Pressable onPress={() => setOpen(false)} hitSlop={10} accessibilityLabel="Fechar">
-                <X color={theme.colors.textMuted} size={22} />
-              </Pressable>
-            </View>
-
-            <View style={styles.pickerShell}>
-              <Pressable style={styles.stepBtn} onPress={() => changeBy(-step)} accessibilityRole="button" accessibilityLabel="Diminuir">
-                <Minus color={theme.colors.text} size={20} />
-              </Pressable>
-              <View style={styles.wheel}>
-                <ScrollView
-                  ref={scrollRef}
-                  showsVerticalScrollIndicator={false}
-                  contentContainerStyle={styles.optionList}
-                  snapToInterval={ITEM_HEIGHT}
-                  decelerationRate="fast"
-                  scrollEventThrottle={16}
-                  onScroll={handleScroll}
-                  onMomentumScrollEnd={handleScroll}
-                  onScrollEndDrag={handleScroll}
-                  onLayout={() => scrollToIndex(indexForValue(draft), false)}
-                >
-                  {options.map((option) => {
-                    const selected = option === draft;
-                    return (
-                      <Pressable
-                        key={option}
-                        style={styles.optionRow}
-                        onPress={() => {
-                          const index = indexForValue(option);
-                          lastIndexRef.current = index;
-                          setDraft(option);
-                          scrollToIndex(index, true);
-                        }}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected }}
-                      >
-                        <Text variant={selected ? 'h2' : 'bodyMuted'} color={selected ? theme.colors.text : undefined}>
-                          {formatNumber(option)}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </ScrollView>
-                <View style={styles.centerRail} pointerEvents="none">
-                  {unit ? <Text variant="bodyMuted" style={styles.railUnit}>{unit}</Text> : null}
-                </View>
+      {open ? (
+        <Modal visible transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+          <View style={styles.backdrop}>
+            <Card style={styles.modalCard}>
+              <View style={styles.header}>
+                <Text variant="h2">{title ?? label ?? 'Selecionar valor'}</Text>
+                <Pressable onPress={() => setOpen(false)} hitSlop={10} accessibilityLabel="Fechar">
+                  <X color={theme.colors.textMuted} size={22} />
+                </Pressable>
               </View>
-              <Pressable style={styles.stepBtn} onPress={() => changeBy(step)} accessibilityRole="button" accessibilityLabel="Aumentar">
-                <Plus color={theme.colors.text} size={20} />
-              </Pressable>
-            </View>
 
-            <View style={styles.actions}>
-              <Pressable style={styles.secondaryBtn} onPress={() => {
-                onChange(null);
-                setOpen(false);
-              }}>
-                <Text variant="title">Limpar</Text>
-              </Pressable>
-              <Pressable style={styles.primaryBtn} onPress={commit}>
-                <Text variant="title" color={theme.colors.textInverse}>Confirmar</Text>
-              </Pressable>
-            </View>
-          </Card>
-        </View>
-      </Modal>
+              <View style={styles.pickerShell}>
+                <Pressable style={styles.stepBtn} onPress={() => changeBy(-step)} accessibilityRole="button" accessibilityLabel="Diminuir">
+                  <Minus color={theme.colors.text} size={20} />
+                </Pressable>
+                <View style={styles.wheel}>
+                  <ScrollView
+                    ref={scrollRef}
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={styles.optionList}
+                    snapToInterval={ITEM_HEIGHT}
+                    decelerationRate="fast"
+                    scrollEventThrottle={16}
+                    onScroll={handleScroll}
+                    onMomentumScrollEnd={handleScroll}
+                    onScrollEndDrag={handleScroll}
+                    onLayout={() => scrollToIndex(indexForValue(draft), false)}
+                  >
+                    {options.map((option) => {
+                      const selected = option === draft;
+                      return (
+                        <Pressable
+                          key={option}
+                          style={styles.optionRow}
+                          onPress={() => {
+                            const index = indexForValue(option);
+                            lastIndexRef.current = index;
+                            setDraft(option);
+                            scrollToIndex(index, true);
+                          }}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected }}
+                        >
+                          <Text variant={selected ? 'h2' : 'bodyMuted'} color={selected ? theme.colors.text : undefined}>
+                            {formatNumber(option)}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                  <View style={styles.centerRail} pointerEvents="none">
+                    {unit ? <Text variant="bodyMuted" style={styles.railUnit}>{unit}</Text> : null}
+                  </View>
+                </View>
+                <Pressable style={styles.stepBtn} onPress={() => changeBy(step)} accessibilityRole="button" accessibilityLabel="Aumentar">
+                  <Plus color={theme.colors.text} size={20} />
+                </Pressable>
+              </View>
+
+              <View style={styles.actions}>
+                <Pressable style={styles.secondaryBtn} onPress={() => {
+                  onChange(null);
+                  setOpen(false);
+                }}>
+                  <Text variant="title">Limpar</Text>
+                </Pressable>
+                <Pressable style={styles.primaryBtn} onPress={commit}>
+                  <Text variant="title" color={theme.colors.textInverse}>Confirmar</Text>
+                </Pressable>
+              </View>
+            </Card>
+          </View>
+        </Modal>
+      ) : null}
     </View>
   );
 }

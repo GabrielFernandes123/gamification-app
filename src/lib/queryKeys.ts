@@ -39,4 +39,5 @@ export const qk = {
   currentSeason: ['currentSeason'] as const,
   seasonStory: ['seasonStory'] as const,
   seasonSaga: ['seasonSaga'] as const,
+  notificationSnapshot: ['notificationSnapshot'] as const,
 };

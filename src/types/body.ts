@@ -67,6 +67,9 @@ export type CompleteWorkoutResult = {
   totalVolume: number;
   xpGained: number;
   goldGained: number;
+  leveledUp?: boolean;
+  newLevel?: number;
+  newAchievements?: string[];
   newRecords?: number;
   completedGoals?: CompletedBodyGoal[];
   bossProgress?: BossProgressResult;
@@ -92,5 +95,8 @@ export type CompletedBodyGoal = {
   title: string;
   xpGained: number;
   goldGained: number;
+  leveledUp?: boolean;
+  newLevel?: number;
+  newAchievements?: string[];
   bossProgress?: BossProgressResult;
 };
