@@ -1,10 +1,11 @@
 import { useRouter } from 'expo-router';
 import { ChevronRight, Search, X } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { Input } from '@/components/ui/Input';
 import { NumericPickerField } from '@/components/ui/NumericPickerField';
 import { Screen } from '@/components/ui/Screen';
@@ -29,6 +30,7 @@ export function HabitForm({ habit }: { habit?: Habit }) {
   const updateH = useUpdateHabit();
   const deleteH = useDeleteHabit();
   const toast = useToast();
+  const confirm = useConfirm();
 
   const h: Partial<Habit> = habit ?? {};
 
@@ -109,23 +111,21 @@ export function HabitForm({ habit }: { habit?: Habit }) {
     }
   }
 
-  function onDelete() {
-    Alert.alert('Excluir hábito', `Remover "${habit!.name}"? Isso apaga o histórico dele.`, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Excluir',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteH.mutateAsync(habit!.id);
-            toast.success('Hábito excluído');
-            router.back();
-          } catch (e) {
-            toast.error('Erro ao excluir', formatErrorMessage(e));
-          }
-        },
-      },
-    ]);
+  async function onDelete() {
+    const ok = await confirm({
+      title: 'Excluir hábito',
+      message: `Remover "${habit!.name}"? Isso apaga o histórico dele.`,
+      confirmLabel: 'Excluir',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteH.mutateAsync(habit!.id);
+      toast.success('Hábito excluído');
+      router.back();
+    } catch (e) {
+      toast.error('Erro ao excluir', formatErrorMessage(e));
+    }
   }
 
   // Nível 1 — meta diária (vale para todos os agendamentos).
@@ -144,7 +144,7 @@ export function HabitForm({ habit }: { habit?: Habit }) {
         : 'Dias a resistir por mês';
 
   return (
-    <Screen scroll contentStyle={styles.content}>
+    <Screen scroll keyboard contentStyle={styles.content}>
       <View style={styles.topBar}>
         <Text variant="h1">{isEdit ? 'Editar hábito' : 'Novo hábito'}</Text>
         <Pressable onPress={() => router.back()} hitSlop={10} accessibilityLabel="Fechar">

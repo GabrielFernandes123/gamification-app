@@ -44,5 +44,10 @@ export const qk = {
   seasonSaga: ['seasonSaga'] as const,
   objectivesOverview: ['objectivesOverview'] as const,
   objectiveSuggestions: ['objectiveSuggestions'] as const,
+  habitAnalytics: (habitId: string) => ['habitAnalytics', habitId] as const,
+  habitLevels: (habitId: string) => ['habitLevels', habitId] as const,
+  habitSuggestions: (habitId: string) => ['habitSuggestions', habitId] as const,
+  requirementsEvaluation: (ownerType: string, ownerId: string) =>
+    ['requirementsEvaluation', ownerType, ownerId] as const,
   notificationSnapshot: ['notificationSnapshot'] as const,
 };

@@ -10,6 +10,16 @@ import { Text } from '@/components/ui/Text';
 import { useAuth } from '@/providers/AuthProvider';
 import { theme } from '@/theme/theme';
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Traduz/humaniza erros comuns do Supabase Auth para pt-BR.
+function friendlyAuthError(message: string) {
+  if (message.toLowerCase().includes('invalid login credentials')) {
+    return 'E-mail ou senha incorretos.';
+  }
+  return message;
+}
+
 export default function LoginScreen() {
   const { signIn } = useAuth();
   const [email, setEmail] = useState('');
@@ -18,16 +28,26 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
 
   async function onSubmit() {
+    // Validação local antes de chamar o servidor.
+    const cleanEmail = email.trim();
+    if (!cleanEmail || !password) {
+      setError('Informe e-mail e senha.');
+      return;
+    }
+    if (!EMAIL_RE.test(cleanEmail)) {
+      setError('Informe um e-mail válido.');
+      return;
+    }
     setError(null);
     setLoading(true);
-    const res = await signIn(email.trim(), password);
+    const res = await signIn(cleanEmail, password);
     setLoading(false);
-    if (res.error) setError(res.error);
+    if (res.error) setError(friendlyAuthError(res.error));
     // sucesso: onAuthStateChange atualiza a sessão e o layout redireciona.
   }
 
   return (
-    <Screen scroll contentStyle={styles.content}>
+    <Screen scroll keyboard contentStyle={styles.content}>
       <Card accent={theme.colors.primary} style={styles.header}>
         <Text variant="display" color={theme.colors.primary}>
           EVOLVE

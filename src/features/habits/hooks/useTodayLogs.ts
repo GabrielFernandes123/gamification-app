@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api';
 import { qk } from '@/lib/queryKeys';
 import type { Database } from '@/types/db';
+import { dateOnly } from '@/utils/date';
 import type { Habit } from './useHabits';
 
 export type HabitLog = Database['public']['Tables']['habit_logs']['Row'];
@@ -83,9 +84,10 @@ export function periodDayProgress(
   const fail: Record<string, number> = {};
   for (const l of logs ?? []) {
     if (l.habit_id !== habit.id) continue;
-    if (l.occurred_on < startIso || l.occurred_on > today) continue;
+    const day = dateOnly(l.occurred_on);
+    if (day < startIso || day > today) continue;
     const bucket = l.success ? succ : fail;
-    bucket[l.occurred_on] = (bucket[l.occurred_on] ?? 0) + 1;
+    bucket[day] = (bucket[day] ?? 0) + 1;
   }
 
   let done = 0;
@@ -96,10 +98,13 @@ export function periodDayProgress(
     // dias resistidos = dias FECHADOS do período com recaídas < limite
     // Hoje só entra se o dia já foi encerrado (is_auto log = cron ou "Evitei" manual)
     const todaySettled = (logs ?? []).some(
-      (l) => l.habit_id === habit.id && l.occurred_on === today && l.is_auto,
+      (l) => l.habit_id === habit.id && dateOnly(l.occurred_on) === today && l.is_auto,
     );
     const loopEnd = todaySettled ? d.getTime() : d.getTime() - DAY_MS;
-    for (let t = start.getTime(); t <= loopEnd; t += DAY_MS) {
+    // Dias antes da criação do hábito não contam como "resistido".
+    const createdAt = new Date(`${dateOnly(habit.created_at)}T00:00:00Z`).getTime();
+    const loopStart = Math.max(start.getTime(), createdAt);
+    for (let t = loopStart; t <= loopEnd; t += DAY_MS) {
       if ((fail[isoOf(new Date(t))] ?? 0) < dailyT) done++;
     }
   }

@@ -1,9 +1,10 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Check, ChevronLeft, ChevronRight, Plus, SkipForward, Timer, Trophy, X } from 'lucide-react-native';
+import { Check, ChevronLeft, ChevronRight, Pencil, Plus, SkipForward, Timer, Trophy, X } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Card } from '@/components/ui/Card';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { MediaThumb } from '@/components/ui/MediaThumb';
 import { NumericPickerField } from '@/components/ui/NumericPickerField';
 import { Screen } from '@/components/ui/Screen';
@@ -15,6 +16,7 @@ import {
   useCompleteWorkoutSession,
   useDeleteWorkoutSet,
   useExerciseSets,
+  useUpdateWorkoutSet,
   useWorkoutSession,
   useWorkoutSessions,
   useWorkoutSets,
@@ -28,6 +30,7 @@ import { formatErrorMessage } from '@/utils/errors';
 export default function WorkoutSessionScreen() {
   const router = useRouter();
   const toast = useToast();
+  const confirm = useConfirm();
   const { id } = useLocalSearchParams<{ id: string }>();
   const sessions = useWorkoutSessions();
   const singleSession = useWorkoutSession(id);
@@ -62,24 +65,23 @@ export default function WorkoutSessionScreen() {
     }
   }
 
-  function cancel() {
+  async function cancel() {
     if (!session) return;
-    Alert.alert('Cancelar treino', 'As séries registradas serão descartadas. Tem certeza?', [
-      { text: 'Voltar', style: 'cancel' },
-      {
-        text: 'Cancelar treino',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await cancelSession.mutateAsync(session.id);
-            toast.info('Treino cancelado');
-            router.navigate('/(app)/(tabs)/body');
-          } catch (e) {
-            toast.error('Erro ao cancelar', formatErrorMessage(e));
-          }
-        },
-      },
-    ]);
+    const ok = await confirm({
+      title: 'Cancelar treino',
+      message: 'As séries registradas serão descartadas. Tem certeza?',
+      confirmLabel: 'Cancelar treino',
+      cancelLabel: 'Voltar',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await cancelSession.mutateAsync(session.id);
+      toast.info('Treino cancelado');
+      router.navigate('/(app)/(tabs)/body');
+    } catch (e) {
+      toast.error('Erro ao cancelar', formatErrorMessage(e));
+    }
   }
 
   if (!session && (sessions.isLoading || singleSession.isLoading)) {
@@ -200,8 +202,10 @@ function ExerciseLogger({
   const toast = useToast();
   const addSet = useAddWorkoutSet(sessionId);
   const deleteSet = useDeleteWorkoutSet(sessionId);
+  const updateSet = useUpdateWorkoutSet(sessionId);
   const history = useExerciseSets(item.exercise_id);
   const [logging, setLogging] = useState<{ planned: WorkoutTemplateSet; position: number } | null>(null);
+  const [editingSet, setEditingSet] = useState<WorkoutSet | null>(null);
 
   const planned = item.sets ?? [];
   const done = [...sessionSets].sort((a, b) => a.set_number - b.set_number);
@@ -315,10 +319,18 @@ function ExerciseLogger({
                   {logged && logged.is_skipped ? (
                     <Text variant="label" color={theme.colors.textMuted}>Pulado</Text>
                   ) : logged ? (
-                    <View style={styles.loggedPill}>
+                    <Pressable
+                      style={styles.loggedPill}
+                      disabled={!canEditSet(logged)}
+                      onPress={() => setEditingSet(logged)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Editar série registrada"
+                      hitSlop={6}
+                    >
                       <Check color={theme.colors.success} size={14} />
                       <Text variant="label" color={theme.colors.success}>{loggedLabel(logged)}</Text>
-                    </View>
+                      {canEditSet(logged) ? <Pencil color={theme.colors.textMuted} size={12} /> : null}
+                    </Pressable>
                   ) : isActive ? (
                     <View style={styles.registerRow}>
                       <Pressable style={styles.skipBtn} onPress={() => skipSet(p)} hitSlop={4}>
@@ -367,7 +379,80 @@ function ExerciseLogger({
           saving={addSet.isPending}
         />
       ) : null}
+
+      {editingSet ? (
+        <EditSetModal
+          set={editingSet}
+          onClose={() => setEditingSet(null)}
+          saving={updateSet.isPending}
+          onConfirm={async (patch) => {
+            try {
+              await updateSet.mutateAsync({ id: editingSet.id, patch });
+              setEditingSet(null);
+              toast.success('Série atualizada', `${patch.reps ?? editingSet.reps} × ${patch.weight ?? editingSet.weight}kg`);
+            } catch (e) {
+              toast.error('Erro ao atualizar série', formatErrorMessage(e));
+            }
+          }}
+        />
+      ) : null}
     </Screen>
+  );
+}
+
+// Séries dropset guardam o valor nas quedas (não em weight/reps); puladas não
+// têm valor. Só peso/reps simples são editáveis via PATCH /workout-sets/:id.
+function canEditSet(set: WorkoutSet) {
+  if (set.is_skipped) return false;
+  if ((set.set_type as WorkoutSetType) === 'dropset') return false;
+  return true;
+}
+
+function EditSetModal({
+  set,
+  onClose,
+  onConfirm,
+  saving,
+}: {
+  set: WorkoutSet;
+  onClose: () => void;
+  onConfirm: (patch: { weight?: number; reps?: number }) => void;
+  saving: boolean;
+}) {
+  const timeBased = !!set.duration_seconds;
+  const [reps, setReps] = useState<number | null>(set.reps ?? 0);
+  const [weight, setWeight] = useState<number | null>(Number(set.weight) || 0);
+
+  return (
+    <ModalShell title="Editar série" onClose={onClose}>
+      <View style={styles.row}>
+        {!timeBased ? (
+          <View style={styles.flex}>
+            <NumericPickerField label="Reps" title="Repetições" value={reps} onChange={setReps} min={0} max={100} step={1} />
+          </View>
+        ) : null}
+        <View style={styles.flex}>
+          <NumericPickerField label="Carga" title="Carga (kg)" value={weight} onChange={setWeight} min={0} max={500} step={0.5} unit="kg" />
+        </View>
+      </View>
+      {timeBased ? (
+        <Text variant="bodyMuted">Série por tempo: a duração registrada ({set.duration_seconds}s) não muda.</Text>
+      ) : null}
+      <Pressable
+        style={[styles.primaryBtn, saving && styles.disabled]}
+        onPress={() =>
+          onConfirm(timeBased ? { weight: weight ?? 0 } : { weight: weight ?? 0, reps: reps ?? 0 })
+        }
+        disabled={saving}
+      >
+        {saving ? <ActivityIndicator color={theme.colors.textInverse} /> : (
+          <>
+            <Check color={theme.colors.textInverse} size={18} />
+            <Text variant="title" color={theme.colors.textInverse}>Salvar alterações</Text>
+          </>
+        )}
+      </Pressable>
+    </ModalShell>
   );
 }
 

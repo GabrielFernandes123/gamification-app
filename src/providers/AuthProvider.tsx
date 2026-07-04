@@ -2,6 +2,7 @@ import type { Session, User } from '@supabase/supabase-js';
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AppState } from 'react-native';
 
+import { clearCachedToken } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 import { queryClient } from '@/lib/queryClient';
 
@@ -28,8 +29,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession);
+    const { data: sub } = supabase.auth.onAuthStateChange((event, newSession) => {
+      setSession((prev) => {
+        // Zera o token em cache no logout ou troca de usuário no mesmo aparelho.
+        if (event === 'SIGNED_OUT' || (newSession?.user?.id && prev?.user?.id && newSession.user.id !== prev.user.id)) {
+          clearCachedToken();
+        }
+        return newSession;
+      });
     });
 
     // Auto-refresh do token só com app em foreground (recomendação Supabase RN).
@@ -64,6 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       signOut: async () => {
         await supabase.auth.signOut();
+        clearCachedToken(); // zera Bearer em cache p/ não vazar entre usuários
         queryClient.clear(); // limpa cache p/ não vazar dados entre sessões
       },
     }),

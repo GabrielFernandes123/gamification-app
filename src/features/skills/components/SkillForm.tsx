@@ -1,12 +1,15 @@
 import { useRouter } from 'expo-router';
 import { X } from 'lucide-react-native';
 import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/ui/Button';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { Input } from '@/components/ui/Input';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
+import { useToast } from '@/components/ui/Toast';
+import { formatErrorMessage } from '@/utils/errors';
 import { theme } from '@/theme/theme';
 import type { AttributeKey } from '@/features/character/attributes';
 import { AttributePicker } from '@/features/character/components/AttributePicker';
@@ -26,6 +29,8 @@ const SKILL_COLORS = [
 
 export function SkillForm({ skill }: { skill?: Skill }) {
   const router = useRouter();
+  const toast = useToast();
+  const confirm = useConfirm();
   const isEdit = !!skill;
   const createS = useCreateSkill();
   const updateS = useUpdateSkill();
@@ -43,7 +48,7 @@ export function SkillForm({ skill }: { skill?: Skill }) {
 
   async function onSave() {
     if (!name.trim()) {
-      Alert.alert('Faltou algo', 'Dê um nome à skill.');
+      toast.warning('Faltou algo', 'Dê um nome à skill.');
       return;
     }
     const payload = {
@@ -57,26 +62,25 @@ export function SkillForm({ skill }: { skill?: Skill }) {
       else await createS.mutateAsync(payload);
       router.back();
     } catch (e) {
-      Alert.alert('Erro ao salvar', e instanceof Error ? e.message : 'Tente novamente.');
+      toast.error('Erro ao salvar', formatErrorMessage(e));
     }
   }
 
-  function onDelete() {
-    Alert.alert('Excluir skill', `Remover "${skill!.name}"?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Excluir',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteS.mutateAsync(skill!.id);
-            router.back();
-          } catch (e) {
-            Alert.alert('Erro', e instanceof Error ? e.message : 'Tente novamente.');
-          }
-        },
-      },
-    ]);
+  async function onDelete() {
+    const ok = await confirm({
+      title: 'Excluir skill',
+      message: `Remover "${skill!.name}"?`,
+      confirmLabel: 'Excluir',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteS.mutateAsync(skill!.id);
+      toast.info('Skill removida', skill!.name);
+      router.back();
+    } catch (e) {
+      toast.error('Erro ao excluir', formatErrorMessage(e));
+    }
   }
 
   return (

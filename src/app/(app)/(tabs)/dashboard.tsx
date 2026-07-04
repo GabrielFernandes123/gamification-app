@@ -19,9 +19,10 @@ import {
   Zap,
 } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, StyleSheet, View } from 'react-native';
 
 import { ProgressBar } from '@/components/bars/ProgressBar';
+import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { useBodyMeasurements, useWorkoutSessions } from '@/features/body/hooks/useBody';
@@ -35,6 +36,7 @@ import {
 } from '@/features/objectives/hooks/useObjectives';
 import { useCurrentSeason } from '@/features/season/hooks/useCurrentSeason';
 import { useSideQuests } from '@/features/sidequests/hooks/useSideQuests';
+import { OnboardingModal } from '@/features/onboarding/OnboardingModal';
 import { DailySummaryModal } from '@/features/summary/components/DailySummaryModal';
 import { useDailySummary } from '@/features/summary/hooks/useDailySummary';
 import { useTodayJourneyWidget } from '@/features/widgets/useTodayJourneyWidget';
@@ -307,6 +309,40 @@ export default function DashboardScreen() {
 
   useTodayJourneyWidget(widgetSnapshot);
 
+  // Estado de carregamento: evita mostrar "Aventureiro, Nível 1, 0 ouro" falsos
+  // enquanto as queries principais ainda não responderam.
+  if (character.isLoading || profile.isLoading) {
+    return (
+      <Screen contentStyle={styles.centerState}>
+        <ActivityIndicator color={theme.colors.primary} />
+        <Text variant="bodyMuted">Carregando sua jornada...</Text>
+      </Screen>
+    );
+  }
+
+  if (character.isError) {
+    return (
+      <Screen contentStyle={styles.centerState}>
+        <Card accent={theme.colors.hp} style={styles.errorCard}>
+          <ShieldAlert color={theme.colors.hp} size={28} />
+          <Text variant="title">Não foi possível carregar o personagem</Text>
+          <Text variant="bodyMuted">
+            Verifique sua conexão e tente novamente.
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => character.refetch()}
+            style={styles.retryBtn}
+          >
+            <Text variant="title" color={theme.colors.textInverse}>
+              Tentar novamente
+            </Text>
+          </Pressable>
+        </Card>
+      </Screen>
+    );
+  }
+
   return (
     <Screen scroll refreshing={refreshing} onRefresh={onRefresh} contentStyle={styles.page}>
       <View style={styles.topBar}>
@@ -368,7 +404,7 @@ export default function DashboardScreen() {
             <View style={styles.characterCopy}>
               <Text variant="label">Ficha ativa</Text>
               <Text variant="h2" numberOfLines={1}>
-                Nivel {level}
+                Nível {level}
               </Text>
               <Text variant="bodyMuted" numberOfLines={1}>
                 {daily.completedHabits.length}/{daily.dueHabits.length} ações do dia
@@ -418,7 +454,7 @@ export default function DashboardScreen() {
           </View>
           <View style={styles.flex}>
             <Text variant="label" color={theme.colors.essencia}>
-              Ameaca atual
+              Ameaça atual
             </Text>
             <Text variant="title" numberOfLines={1}>
               {boss?.name ?? 'Nenhuma temporada ativa'}
@@ -438,7 +474,7 @@ export default function DashboardScreen() {
           </>
         ) : (
           <Text variant="bodyMuted">
-            Inicie uma historia para transformar sua rotina em batalha.
+            Inicie uma história para transformar sua rotina em batalha.
           </Text>
         )}
       </Pressable>
@@ -606,6 +642,7 @@ export default function DashboardScreen() {
       </View>
 
       <DailySummaryModal summary={summary} onDismiss={dismiss} />
+      <OnboardingModal />
     </Screen>
   );
 }
@@ -884,7 +921,26 @@ function daysSince(date: string) {
 const styles = StyleSheet.create({
   page: {
     gap: theme.spacing.lg,
-    paddingBottom: theme.spacing.xxl,
+    // Folga para a tab bar flutuante — conteúdo não fica escondido atrás dela.
+    paddingBottom: theme.sizes.tabBarClearance,
+  },
+  centerState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+  },
+  errorCard: { alignSelf: 'stretch', alignItems: 'flex-start', gap: theme.spacing.sm },
+  retryBtn: {
+    alignSelf: 'stretch',
+    minHeight: theme.sizes.touch,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.primaryBright,
+    backgroundColor: theme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: theme.spacing.sm,
   },
   flex: { flex: 1, minWidth: 0 },
   inline: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.xs },

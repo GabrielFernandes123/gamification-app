@@ -1,8 +1,9 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ChevronLeft, ChevronRight, Clock, Dumbbell, Pencil, Play } from 'lucide-react-native';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { Card } from '@/components/ui/Card';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { MediaThumb } from '@/components/ui/MediaThumb';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
@@ -16,6 +17,7 @@ import { formatErrorMessage } from '@/utils/errors';
 export default function WorkoutDetailsScreen() {
   const router = useRouter();
   const toast = useToast();
+  const confirm = useConfirm();
   const { id } = useLocalSearchParams<{ id: string }>();
   const template = useWorkoutTemplate(id);
   const createSession = useCreateWorkoutSession();
@@ -43,24 +45,22 @@ export default function WorkoutDetailsScreen() {
     }
   }
 
-  function confirmArchive() {
+  async function confirmArchive() {
     if (!t) return;
-    Alert.alert('Arquivar treino', `Arquivar "${t.name}"?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Arquivar',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await updateTemplate.mutateAsync({ id: t.id, patch: { is_active: false } });
-            toast.info('Treino arquivado', t.name);
-            router.back();
-          } catch (e) {
-            toast.error('Erro ao arquivar', formatErrorMessage(e));
-          }
-        },
-      },
-    ]);
+    const ok = await confirm({
+      title: 'Arquivar treino',
+      message: `Arquivar "${t.name}"?`,
+      confirmLabel: 'Arquivar',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await updateTemplate.mutateAsync({ id: t.id, patch: { is_active: false } });
+      toast.info('Treino arquivado', t.name);
+      router.back();
+    } catch (e) {
+      toast.error('Erro ao arquivar', formatErrorMessage(e));
+    }
   }
 
   if (template.isLoading) {

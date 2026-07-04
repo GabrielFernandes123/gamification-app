@@ -1,20 +1,43 @@
 import { useRouter } from 'expo-router';
-import { ChevronLeft } from 'lucide-react-native';
+import { ChevronLeft, RefreshCw } from 'lucide-react-native';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
+import { useToast } from '@/components/ui/Toast';
 import { ACHIEVEMENTS } from '@/features/achievements/catalog';
-import { useAchievements } from '@/features/achievements/useAchievements';
+import { useAchievements, useEvaluateAchievements } from '@/features/achievements/useAchievements';
 import { theme } from '@/theme/theme';
+import { formatErrorMessage } from '@/utils/errors';
+
+const ACHIEVEMENT_TITLE = new Map(ACHIEVEMENTS.map((a) => [a.key, a.title] as const));
 
 export default function AchievementsScreen() {
   const router = useRouter();
+  const toast = useToast();
   const { data: unlocked, isLoading } = useAchievements();
+  const evaluate = useEvaluateAchievements();
 
   const total = ACHIEVEMENTS.length;
   const count = unlocked ? Object.keys(unlocked).length : 0;
+
+  function onEvaluate() {
+    evaluate.mutate(undefined, {
+      onSuccess: (newKeys) => {
+        if ((newKeys ?? []).length > 0) {
+          const titles = newKeys.map((k) => ACHIEVEMENT_TITLE.get(k) ?? k).join(', ');
+          toast.success(
+            `${newKeys.length} nova(s) conquista(s)!`,
+            titles,
+          );
+        } else {
+          toast.info('Tudo em dia', 'Nenhuma conquista nova por enquanto.');
+        }
+      },
+      onError: (e) => toast.error('Erro ao verificar', formatErrorMessage(e)),
+    });
+  }
 
   return (
     <Screen scroll contentStyle={styles.content}>
@@ -23,7 +46,19 @@ export default function AchievementsScreen() {
           <ChevronLeft color={theme.colors.text} size={26} />
         </Pressable>
         <Text variant="h1">Conquistas</Text>
-        <View style={{ width: 26 }} />
+        <Pressable
+          onPress={onEvaluate}
+          disabled={evaluate.isPending}
+          hitSlop={10}
+          accessibilityLabel="Verificar conquistas"
+          style={styles.iconBtn}
+        >
+          {evaluate.isPending ? (
+            <ActivityIndicator color={theme.colors.primary} size="small" />
+          ) : (
+            <RefreshCw color={theme.colors.textMuted} size={20} />
+          )}
+        </Pressable>
       </View>
 
       <Text variant="bodyMuted" style={styles.progress}>

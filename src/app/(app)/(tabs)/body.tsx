@@ -1,11 +1,12 @@
 import { Activity, ChevronRight, Dumbbell, Image as ImageIcon, Play, Plus, Ruler, Search, Settings2, Timer, Trophy, X, Zap } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import Svg, { Circle, Line, Polyline, Text as SvgText } from 'react-native-svg';
 
 import { Card } from '@/components/ui/Card';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { DatePickerField } from '@/components/ui/DatePickerField';
 import { ImageUploadPicker } from '@/components/ui/ImageUploadPicker';
 import { Input } from '@/components/ui/Input';
@@ -217,6 +218,7 @@ function SummaryPanel({ onSelectPart }: { onSelectPart: (part: BodyPart) => void
 function WorkoutsPanel() {
   const router = useRouter();
   const toast = useToast();
+  const confirm = useConfirm();
   const sessions = useWorkoutSessions();
   const templates = useWorkoutTemplates();
   const createSession = useCreateWorkoutSession();
@@ -248,27 +250,23 @@ function WorkoutsPanel() {
     }
   }
 
-  function cancelActiveSession() {
+  async function cancelActiveSession() {
     if (!activeSession) return;
-    Alert.alert(
-      'Cancelar treino',
-      'O treino e as séries registradas serão descartados e não contam XP nem volume. Tem certeza?',
-      [
-        { text: 'Voltar', style: 'cancel' },
-        {
-          text: 'Cancelar treino',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await cancelSession.mutateAsync(activeSession.id);
-              toast.info('Treino cancelado', activeSession.name);
-            } catch (e) {
-              toast.error('Erro ao cancelar treino', formatErrorMessage(e));
-            }
-          },
-        },
-      ],
-    );
+    const ok = await confirm({
+      title: 'Cancelar treino',
+      message:
+        'O treino e as séries registradas serão descartados e não contam XP nem volume. Tem certeza?',
+      confirmLabel: 'Cancelar treino',
+      cancelLabel: 'Voltar',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await cancelSession.mutateAsync(activeSession.id);
+      toast.info('Treino cancelado', activeSession.name);
+    } catch (e) {
+      toast.error('Erro ao cancelar treino', formatErrorMessage(e));
+    }
   }
 
   function openCreate() {
@@ -1541,7 +1539,7 @@ function formatDateTime(date: string) {
 }
 
 const styles = StyleSheet.create({
-  content: { gap: theme.spacing.lg, paddingBottom: theme.spacing.xxl },
+  content: { gap: theme.spacing.lg, paddingBottom: theme.sizes.tabBarClearance },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',

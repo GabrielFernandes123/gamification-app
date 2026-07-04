@@ -1,15 +1,18 @@
 import { useRouter } from 'expo-router';
 import { ChevronRight, Search, X } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { DatePickerField } from '@/components/ui/DatePickerField';
 import { Input } from '@/components/ui/Input';
 import { Screen } from '@/components/ui/Screen';
 import { Segmented } from '@/components/ui/Segmented';
 import { Text } from '@/components/ui/Text';
+import { useToast } from '@/components/ui/Toast';
+import { formatErrorMessage } from '@/utils/errors';
 import type { Difficulty } from '@/features/habits/hooks/useHabits';
 import { DIFFICULTY_META, DIFFICULTY_ORDER } from '@/features/habits/meta';
 import { useSkills } from '@/features/skills/hooks/useSkills';
@@ -25,6 +28,8 @@ type SelectOption = { value: string; label: string; color?: string; description?
 
 export function SideQuestForm({ quest }: { quest?: SideQuest }) {
   const router = useRouter();
+  const toast = useToast();
+  const confirm = useConfirm();
   const isEdit = !!quest;
   const skills = useSkills();
   const createQ = useCreateSideQuest();
@@ -50,7 +55,7 @@ export function SideQuestForm({ quest }: { quest?: SideQuest }) {
 
   async function onSave() {
     if (!name.trim()) {
-      Alert.alert('Faltou algo', 'Dê um nome à missão.');
+      toast.warning('Faltou algo', 'Dê um nome à missão.');
       return;
     }
 
@@ -68,26 +73,25 @@ export function SideQuestForm({ quest }: { quest?: SideQuest }) {
       else await createQ.mutateAsync(payload);
       router.back();
     } catch (e) {
-      Alert.alert('Erro ao salvar', e instanceof Error ? e.message : 'Tente novamente.');
+      toast.error('Erro ao salvar', formatErrorMessage(e));
     }
   }
 
-  function onDelete() {
-    Alert.alert('Excluir missão', `Remover "${quest!.name}"?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Excluir',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteQ.mutateAsync(quest!.id);
-            router.back();
-          } catch (e) {
-            Alert.alert('Erro', e instanceof Error ? e.message : 'Tente novamente.');
-          }
-        },
-      },
-    ]);
+  async function onDelete() {
+    const ok = await confirm({
+      title: 'Excluir missão',
+      message: `Remover "${quest!.name}"?`,
+      confirmLabel: 'Excluir',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteQ.mutateAsync(quest!.id);
+      toast.info('Missão removida', quest!.name);
+      router.back();
+    } catch (e) {
+      toast.error('Erro ao excluir', formatErrorMessage(e));
+    }
   }
 
   return (

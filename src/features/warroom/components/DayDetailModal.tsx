@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/Card';
 import { Text } from '@/components/ui/Text';
 import type { HabitLog } from '@/features/habits/hooks/useTodayLogs';
 import { theme } from '@/theme/theme';
+import { dateOnly } from '@/utils/date';
 
 type Props = {
   date: string | null;
@@ -14,7 +15,7 @@ type Props = {
 };
 
 export function DayDetailModal({ date, logs, habitNames, onClose }: Props) {
-  const dayLogs = date ? logs.filter((l) => l.occurred_on === date) : [];
+  const dayLogs = date ? logs.filter((l) => dateOnly(l.occurred_on) === date) : [];
 
   return (
     <Modal visible={!!date} transparent animationType="fade" onRequestClose={onClose}>

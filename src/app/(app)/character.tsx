@@ -1,18 +1,25 @@
 import { useRouter } from 'expo-router';
-import { ChevronLeft } from 'lucide-react-native';
+import { ChevronLeft, RotateCcw } from 'lucide-react-native';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { Screen } from '@/components/ui/Screen';
 import { Segmented } from '@/components/ui/Segmented';
 import { Text } from '@/components/ui/Text';
+import { useToast } from '@/components/ui/Toast';
 import { ATTRIBUTE_LABEL, ATTRIBUTES } from '@/features/character/attributes';
 import { CLASSES, RESPEC_ESSENCIA_COST } from '@/features/character/classes';
 import { useCharacter } from '@/features/character/hooks/useCharacter';
 import { useSelectClass } from '@/features/character/hooks/useClass';
-import { useAttributes } from '@/features/build/hooks/useAttributes';
+import {
+  RESPEC_POINTS_ESSENCIA_COST,
+  useAttributes,
+  useRespecAttributePoints,
+} from '@/features/build/hooks/useAttributes';
+import { formatErrorMessage } from '@/utils/errors';
 import {
   useEquipItem,
   useMyEquipment,
@@ -67,10 +74,42 @@ export default function CharacterScreen() {
 // ---------------------------------------------------------------- Atributos
 function AttributesPanel() {
   const attributes = useAttributes();
+  const character = useCharacter();
+  const respec = useRespecAttributePoints();
+  const confirm = useConfirm();
+  const toast = useToast();
 
   if (attributes.isLoading) return <Loading />;
   if (attributes.error || !attributes.data) {
     return <ErrorText msg="Não foi possível carregar os atributos." />;
+  }
+
+  const allocatedPoints = attributes.data.attributes.reduce((sum, attr) => sum + attr.points, 0);
+  const essencia = character.data?.essencia ?? 0;
+
+  async function onRespec() {
+    if (essencia < RESPEC_POINTS_ESSENCIA_COST) {
+      toast.warning(
+        'Essência insuficiente',
+        `Redistribuir pontos custa ${RESPEC_POINTS_ESSENCIA_COST} de Essência (você tem ${essencia}).`,
+      );
+      return;
+    }
+    const ok = await confirm({
+      title: 'Redistribuir pontos?',
+      message: `Isso zera os ${allocatedPoints} ponto(s) de boss alocados e custa ${RESPEC_POINTS_ESSENCIA_COST} de Essência. Os pontos voltam como pendentes para realocar na Jornada.`,
+      confirmLabel: 'Redistribuir',
+      destructive: true,
+    });
+    if (!ok) return;
+    respec.mutate(undefined, {
+      onSuccess: (result) =>
+        toast.success(
+          'Pontos redistribuídos',
+          `${result.pending} ponto(s) pendente(s) · -${result.essenciaSpent} Essência`,
+        ),
+      onError: (e) => toast.error('Erro ao redistribuir', formatErrorMessage(e)),
+    });
   }
 
   return (
@@ -82,6 +121,25 @@ function AttributesPanel() {
       {attributes.data.attributes.map((attr) => (
         <AttributeCard key={attr.key} attr={attr} />
       ))}
+      {allocatedPoints > 0 ? (
+        <Card style={styles.respecCard}>
+          <View style={{ flex: 1 }}>
+            <Text variant="title">Pontos de boss</Text>
+            <Text variant="bodyMuted">
+              {allocatedPoints} ponto(s) alocado(s). Redistribuir custa {RESPEC_POINTS_ESSENCIA_COST} de
+              Essência.
+            </Text>
+          </View>
+          <Button
+            label="Redistribuir pontos"
+            variant="danger"
+            size="sm"
+            icon={<RotateCcw color={theme.colors.textInverse} size={15} />}
+            loading={respec.isPending}
+            onPress={onRespec}
+          />
+        </Card>
+      ) : null}
     </View>
   );
 }
@@ -146,6 +204,7 @@ function EquipmentPanel() {
   const character = useCharacter();
   const equip = useEquipItem();
   const unequip = useUnequipItem();
+  const toast = useToast();
 
   if (owned.isLoading) return <Loading />;
   if (owned.error || !owned.data) {
@@ -161,12 +220,15 @@ function EquipmentPanel() {
 
   const onEquip = (it: OwnedEquipment) => {
     if (level < it.required_level) {
-      Alert.alert('Nível insuficiente', `Requer nível ${it.required_level}.`);
+      toast.warning('Nível insuficiente', `Requer nível ${it.required_level}.`);
       return;
     }
     equip.mutate(
       { equipmentId: it.id },
-      { onError: (e) => Alert.alert('Erro', String((e as Error).message)) },
+      {
+        onSuccess: () => toast.success('Item equipado', it.name),
+        onError: (e) => toast.error('Erro ao equipar', formatErrorMessage(e)),
+      },
     );
   };
 
@@ -252,36 +314,36 @@ function bonusText(eq: OwnedEquipment): string {
 function ClassPanel() {
   const character = useCharacter();
   const select = useSelectClass();
+  const confirm = useConfirm();
+  const toast = useToast();
   const current = character.data?.class ?? null;
   const essencia = character.data?.essencia ?? 0;
 
-  const onSelect = (klass: (typeof CLASSES)[number]['key']) => {
+  const onSelect = async (klass: (typeof CLASSES)[number]['key']) => {
     if (klass === current) return;
     const isRespec = current !== null;
     if (isRespec && essencia < RESPEC_ESSENCIA_COST) {
-      Alert.alert(
+      toast.warning(
         'Essência insuficiente',
         `Trocar de classe custa ${RESPEC_ESSENCIA_COST} de Essência.`,
       );
       return;
     }
-    const apply = () =>
-      select.mutate(
-        { klass },
-        { onError: (e) => Alert.alert('Erro', String((e as Error).message)) },
-      );
     if (isRespec) {
-      Alert.alert(
-        'Trocar de classe?',
-        `Isso custa ${RESPEC_ESSENCIA_COST} de Essência.`,
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Trocar', onPress: apply },
-        ],
-      );
-    } else {
-      apply();
+      const ok = await confirm({
+        title: 'Trocar de classe?',
+        message: `Isso custa ${RESPEC_ESSENCIA_COST} de Essência.`,
+        confirmLabel: 'Trocar',
+      });
+      if (!ok) return;
     }
+    select.mutate(
+      { klass },
+      {
+        onSuccess: () => toast.success('Classe selecionada'),
+        onError: (e) => toast.error('Erro ao trocar de classe', formatErrorMessage(e)),
+      },
+    );
   };
 
   return (
@@ -354,4 +416,10 @@ const styles = StyleSheet.create({
   invCard: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md },
   classCard: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md },
   classOn: { borderColor: theme.colors.primaryBright, borderWidth: 1, backgroundColor: theme.colors.primaryDim },
+  respecCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+    borderColor: theme.colors.hp,
+  },
 });

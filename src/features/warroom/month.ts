@@ -1,4 +1,5 @@
 import type { HabitLog } from '@/features/habits/hooks/useTodayLogs';
+import { dateOnly } from '@/utils/date';
 
 const MONTHS = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -47,8 +48,9 @@ export type DayStatus = 'none' | 'good' | 'bad';
 export function aggregateByDay(logs: HabitLog[] | undefined): Record<string, DayAgg> {
   const map: Record<string, DayAgg> = {};
   for (const l of logs ?? []) {
-    const a = (map[l.occurred_on] ??= {
-      date: l.occurred_on,
+    const day = dateOnly(l.occurred_on);
+    const a = (map[day] ??= {
+      date: day,
       success: 0,
       fail: 0,
       xp: 0,

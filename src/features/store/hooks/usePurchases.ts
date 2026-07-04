@@ -4,6 +4,7 @@ import type { Character } from '@/features/character/hooks/useCharacter';
 import { apiFetch } from '@/lib/api';
 import { qk } from '@/lib/queryKeys';
 import type { InventoryItem, Reward, SystemItem, UserItem } from './useStore';
+import { getEffectiveStock } from '../lib/stock';
 
 export function usePurchaseSystemItem() {
   const qc = useQueryClient();
@@ -19,20 +20,16 @@ export function usePurchaseSystemItem() {
         .getQueryData<SystemItem[]>(qk.systemItems)
         ?.find((systemItem) => systemItem.id === variables.itemId);
 
-      qc.setQueryData<Character>(qk.character, (current) => {
-        if (!current) return current;
-        const next = {
-          ...current,
-          gold: Math.max(0, Number(current.gold) - data.goldSpent),
-        };
-        if (item?.type === 'heal') {
-          next.current_hp = Math.min(
-            Number(current.max_hp),
-            Number(current.current_hp) + Number(item.effect_value ?? 0),
-          );
-        }
-        return next;
-      });
+      qc.setQueryData<Character>(qk.character, (current) =>
+        current
+          ? {
+              ...current,
+              gold: Math.max(0, Number(current.gold) - data.goldSpent),
+            }
+          : current,
+      );
+      // Efeitos (ex.: cura) são aplicados no servidor — HP vem do refetch.
+      qc.invalidateQueries({ queryKey: qk.character });
 
       if (item?.type === 'streak_recovery' && variables.habitId) {
         qc.invalidateQueries({ queryKey: qk.habits });
@@ -179,7 +176,7 @@ export function usePurchaseReward() {
       qc.setQueryData<Reward[]>(qk.rewards, (current) =>
         current?.map((reward) => {
           if (reward.id !== variables.rewardId) return reward;
-          const stock = effectiveStock(reward);
+          const stock = getEffectiveStock(reward);
           return {
             ...reward,
             last_purchased_at: new Date().toISOString(),
@@ -205,12 +202,4 @@ export function usePurchaseReward() {
 // O restock (cooldown -> volta ao estoque máximo) é regra de servidor: roda no
 // cron horário e de forma lazy no próprio endpoint de compra (store.service). O
 // cliente só dispara a compra — sem fallback de escrita direta no banco.
-
-function effectiveStock(reward: Reward) {
-  if (!reward.has_stock) return Number.POSITIVE_INFINITY;
-  const current = reward.current_stock ?? 0;
-  if (current > 0) return current;
-  if (!reward.cooldown_minutes || !reward.last_purchased_at) return current;
-  const availableAt = new Date(reward.last_purchased_at).getTime() + reward.cooldown_minutes * 60_000;
-  return availableAt <= new Date().getTime() ? (reward.max_stock ?? 0) : current;
-}
+// Cálculo de estoque efetivo centralizado em ../lib/stock.ts.

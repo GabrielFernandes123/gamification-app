@@ -9,6 +9,12 @@ type ApiOptions = {
 let cachedAccessToken: string | null = null;
 let cachedExpiresAt = 0;
 
+/** Limpa o token em cache (chamar no logout/troca de usuário). */
+export function clearCachedToken() {
+  cachedAccessToken = null;
+  cachedExpiresAt = 0;
+}
+
 export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promise<T> {
   const accessToken = await getAccessToken();
   const url = `${env.API_URL}${path}`;

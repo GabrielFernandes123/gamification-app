@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconSegmented } from '@/components/ui/IconSegmented';
 import { Text } from '@/components/ui/Text';
 import { HabitRow } from '@/features/habits/components/HabitRow';
+import { useDifficulties } from '@/features/habits/hooks/useDifficulties';
 import { useHabits, type Habit } from '@/features/habits/hooks/useHabits';
 import {
   habitProgress,
@@ -27,20 +28,13 @@ type Mode = 'habits' | 'sidequests';
 const Row = memo(HabitRow);
 const QuestRow = memo(SideQuestRow);
 
-const BASE_REWARD: Record<Habit['difficulty'], { xp: number; gold: number }> = {
-  trivial: { xp: 10, gold: 4 },
-  easy: { xp: 20, gold: 8 },
-  medium: { xp: 40, gold: 16 },
-  hard: { xp: 80, gold: 32 },
-  epic: { xp: 150, gold: 64 },
-};
-
 export default function HabitsScreen() {
   const router = useRouter();
   const qc = useQueryClient();
   const { today, weekday } = useToday();
   const [mode, setMode] = useState<Mode>('habits');
   const habits = useHabits();
+  const difficulties = useDifficulties();
   const logs = useTodayLogs(today);
   const periodLogs = usePeriodLogs(today);
   const quests = useSideQuests();
@@ -86,7 +80,8 @@ export default function HabitsScreen() {
     const dueHabits = (habits.data ?? []).filter((habit) => isDueToday(habit, weekday));
     return dueHabits.reduce(
       (sum, habit) => {
-        const reward = BASE_REWARD[habit.difficulty];
+        // Economia vem do servidor (GET /difficulties) — nada hardcoded.
+        const reward = difficulties.data?.[habit.difficulty] ?? { xp: 0, gold: 0 };
         const progress = progressByHabit.get(habit.id) ?? habitProgress(undefined, habit.id);
         const target = dailyTarget(habit);
         const completed =
@@ -103,7 +98,7 @@ export default function HabitsScreen() {
       },
       { habits: 0, xp: 0, gold: 0, remainingXp: 0, remainingGold: 0 },
     );
-  }, [habits.data, progressByHabit, weekday]);
+  }, [difficulties.data, habits.data, progressByHabit, weekday]);
 
   const renderHabit = useCallback(
     ({ item }: { item: Habit }) => (
@@ -120,6 +115,8 @@ export default function HabitsScreen() {
   const renderQuest = useCallback(({ item }: { item: SideQuest }) => <QuestRow quest={item} />, []);
 
   const loading = mode === 'habits' ? habits.isLoading : quests.isLoading;
+  const activeError = mode === 'habits' ? habits.isError : quests.isError;
+  const retry = mode === 'habits' ? habits.refetch : quests.refetch;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -187,6 +184,27 @@ export default function HabitsScreen() {
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator color={theme.colors.primary} />
+        </View>
+      ) : activeError ? (
+        // Erro de carregamento: distinto do estado vazio, com ação de retry.
+        <View style={styles.center}>
+          <View style={styles.errorBox}>
+            <Text variant="title" color={theme.colors.hp}>
+              {mode === 'habits' ? 'Erro ao carregar hábitos' : 'Erro ao carregar missões'}
+            </Text>
+            <Text variant="bodyMuted" style={styles.emptyText}>
+              Não foi possível buscar seus dados. Verifique a conexão.
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => void retry()}
+              style={styles.retryBtn}
+            >
+              <Text variant="title" color={theme.colors.textInverse}>
+                Tentar novamente
+              </Text>
+            </Pressable>
+          </View>
         </View>
       ) : mode === 'habits' ? (
         <FlatList
@@ -331,7 +349,35 @@ const styles = StyleSheet.create({
     padding: theme.spacing.sm,
   },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  list: { padding: theme.spacing.lg, paddingTop: theme.spacing.sm, flexGrow: 1 },
+  errorBox: {
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    margin: theme.spacing.lg,
+    padding: theme.spacing.xl,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.hp,
+    backgroundColor: theme.colors.surface,
+  },
+  retryBtn: {
+    alignSelf: 'stretch',
+    minHeight: theme.sizes.touch,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.primaryBright,
+    backgroundColor: theme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: theme.spacing.lg,
+    marginTop: theme.spacing.sm,
+  },
+  list: {
+    padding: theme.spacing.lg,
+    paddingTop: theme.spacing.sm,
+    // Folga para a tab bar flutuante.
+    paddingBottom: theme.sizes.tabBarClearance,
+    flexGrow: 1,
+  },
   empty: {
     alignItems: 'center',
     gap: theme.spacing.sm,

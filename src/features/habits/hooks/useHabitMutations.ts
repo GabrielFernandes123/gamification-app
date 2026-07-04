@@ -218,6 +218,10 @@ export function useUndoLast() {
     onSuccess: (data, variables) => {
       patchHabitStreak(qc, variables.habitId, data.restoredStreak);
     },
-    onSettled: () => invalidateHabitActivity(qc, today),
+    onSettled: () => {
+      invalidateHabitActivity(qc, today);
+      // Undo reverte XP/ouro/HP no servidor — personagem precisa refletir isso.
+      qc.invalidateQueries({ queryKey: qk.character });
+    },
   });
 }

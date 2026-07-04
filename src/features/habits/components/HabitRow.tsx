@@ -1,13 +1,15 @@
 import { useRouter } from 'expo-router';
 import { Ban, Check, Flame, Pencil, RotateCcw, ShieldCheck, TriangleAlert } from 'lucide-react-native';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ProgressBar } from '@/components/bars/ProgressBar';
 import { Card } from '@/components/ui/Card';
 import { Text } from '@/components/ui/Text';
 import { useToast } from '@/components/ui/Toast';
 import { ACHIEVEMENT_BY_KEY } from '@/features/achievements/catalog';
+import { useCharacter } from '@/features/character/hooks/useCharacter';
+import { useDifficulties } from '../hooks/useDifficulties';
 import { useLevelUp } from '@/providers/LevelUpProvider';
 import { theme } from '@/theme/theme';
 import { formatErrorMessage } from '@/utils/errors';
@@ -17,6 +19,7 @@ import type { HabitProgress, PeriodProgress } from '../hooks/useTodayLogs';
 import type { HabitLog } from '../hooks/useTodayLogs';
 import { useCompleteHabit, useRelapse, useSettleToday, useUndoLast } from '../hooks/useHabitMutations';
 import { DIFFICULTY_META, dailyTarget, isDueToday, scheduleDescription } from '../meta';
+import { DeathModal } from './DeathModal';
 import { formatDateOnly } from '@/utils/date';
 
 type Props = {
@@ -34,7 +37,10 @@ export function HabitRow({ habit, progress, periodProgress, weekday }: Props) {
   const undo = useUndoLast();
   const { celebrate } = useLevelUp();
   const toast = useToast();
+  const character = useCharacter();
+  const difficulties = useDifficulties();
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [deathOpen, setDeathOpen] = useState(false);
   const history = useHabitLogs(historyOpen ? habit.id : undefined);
 
   const busy =
@@ -45,6 +51,11 @@ export function HabitRow({ habit, progress, periodProgress, weekday }: Props) {
   const dTarget = dailyTarget(habit);
   const diff = DIFFICULTY_META[habit.difficulty];
   const isPositive = habit.type === 'positive';
+  // Recompensa base vinda do servidor (GET /difficulties) — visível antes de agir.
+  const reward = difficulties.data?.[habit.difficulty] ?? null;
+  const rewardLabel = reward
+    ? `${isPositive ? 'Vale' : 'Evitar rende'} +${reward.xp} XP · +${reward.gold} ouro`
+    : null;
 
   const doneToday = isPositive ? progress.success : progress.fail;
   const ratio = dTarget > 0 ? Math.min(1, doneToday / dTarget) : 0;
@@ -109,7 +120,7 @@ export function HabitRow({ habit, progress, periodProgress, weekday }: Props) {
         onError: handleError,
         onSuccess: (res) => {
           if (res.died) {
-            Alert.alert('Você morreu', 'HP chegou a zero. O personagem foi resetado.');
+            setDeathOpen(true);
           } else if (res.failed) {
             toast.warning('Limite atingido', `Você tomou ${res.damageTaken} de dano.`);
           } else {
@@ -136,7 +147,7 @@ export function HabitRow({ habit, progress, periodProgress, weekday }: Props) {
         onError: handleError,
         onSuccess: (res) => {
           if (res.died) {
-            Alert.alert('Você morreu', 'HP chegou a zero. O personagem foi resetado.');
+            setDeathOpen(true);
             return;
           }
           if (res.resisted) {
@@ -224,11 +235,17 @@ export function HabitRow({ habit, progress, periodProgress, weekday }: Props) {
           onUndo={onUndo}
           undoDisabled={busy}
         />
+        <DeathModal
+          visible={deathOpen}
+          mode={character.data?.death_mode}
+          onClose={() => setDeathOpen(false)}
+        />
       </>
     );
   }
 
   return (
+    <>
     <Card
       accent={accent}
       style={[
@@ -287,6 +304,11 @@ export function HabitRow({ habit, progress, periodProgress, weekday }: Props) {
           progress={ratio}
           color={isPositive ? theme.colors.success : theme.colors.hp}
         />
+        {rewardLabel ? (
+          <Text variant="label" color={theme.colors.xp}>
+            {rewardLabel}
+          </Text>
+        ) : null}
       </View>
 
       {/* progresso de DIAS no período (só nos flexíveis) */}
@@ -389,6 +411,12 @@ export function HabitRow({ habit, progress, periodProgress, weekday }: Props) {
         </View>
       )}
     </Card>
+    <DeathModal
+      visible={deathOpen}
+      mode={character.data?.death_mode}
+      onClose={() => setDeathOpen(false)}
+    />
+    </>
   );
 }
 
@@ -639,8 +667,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.sm,
   },
   compactExtraBtn: {
-    width: 38,
-    height: 38,
+    width: theme.sizes.touch,
+    height: theme.sizes.touch,
     borderRadius: theme.radius.md,
     borderWidth: 1,
     borderStyle: 'dashed',
@@ -667,8 +695,8 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   edit: {
-    width: 34,
-    height: 34,
+    width: theme.sizes.touch,
+    height: theme.sizes.touch,
     borderRadius: theme.radius.sm,
     borderWidth: 1,
     borderColor: theme.colors.border,
@@ -803,8 +831,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.sm,
   },
   modalClose: {
-    width: 38,
-    height: 38,
+    width: theme.sizes.touch,
+    height: theme.sizes.touch,
     borderRadius: theme.radius.md,
     borderWidth: 1,
     borderColor: theme.colors.border,

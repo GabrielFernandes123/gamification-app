@@ -1,33 +1,38 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { CheckCircle2, Clock, Coins, Gift, LockKeyhole, Pencil, Sparkles } from 'lucide-react-native';
+import { CheckCircle2, ChevronRight, Clock, Coins, Gift, LockKeyhole, Pencil, Sparkles } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Card } from '@/components/ui/Card';
 import { Text } from '@/components/ui/Text';
+import { RequirementsProgressModal } from '@/features/requirements/RequirementsProgressModal';
 import { qk } from '@/lib/queryKeys';
 import { theme } from '@/theme/theme';
 import type { Reward } from '../hooks/useStore';
+import { getCooldownUntil, getEffectiveStock } from '../lib/stock';
 
 export function RewardCard({
   reward,
   gold,
   essencia,
   onBuy,
+  busy = false,
 }: {
   reward: Reward;
   gold: number;
   essencia: number;
   onBuy: (reward: Reward) => void;
+  busy?: boolean;
 }) {
   const router = useRouter();
   const qc = useQueryClient();
   const [now, setNow] = useState<number | null>(null);
+  const [requirementsOpen, setRequirementsOpen] = useState(false);
   const cooldownUntil = useMemo(() => getCooldownUntil(reward), [reward]);
   const remainingMs = cooldownUntil ? Math.max(0, cooldownUntil - (now ?? cooldownUntil - (reward.cooldown_minutes ?? 0) * 60_000)) : 0;
   const inCooldown = !!cooldownUntil && (!now || remainingMs > 0);
-  const effectiveStock = getEffectiveStock(reward, inCooldown);
+  const effectiveStock = getEffectiveStock(reward, now ?? 0);
   const outOfStock = reward.has_stock && effectiveStock <= 0;
   const alreadyPurchased = !reward.is_repurchasable && !!reward.last_purchased_at;
   const essenciaCost = reward.cost_essencia ?? null;
@@ -36,7 +41,7 @@ export function RewardCard({
   const requirements = reward.requirements;
   const requirementsPassed = requirements?.passed ?? true;
   const requirementItems = requirements?.groups?.flatMap((group) => group.requirements ?? []) ?? [];
-  const canBuy = hasCurrency && requirementsPassed && !outOfStock && !inCooldown && !alreadyPurchased;
+  const canBuy = hasCurrency && requirementsPassed && !outOfStock && !inCooldown && !alreadyPurchased && !busy;
 
   useEffect(() => {
     if (!cooldownUntil) return;
@@ -45,10 +50,7 @@ export function RewardCard({
     const timer = setInterval(tick, 1000);
     const restockTimer = setTimeout(() => {
       tick();
-      qc.setQueryData<Reward[]>(qk.rewards, (current) => current?.map((item) => {
-        if (item.id !== reward.id || !item.has_stock || (item.current_stock ?? 0) > 0) return item;
-        return { ...item, current_stock: item.max_stock ?? item.current_stock };
-      }));
+      // Restock é regra do servidor: apenas invalida para buscar a fonte de verdade.
       void qc.invalidateQueries({ queryKey: qk.rewards });
     }, Math.max(0, cooldownUntil - new Date().getTime()) + 250);
     return () => {
@@ -82,16 +84,22 @@ export function RewardCard({
             ) : null}
           </View>
           {requirementItems.length > 0 ? (
-            <View style={styles.requirementsBox}>
+            <Pressable
+              onPress={() => setRequirementsOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Ver progresso dos requisitos"
+              style={styles.requirementsBox}
+            >
               <View style={styles.requirementsHead}>
                 {requirementsPassed ? (
                   <CheckCircle2 color={theme.colors.success} size={15} />
                 ) : (
                   <LockKeyhole color={theme.colors.gold} size={15} />
                 )}
-                <Text variant="label" color={requirementsPassed ? theme.colors.success : theme.colors.gold}>
+                <Text variant="label" color={requirementsPassed ? theme.colors.success : theme.colors.gold} style={styles.requirementName}>
                   {requirementsPassed ? 'Requisitos cumpridos' : 'Requisitos para liberar'}
                 </Text>
+                <ChevronRight color={theme.colors.textMuted} size={15} />
               </View>
               {requirementItems.slice(0, 3).map((requirement) => (
                 <View key={requirement.id} style={styles.requirementRow}>
@@ -103,7 +111,12 @@ export function RewardCard({
                   </Text>
                 </View>
               ))}
-            </View>
+              {!requirementsPassed ? (
+                <Text variant="label" color={theme.colors.textMuted}>
+                  Toque para ver o que falta
+                </Text>
+              ) : null}
+            </Pressable>
           ) : null}
         </View>
         <Pressable
@@ -116,7 +129,10 @@ export function RewardCard({
         </Pressable>
       </View>
       <Pressable
-        onPress={() => onBuy(reward)}
+        onPress={() => {
+          if (busy) return;
+          onBuy(reward);
+        }}
         disabled={!canBuy}
         style={[styles.buy, !canBuy && styles.disabled]}
         accessibilityRole="button"
@@ -138,23 +154,15 @@ export function RewardCard({
           })}
         </Text>
       </Pressable>
+      <RequirementsProgressModal
+        visible={requirementsOpen}
+        ownerType="reward"
+        ownerId={reward.id}
+        title={reward.name}
+        onClose={() => setRequirementsOpen(false)}
+      />
     </Card>
   );
-}
-
-function getCooldownUntil(reward: Reward) {
-  if (!reward.cooldown_minutes || !reward.last_purchased_at) return null;
-  return new Date(reward.last_purchased_at).getTime() + reward.cooldown_minutes * 60_000;
-}
-
-function getEffectiveStock(reward: Reward, inCooldown: boolean) {
-  if (!reward.has_stock) return Number.POSITIVE_INFINITY;
-  const current = reward.current_stock ?? 0;
-  if (current > 0) return current;
-  if (reward.cooldown_minutes && reward.last_purchased_at && !inCooldown) {
-    return reward.max_stock ?? 0;
-  }
-  return current;
 }
 
 function buyLabel({

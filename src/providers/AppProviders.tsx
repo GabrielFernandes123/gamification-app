@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { queryClient } from '@/lib/queryClient';
 import { AuthProvider } from './AuthProvider';
 import { LevelUpProvider } from './LevelUpProvider';
+import { ConfirmProvider } from '@/components/ui/ConfirmDialog';
 import { ToastProvider } from '@/components/ui/Toast';
 
 export function AppProviders({ children }: { children: ReactNode }) {
@@ -23,7 +24,9 @@ export function AppProviders({ children }: { children: ReactNode }) {
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
             <ToastProvider>
-              <LevelUpProvider>{children}</LevelUpProvider>
+              <ConfirmProvider>
+                <LevelUpProvider>{children}</LevelUpProvider>
+              </ConfirmProvider>
             </ToastProvider>
           </AuthProvider>
         </QueryClientProvider>

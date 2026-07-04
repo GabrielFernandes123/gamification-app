@@ -23,7 +23,6 @@ import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -36,6 +35,7 @@ import {
 import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
 
 import { ProgressBar } from '@/components/bars/ProgressBar';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { DatePickerField } from '@/components/ui/DatePickerField';
 import { Input } from '@/components/ui/Input';
 import { Screen } from '@/components/ui/Screen';
@@ -67,6 +67,7 @@ import {
 import { useHabits, type Habit } from '@/features/habits/hooks/useHabits';
 import { useInventory, useSystemItems, useUserItems, type InventoryItem, type SystemItem, type UserItem } from '@/features/store/hooks/useStore';
 import { useAllocateAttributePoint } from '@/features/season/hooks/useAllocateAttributePoint';
+import { useSpendBossCharges } from '@/features/season/hooks/useSpendBossCharges';
 import {
   useConfigureSeasonStory,
   useEndSeason,
@@ -136,6 +137,20 @@ const TIER_ROLE: Record<BossTier, string> = {
   semestral: 'Arco semestral',
   anual: 'Vilão do ano',
 };
+
+// Rótulos pt-BR para os tipos de beat narrativo (evita enum cru na UI).
+const BEAT_KIND_LABEL: Record<string, string> = {
+  capitulo: 'Capítulo',
+  marco: 'Marco',
+  enrave: 'Entrave',
+  narracao: 'Narração',
+};
+
+function beatKindLabel(kind: string) {
+  if (BEAT_KIND_LABEL[kind]) return BEAT_KIND_LABEL[kind];
+  const spaced = kind.replaceAll('_', ' ').trim();
+  return spaced ? spaced.charAt(0).toUpperCase() + spaced.slice(1) : kind;
+}
 
 const TIER_ORDER: Record<BossTier, number> = {
   mensal: 1,
@@ -216,6 +231,7 @@ export default function HistoriaScreen() {
   const story = useSeasonStory(selectedTier);
   const modules = useModules();
   const allocatePoint = useAllocateAttributePoint();
+  const spendCharges = useSpendBossCharges();
   const generateBeat = useGenerateNarrativeBeat();
   const objectivesOverview = useObjectivesOverview();
   const objectiveSuggestions = useObjectiveSuggestions();
@@ -234,6 +250,7 @@ export default function HistoriaScreen() {
   const userItems = useUserItems();
   const inventory = useInventory();
   const toast = useToast();
+  const confirm = useConfirm();
   const [refreshing, setRefreshing] = useState(false);
   const [sagaOpen, setSagaOpen] = useState(false);
   const [missionModalOpen, setMissionModalOpen] = useState(false);
@@ -327,12 +344,35 @@ export default function HistoriaScreen() {
   const currentTopRank = Math.max(...linked.map((b) => TIER_ORDER[b.tier]));
   const upgradeTargets = ALL_TIERS.filter((t) => TIER_ORDER[t] > currentTopRank);
 
+  // Cargas: munição ganha ao vencer o tier inferior; só bosses longos as usam.
+  const canSpendCharges = boss.tier !== 'mensal' && boss.status === 'ativo';
+  async function onSpendCharge() {
+    if (boss.tier === 'mensal') return;
+    const ok = await confirm({
+      title: 'Gastar 1 carga?',
+      message: `Cada carga fere a fase atual de ${boss.name} em ~10% do HP dela. Você tem ${charges} carga(s).`,
+      confirmLabel: 'Atacar',
+    });
+    if (!ok) return;
+    spendCharges.mutate(
+      { tier: boss.tier as Exclude<BossTier, 'mensal'>, amount: 1 },
+      {
+        onSuccess: (result) =>
+          toast.success(
+            result.defeated ? 'Boss derrotado!' : `${result.damage} de dano causado`,
+            `${result.chargesLeft} carga(s) restante(s) · HP do boss: ${result.bossCurrentHp}`,
+          ),
+        onError: (error) => toast.error('Erro ao gastar carga', String((error as Error).message)),
+      },
+    );
+  }
+
   const completedObjectives = objectives.filter((o) => o.completed).length;
   const arcMonths = story.data.arcMonths ?? [];
   const arcLore =
     currentSeason.arc_lore ??
     currentSeason.lore ??
-    'A historia ainda esta tomando forma...';
+    'A história ainda está tomando forma...';
   const weaknessLabel =
     (boss.weakness_module_key && moduleLabels.get(boss.weakness_module_key)) ||
     (boss.weakness_module_key
@@ -354,7 +394,7 @@ export default function HistoriaScreen() {
           <View style={styles.topActions}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Abrir configuracoes da jornada"
+              accessibilityLabel="Abrir configurações da jornada"
               onPress={() => setSettingsOpen(true)}
               style={styles.iconButton}
             >
@@ -366,7 +406,7 @@ export default function HistoriaScreen() {
 
         <Reveal>
           <AccordionSection
-            title="A jornada ate aqui"
+            title="A jornada até aqui"
             hint="Lore"
             open={accordions.open.lore}
             onToggle={() => accordions.toggle('lore')}
@@ -434,7 +474,13 @@ export default function HistoriaScreen() {
               />
             }
           >
-            <BossHero boss={boss} weaknessLabel={weaknessLabel} charges={charges} />
+            <BossHero
+              boss={boss}
+              weaknessLabel={weaknessLabel}
+              charges={charges}
+              onSpendCharge={canSpendCharges ? onSpendCharge : undefined}
+              spendPending={spendCharges.isPending}
+            />
           </AccordionSection>
         </Reveal>
 
@@ -451,13 +497,13 @@ export default function HistoriaScreen() {
 
 
         <AccordionSection
-          title="Capitulos"
+          title="Capítulos"
           hint={`${narrativeBeats.length} beats`}
           open={accordions.open.chapters}
           onToggle={() => accordions.toggle('chapters')}
           summary={
             <T variant="bodyMuted" numberOfLines={2}>
-              {narrativeBeats[0]?.title ?? 'Nenhum capitulo escrito ainda'}
+              {narrativeBeats[0]?.title ?? 'Nenhum capítulo escrito ainda'}
             </T>
           }
         >
@@ -487,13 +533,13 @@ export default function HistoriaScreen() {
 
         <AccordionSection
           title="Objetivos"
-          hint={`${completedObjectives}/${objectives.length} concluidos`}
+          hint={`${completedObjectives}/${objectives.length} concluídos`}
           open={accordions.open.bossObjectives}
           onToggle={() => accordions.toggle('bossObjectives')}
           summary={
             <SummaryStrip
               items={[
-                { label: 'Concluidos', value: `${completedObjectives}/${objectives.length}`, color: H.success },
+                { label: 'Concluídos', value: `${completedObjectives}/${objectives.length}`, color: H.success },
                 { label: 'Dano', value: `${objectives.reduce((sum, item) => sum + (item.completed ? item.boss_damage : 0), 0)}` },
               ]}
             />
@@ -512,7 +558,7 @@ export default function HistoriaScreen() {
           </View>
         </AccordionSection>
         <AccordionSection
-          title="Missoes da vida"
+          title="Missões da vida"
           hint="Metas e contratos"
           open={accordions.open.lifeMissions}
           onToggle={() => accordions.toggle('lifeMissions')}
@@ -552,23 +598,22 @@ export default function HistoriaScreen() {
             setMissionModalOpen(true);
           }}
           onOpenDetails={(kind, item) => setSelectedMission({ kind, item })}
-          onDeleteObjective={(kind, item) =>
-            Alert.alert('Remover missão?', `Remover "${item.name}"?`, [
-              { text: 'Cancelar', style: 'cancel' },
+          onDeleteObjective={async (kind, item) => {
+            const ok = await confirm({
+              title: 'Remover missão?',
+              message: `Remover "${item.name}"?`,
+              confirmLabel: 'Remover',
+              destructive: true,
+            });
+            if (!ok) return;
+            deleteObjective.mutate(
+              { kind, id: item.id },
               {
-                text: 'Remover',
-                style: 'destructive',
-                onPress: () =>
-                  deleteObjective.mutate(
-                    { kind, id: item.id },
-                    {
-                      onSuccess: () => toast.success('Missão removida', item.name),
-                      onError: (error) => toast.error('Erro ao remover', String((error as Error).message)),
-                    },
-                  ),
+                onSuccess: () => toast.success('Missão removida', item.name),
+                onError: (error) => toast.error('Erro ao remover', String((error as Error).message)),
               },
-            ])
-          }
+            );
+          }}
           onClaim={(kind, item) =>
             claimObjective.mutate(
               { kind, id: item.id },
@@ -601,7 +646,7 @@ export default function HistoriaScreen() {
         </AccordionSection>
         <AccordionSection
           title="Dano recente"
-          hint="Ultimos golpes"
+          hint="Últimos golpes"
           open={accordions.open.recentDamage}
           onToggle={() => accordions.toggle('recentDamage')}
           summary={
@@ -625,7 +670,7 @@ export default function HistoriaScreen() {
                   <View style={styles.flex}>
                     <T variant="bodyMed">
                       {event.amount} dano
-                      {event.was_critical ? ' critico' : ''}
+                      {event.was_critical ? ' crítico' : ''}
                       {event.was_weakness ? ' na fraqueza' : ''}
                     </T>
                     <T variant="bodyMuted">
@@ -708,26 +753,25 @@ export default function HistoriaScreen() {
             setEditingMission({ kind, item });
             setMissionModalOpen(true);
           }}
-          onDelete={(kind, item) =>
-            Alert.alert('Remover missão?', `Remover "${item.name}"?`, [
-              { text: 'Cancelar', style: 'cancel' },
+          onDelete={async (kind, item) => {
+            const ok = await confirm({
+              title: 'Remover missão?',
+              message: `Remover "${item.name}"?`,
+              confirmLabel: 'Remover',
+              destructive: true,
+            });
+            if (!ok) return;
+            deleteObjective.mutate(
+              { kind, id: item.id },
               {
-                text: 'Remover',
-                style: 'destructive',
-                onPress: () =>
-                  deleteObjective.mutate(
-                    { kind, id: item.id },
-                    {
-                      onSuccess: () => {
-                        setSelectedMission(null);
-                        toast.success('Missão removida', item.name);
-                      },
-                      onError: (error) => toast.error('Erro ao remover', String((error as Error).message)),
-                    },
-                  ),
+                onSuccess: () => {
+                  setSelectedMission(null);
+                  toast.success('Missão removida', item.name);
+                },
+                onError: (error) => toast.error('Erro ao remover', String((error as Error).message)),
               },
-            ])
-          }
+            );
+          }}
           onClaim={(kind, item) =>
             claimObjective.mutate(
               { kind, id: item.id },
@@ -777,10 +821,14 @@ function BossHero({
   boss,
   weaknessLabel,
   charges,
+  onSpendCharge,
+  spendPending,
 }: {
   boss: Boss;
   weaknessLabel: string;
   charges: number;
+  onSpendCharge?: () => void;
+  spendPending?: boolean;
 }) {
   const visual = TIER_VISUAL[boss.tier];
   const Icon = visual.Icon;
@@ -828,6 +876,29 @@ function BossHero({
         <MetricChip icon={<Flame color={H.accent} size={16} />} label="Ataque" value={`${boss.attack_boss} HP`} />
         <MetricChip icon={<Sparkles color={H.primaryBright} size={16} />} label="Cargas" value={String(charges)} />
       </View>
+
+      {onSpendCharge ? (
+        <View style={styles.chargesBlock}>
+          <View style={styles.flex}>
+            <T variant="bodyMed">Cargas acumuladas: {charges}</T>
+            <T variant="bodyMuted">
+              Vencer o tier inferior gera cargas — cada uma fere a fase atual deste boss.
+            </T>
+          </View>
+          {charges > 0 ? (
+            <HButton
+              label={spendPending ? 'Atacando...' : 'Gastar 1 carga'}
+              icon={<Swords color={H.text} size={16} />}
+              onPress={onSpendCharge}
+              loading={spendPending}
+            />
+          ) : (
+            <T variant="label" color={H.textDim}>
+              Sem cargas
+            </T>
+          )}
+        </View>
+      ) : null}
     </HCard>
   );
 }
@@ -995,6 +1066,8 @@ function MonthCard({
         styles.monthCard,
         (state === 'current' || selected) && styles.monthCardCurrent,
         isFuture && styles.monthCardFuture,
+        // Affordance de desabilitado: sem boss, o card não é tocável.
+        !boss && styles.monthCardDisabled,
       ]}
     >
       <View style={styles.spaceBetween}>
@@ -1074,30 +1147,23 @@ function UpgradeCard({
 }) {
   const upgrade = useUpgradeSeason();
   const toast = useToast();
+  const confirm = useConfirm();
 
-  function onUpgrade(toTier: BossTier) {
-    Alert.alert(
-      `Promover para ${TIER_LABEL[toTier]}`,
-      `Isso adiciona os bosses dos tiers superiores ao seu arco (ancorados no início da aventura, ${formatDate(
+  async function onUpgrade(toTier: BossTier) {
+    const ok = await confirm({
+      title: `Promover para ${TIER_LABEL[toTier]}`,
+      message: `Isso adiciona os bosses dos tiers superiores ao seu arco (ancorados no início da aventura, ${formatDate(
         originalStart,
-      )}) e estende a história. Você não perde nada do que já conquistou. A IA vai reescrever a identidade da cadeia. Confirmar?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Promover',
-          onPress: () =>
-            upgrade.mutate(toTier, {
-              onSuccess: () =>
-                toast.success(
-                  'Aventura promovida',
-                  `O arco agora vai até ${TIER_LABEL[toTier]}.`,
-                ),
-              onError: (error) =>
-                toast.error('Erro ao promover', String((error as Error).message)),
-            }),
-        },
-      ],
-    );
+      )}) e estende a história. Você não perde nada do que já conquistou. A IA vai reescrever a identidade da cadeia.`,
+      confirmLabel: 'Promover',
+    });
+    if (!ok) return;
+    upgrade.mutate(toTier, {
+      onSuccess: () =>
+        toast.success('Aventura promovida', `O arco agora vai até ${TIER_LABEL[toTier]}.`),
+      onError: (error) =>
+        toast.error('Erro ao promover', String((error as Error).message)),
+    });
   }
 
   return (
@@ -1189,7 +1255,7 @@ function SagaBeatCard({ beat, last }: { beat: SagaBeat; last: boolean }) {
   const tier = beat.tier;
   const color = tier ? TIER_VISUAL[tier].color : H.primaryBright;
   const origin = [
-    tier ? TIER_LABEL[tier] : beat.kind,
+    tier ? TIER_LABEL[tier] : beatKindLabel(beat.kind),
     beat.boss_name,
   ]
     .filter(Boolean)
@@ -1257,7 +1323,7 @@ function ChapterCard({
         <HCard style={styles.chapterCard}>
           <View style={styles.spaceBetween}>
             <T variant="label" color={dotColor}>
-              {beat.kind}
+              {beatKindLabel(beat.kind)}
             </T>
             <T variant="bodyMuted">{formatDateTime(beat.created_at)}</T>
           </View>
@@ -1576,9 +1642,12 @@ function ObjectiveFormModal({
   const [stakeId, setStakeId] = useState('');
   const [stakeQuantity, setStakeQuantity] = useState('1');
   const [draftRequirements, setDraftRequirements] = useState<ObjectiveRequirementPayload[]>([]);
+  // Erro de validação inline (toast ficaria escondido atrás do Modal em web).
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!visible) return;
+    setFormError(null);
     if (!editing) {
       setKind('compositeGoal');
       setName('');
@@ -1653,9 +1722,10 @@ function ObjectiveFormModal({
   function submit() {
     const cleanName = name.trim();
     if (!cleanName) {
-      Alert.alert('Informe o nome', 'A missão precisa de um nome.');
+      setFormError('A missão precisa de um nome.');
       return;
     }
+    setFormError(null);
     const payload: ObjectivePayload = {
       name: cleanName,
       description: description.trim() || null,
@@ -1927,6 +1997,11 @@ function ObjectiveFormModal({
             </>
           ) : null}
           </ScrollView>
+          {formError ? (
+            <T variant="bodyMed" color={H.hp}>
+              {formError}
+            </T>
+          ) : null}
           <View style={styles.objectiveModalFooter}>
             <HButton label="Cancelar" variant="outline" onPress={onClose} loading={loading} />
             <HButton label={editing ? 'Salvar missão' : 'Criar missão'} onPress={submit} loading={loading} />
@@ -2153,27 +2228,24 @@ function StoryConfigCard({ selectedTier }: { selectedTier: BossTier }) {
   const configureStory = useConfigureSeasonStory();
   const endSeason = useEndSeason();
   const toast = useToast();
+  const confirm = useConfirm();
   const [themeSeed, setThemeSeed] = useState('');
 
-  function onEndSeason() {
-    Alert.alert(
-      'Encerrar temporada',
-      'Isso abandona a aventura atual e toda a cadeia de bosses, sem recompensa. A Essência, pontos de atributo e equipamentos já ganhos permanecem. Depois você poderá iniciar uma nova. Confirmar?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Encerrar',
-          style: 'destructive',
-          onPress: () =>
-            endSeason.mutate(undefined, {
-              onSuccess: () =>
-                toast.success('Temporada encerrada', 'Inicie uma nova quando quiser.'),
-              onError: (error) =>
-                toast.error('Erro ao encerrar', String((error as Error).message)),
-            }),
-        },
-      ],
-    );
+  async function onEndSeason() {
+    const ok = await confirm({
+      title: 'Encerrar temporada',
+      message:
+        'Isso abandona a aventura atual e toda a cadeia de bosses, sem recompensa. A Essência, pontos de atributo e equipamentos já ganhos permanecem. Depois você poderá iniciar uma nova.',
+      confirmLabel: 'Encerrar',
+      destructive: true,
+    });
+    if (!ok) return;
+    endSeason.mutate(undefined, {
+      onSuccess: () =>
+        toast.success('Temporada encerrada', 'Inicie uma nova quando quiser.'),
+      onError: (error) =>
+        toast.error('Erro ao encerrar', String((error as Error).message)),
+    });
   }
 
   function onSave() {
@@ -2494,7 +2566,7 @@ function LifeMissionsSummary({
         { label: 'Ativas', value: entries.length },
         { label: 'Resgates', value: claimable, color: claimable > 0 ? H.gold : H.text },
         { label: 'Resgatadas', value: claimed, color: H.success },
-        { label: 'Sugestoes', value: pendingSuggestions },
+        { label: 'Sugestões', value: pendingSuggestions },
       ]}
     />
   );
@@ -2526,7 +2598,7 @@ function JourneySettingsModal({
           <View style={styles.spaceBetween}>
             <View style={styles.flex}>
               <T variant="label" color={H.primaryBright}>
-                Configuracoes
+                Configurações
               </T>
               <T variant="title">Jornada</T>
             </View>
@@ -2574,8 +2646,8 @@ function NarrativeCard({
       </View>
       <T variant="bodyMuted">
         {aiAvailable
-          ? 'A IA escreve sua historia com base no que voce faz. O generico so aparece se a IA falhar.'
-          : 'OpenRouter nao configurado: a narracao usa fallback local.'}
+          ? 'A IA escreve sua história com base no que você faz. O genérico só aparece se a IA falhar.'
+          : 'OpenRouter não configurado: a narração usa fallback local.'}
       </T>
       <HButton
         label={generatePending ? 'Gerando...' : 'Narrar agora'}
@@ -2664,7 +2736,8 @@ const tStyles = StyleSheet.create({
 });
 
 const styles = StyleSheet.create({
-  page: { backgroundColor: H.bg },
+  // paddingBottom: folga para a tab bar flutuante (mesmo padrão das outras tabs).
+  page: { backgroundColor: H.bg, paddingBottom: 120 },
   content: { gap: 18 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   flex: { flex: 1, minWidth: 0 },
@@ -2769,6 +2842,16 @@ const styles = StyleSheet.create({
   },
   hpBlock: { gap: 8 },
   metrics: { flexDirection: 'row', gap: 8 },
+  chargesBlock: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: H.border,
+    backgroundColor: H.surfaceAlt,
+    padding: 12,
+  },
   metric: {
     flex: 1,
     minHeight: 92,
@@ -2796,6 +2879,7 @@ const styles = StyleSheet.create({
   },
   monthCardCurrent: { borderColor: H.primaryBright, backgroundColor: H.surfaceAlt },
   monthCardFuture: { borderStyle: 'dashed', opacity: 0.7 },
+  monthCardDisabled: { opacity: 0.45 },
   tierCard: {
     borderRadius: 18,
     borderWidth: 1.5,

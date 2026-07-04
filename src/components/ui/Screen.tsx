@@ -1,5 +1,13 @@
 import type { ReactNode } from 'react';
-import { ScrollView, StyleSheet, View, type ViewStyle, RefreshControl } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  View,
+  type ViewStyle,
+  RefreshControl,
+} from 'react-native';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 
 import { theme } from '@/theme/theme';
@@ -12,6 +20,8 @@ type Props = {
   contentStyle?: ViewStyle;
   refreshing?: boolean;
   onRefresh?: () => void;
+  /** Opt-in: envolve o conteúdo em KeyboardAvoidingView (telas com inputs). */
+  keyboard?: boolean;
 };
 
 export function Screen({
@@ -22,26 +32,39 @@ export function Screen({
   contentStyle,
   refreshing,
   onRefresh,
+  keyboard = false,
 }: Props) {
   const inner: ViewStyle[] = [styles.baseContent, padded ? styles.padded : styles.unpadded];
   if (contentStyle) inner.push(contentStyle);
 
+  const body = scroll ? (
+    <ScrollView
+      contentContainerStyle={[styles.scrollContent, ...inner]}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps={keyboard ? 'handled' : undefined}
+      refreshControl={
+        onRefresh
+          ? <RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} tintColor={theme.colors.textMuted} />
+          : undefined
+      }
+    >
+      {children}
+    </ScrollView>
+  ) : (
+    <View style={[styles.flex, ...inner]}>{children}</View>
+  );
+
   return (
     <SafeAreaView style={styles.safe} edges={edges}>
-      {scroll ? (
-        <ScrollView
-          contentContainerStyle={[styles.scrollContent, ...inner]}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            onRefresh
-              ? <RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} tintColor={theme.colors.textMuted} />
-              : undefined
-          }
+      {keyboard ? (
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          {children}
-        </ScrollView>
+          {body}
+        </KeyboardAvoidingView>
       ) : (
-        <View style={[styles.flex, ...inner]}>{children}</View>
+        body
       )}
     </SafeAreaView>
   );

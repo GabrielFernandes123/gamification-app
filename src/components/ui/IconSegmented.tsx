@@ -68,13 +68,16 @@ const styles = StyleSheet.create({
   scroll: { flexGrow: 0, alignSelf: 'stretch' },
   grid: { gap: theme.spacing.sm, paddingRight: theme.spacing.sm },
   item: {
-    width: 76,
+    // minWidth (não width fixo): rótulos completos ("Recompensas") cabem e a
+    // lista rola horizontalmente quando necessário.
+    minWidth: 76,
     alignItems: 'center',
     gap: theme.spacing.xs,
     borderWidth: 1,
     borderColor: theme.colors.transparent,
     borderRadius: theme.radius.md,
     paddingVertical: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.sm,
   },
   icon: {
     width: 46,

@@ -16,13 +16,16 @@ export function SystemItemCard({
   item,
   gold,
   onBuy,
+  busy = false,
 }: {
   item: SystemItem;
   gold: number;
   onBuy: (item: SystemItem) => void;
+  busy?: boolean;
 }) {
   const meta = META[item.type];
   const canAfford = gold >= item.cost;
+  const canBuy = canAfford && !busy;
   return (
     <Card accent={meta.color}>
       <View style={styles.header}>
@@ -35,9 +38,12 @@ export function SystemItemCard({
         </View>
       </View>
       <Pressable
-        onPress={() => onBuy(item)}
-        disabled={!canAfford}
-        style={[styles.buy, !canAfford && styles.disabled]}
+        onPress={() => {
+          if (busy) return;
+          onBuy(item);
+        }}
+        disabled={!canBuy}
+        style={[styles.buy, !canBuy && styles.disabled]}
         accessibilityRole="button"
       >
         <Coins color={theme.colors.gold} size={16} />

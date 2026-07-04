@@ -1,8 +1,9 @@
 import { useRouter } from 'expo-router';
 import { Archive, ChevronLeft, Play, RotateCcw, Trash2 } from 'lucide-react-native';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Card } from '@/components/ui/Card';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { useToast } from '@/components/ui/Toast';
@@ -19,6 +20,7 @@ import { formatErrorMessage } from '@/utils/errors';
 export default function TemplatesScreen() {
   const router = useRouter();
   const toast = useToast();
+  const confirm = useConfirm();
   const templates = useAllWorkoutTemplates();
   const createSession = useCreateWorkoutSession();
   const updateTemplate = useUpdateWorkoutTemplate();
@@ -42,22 +44,20 @@ export default function TemplatesScreen() {
     }
   }
 
-  function confirmArchive(template: WorkoutTemplate) {
-    Alert.alert('Arquivar treino', `Arquivar "${template.name}"? Ele sai da lista, mas fica guardado aqui.`, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Arquivar',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await updateTemplate.mutateAsync({ id: template.id, patch: { is_active: false } });
-            toast.info('Treino arquivado', template.name);
-          } catch (e) {
-            toast.error('Erro ao arquivar treino', formatErrorMessage(e));
-          }
-        },
-      },
-    ]);
+  async function confirmArchive(template: WorkoutTemplate) {
+    const ok = await confirm({
+      title: 'Arquivar treino',
+      message: `Arquivar "${template.name}"? Ele sai da lista, mas fica guardado aqui.`,
+      confirmLabel: 'Arquivar',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await updateTemplate.mutateAsync({ id: template.id, patch: { is_active: false } });
+      toast.info('Treino arquivado', template.name);
+    } catch (e) {
+      toast.error('Erro ao arquivar treino', formatErrorMessage(e));
+    }
   }
 
   async function restore(template: WorkoutTemplate) {
@@ -69,22 +69,20 @@ export default function TemplatesScreen() {
     }
   }
 
-  function confirmDelete(template: WorkoutTemplate) {
-    Alert.alert('Excluir treino', `Excluir "${template.name}" de vez? Esta ação não pode ser desfeita.`, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Excluir',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteTemplate.mutateAsync(template.id);
-            toast.info('Treino excluído', template.name);
-          } catch (e) {
-            toast.error('Erro ao excluir treino', formatErrorMessage(e));
-          }
-        },
-      },
-    ]);
+  async function confirmDelete(template: WorkoutTemplate) {
+    const ok = await confirm({
+      title: 'Excluir treino',
+      message: `Excluir "${template.name}" de vez? Esta ação não pode ser desfeita.`,
+      confirmLabel: 'Excluir',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteTemplate.mutateAsync(template.id);
+      toast.info('Treino excluído', template.name);
+    } catch (e) {
+      toast.error('Erro ao excluir treino', formatErrorMessage(e));
+    }
   }
 
   return (

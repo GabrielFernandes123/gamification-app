@@ -1,10 +1,11 @@
 import { Image as ExpoImage } from 'expo-image';
 import { Activity, ChevronLeft, Dumbbell, Plus, Trophy, X, Zap } from 'lucide-react-native';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ProgressBar } from '@/components/bars/ProgressBar';
 import { Card } from '@/components/ui/Card';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { ImageUploadPicker } from '@/components/ui/ImageUploadPicker';
 import { Input } from '@/components/ui/Input';
 import { Text } from '@/components/ui/Text';
@@ -22,6 +23,7 @@ const PART_COLORS = ['#22D3EE', '#3B82F6', '#F97316', '#22C55E', '#F5B301', '#EF
 /** Gestor de divisões corporais in-screen (lista + modal CRUD + detalhe). Painel do Corpo (08 §6.3). */
 export function PartsManager() {
   const toast = useToast();
+  const confirm = useConfirm();
   const parts = useBodyParts();
   const createPart = useCreateBodyPart();
   const updatePart = useUpdateBodyPart();
@@ -77,25 +79,23 @@ export function PartsManager() {
     }
   }
 
-  function confirmDelete() {
+  async function confirmDelete() {
     if (!editing) return;
     const part = editing;
-    Alert.alert('Excluir divisão', `Remover "${part.name}"? Os exercícios ligados a ela ficam sem divisão.`, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Excluir',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deletePart.mutateAsync(part.id);
-            setModalOpen(false);
-            toast.info('Divisão excluída', part.name);
-          } catch (e) {
-            setError(formatErrorMessage(e));
-          }
-        },
-      },
-    ]);
+    const ok = await confirm({
+      title: 'Excluir divisão',
+      message: `Remover "${part.name}"? Os exercícios ligados a ela ficam sem divisão.`,
+      confirmLabel: 'Excluir',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await deletePart.mutateAsync(part.id);
+      setModalOpen(false);
+      toast.info('Divisão excluída', part.name);
+    } catch (e) {
+      setError(formatErrorMessage(e));
+    }
   }
 
   if (selected) {

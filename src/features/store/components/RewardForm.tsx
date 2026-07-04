@@ -1,12 +1,15 @@
 import { useRouter } from 'expo-router';
 import { ChevronRight, Search, X } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { Input } from '@/components/ui/Input';
+import { useToast } from '@/components/ui/Toast';
+import { formatErrorMessage } from '@/utils/errors';
 import { NumberStepper } from '@/components/ui/NumberStepper';
 import { Screen } from '@/components/ui/Screen';
 import { Segmented } from '@/components/ui/Segmented';
@@ -36,6 +39,8 @@ type RewardRequirementMetric = 'habit_success_days' | 'habit_executions' | 'gold
 
 export function RewardForm({ reward }: { reward?: Reward }) {
   const router = useRouter();
+  const toast = useToast();
+  const confirm = useConfirm();
   const isEdit = !!reward;
   const createR = useCreateReward();
   const updateR = useUpdateReward();
@@ -103,7 +108,7 @@ export function RewardForm({ reward }: { reward?: Reward }) {
 
   async function onSave() {
     if (!name.trim()) {
-      Alert.alert('Faltou algo', 'Dê um nome à recompensa.');
+      toast.warning('Faltou algo', 'Dê um nome à recompensa.');
       return;
     }
     const payload = {
@@ -122,26 +127,25 @@ export function RewardForm({ reward }: { reward?: Reward }) {
       else await createR.mutateAsync(payload);
       router.back();
     } catch (e) {
-      Alert.alert('Erro ao salvar', e instanceof Error ? e.message : 'Tente novamente.');
+      toast.error('Erro ao salvar', formatErrorMessage(e));
     }
   }
 
-  function onDelete() {
-    Alert.alert('Excluir recompensa', `Remover "${reward!.name}"?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Excluir',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteR.mutateAsync(reward!.id);
-            router.back();
-          } catch (e) {
-            Alert.alert('Erro', e instanceof Error ? e.message : 'Tente novamente.');
-          }
-        },
-      },
-    ]);
+  async function onDelete() {
+    const ok = await confirm({
+      title: 'Excluir recompensa',
+      message: `Remover "${reward!.name}"?`,
+      confirmLabel: 'Excluir',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteR.mutateAsync(reward!.id);
+      toast.info('Recompensa removida', reward!.name);
+      router.back();
+    } catch (e) {
+      toast.error('Erro ao excluir', formatErrorMessage(e));
+    }
   }
 
   return (

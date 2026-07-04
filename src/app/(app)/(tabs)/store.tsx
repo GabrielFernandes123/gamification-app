@@ -4,7 +4,6 @@ import type { ReactNode } from 'react';
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -16,9 +15,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { IconSegmented } from '@/components/ui/IconSegmented';
 import { Input } from '@/components/ui/Input';
 import { Text } from '@/components/ui/Text';
+import { useToast } from '@/components/ui/Toast';
 import { useEquipmentCatalog, usePurchaseEquipment, usePurchaseEquipmentEssencia } from '@/features/build/hooks/useEquipment';
 import { useCharacter } from '@/features/character/hooks/useCharacter';
 import { useHabits } from '@/features/habits/hooks/useHabits';
@@ -50,12 +51,15 @@ import {
 import { scheduleRewardCooldownNotification } from '@/features/store/notifications';
 import { theme } from '@/theme/theme';
 import type { EquipmentCatalogItem } from '@/types/build';
+import { formatErrorMessage } from '@/utils/errors';
 
 type StoreMode = 'inventory' | 'history' | 'magic' | 'equipment' | 'rewards' | 'custom';
 type StreakTarget = { source: 'shop'; item: SystemItem } | { source: 'inventory'; item: InventoryItem };
 
 export default function StoreScreen() {
   const router = useRouter();
+  const confirm = useConfirm();
+  const toast = useToast();
   const character = useCharacter();
   const items = useSystemItems();
   const rewards = useRewards();
@@ -79,8 +83,10 @@ export default function StoreScreen() {
   const essencia = character.data?.essencia ?? 0;
   const level = character.data?.level ?? 1;
   const [streakTarget, setStreakTarget] = useState<StreakTarget | null>(null);
+  const [buyTarget, setBuyTarget] = useState<SystemItem | null>(null);
   const [mode, setMode] = useState<StoreMode>('inventory');
   const [customModal, setCustomModal] = useState(false);
+  const [customError, setCustomError] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<UserItem | null>(null);
   const [customName, setCustomName] = useState('');
   const [customDescription, setCustomDescription] = useState('');
@@ -91,41 +97,56 @@ export default function StoreScreen() {
   const inventoryCount = (inventory.data ?? []).reduce((sum, item) => sum + item.quantity, 0);
   const streakPending = buyItem.isPending || useInventoryItem.isPending;
 
+  // Escolha Guardar/Usar agora via modal próprio (Alert com botões não funciona em web).
   function handleBuyItem(item: SystemItem) {
-    Alert.alert('Item mágico', `O que deseja fazer com "${item.name}"?`, [
-      { text: 'Cancelar', style: 'cancel' },
+    if (buyItem.isPending || buyItemToInventory.isPending) return;
+    setBuyTarget(item);
+  }
+
+  function buyTargetStore() {
+    if (!buyTarget) return;
+    const item = buyTarget;
+    buyItemToInventory.mutate(
+      { itemId: item.id },
       {
-        text: 'Guardar',
-        onPress: () =>
-          buyItemToInventory.mutate(
-            { itemId: item.id },
-            {
-              onSuccess: (res) => Alert.alert('Guardado!', res.message),
-              onError: (e) => Alert.alert('Ops', e instanceof Error ? e.message : 'Erro'),
-            },
-          ),
-      },
-      {
-        text: 'Usar agora',
-        onPress: () => {
-          if (item.type === 'streak_recovery') {
-            setStreakTarget({ source: 'shop', item });
-            return;
-          }
-          buyItem.mutate(
-            { itemId: item.id },
-            {
-              onSuccess: (res) => Alert.alert('Comprado!', res.message),
-              onError: (e) => Alert.alert('Ops', e instanceof Error ? e.message : 'Erro'),
-            },
-          );
+        onSuccess: (res) => {
+          setBuyTarget(null);
+          toast.success('Guardado!', res.message);
+        },
+        onError: (e) => {
+          setBuyTarget(null);
+          toast.error('Ops', formatErrorMessage(e));
         },
       },
-    ]);
+    );
+  }
+
+  function buyTargetUseNow() {
+    if (!buyTarget) return;
+    const item = buyTarget;
+    if (item.type === 'streak_recovery') {
+      setBuyTarget(null);
+      setStreakTarget({ source: 'shop', item });
+      return;
+    }
+    buyItem.mutate(
+      { itemId: item.id },
+      {
+        onSuccess: (res) => {
+          setBuyTarget(null);
+          toast.success('Comprado!', res.message);
+        },
+        onError: (e) => {
+          setBuyTarget(null);
+          toast.error('Ops', formatErrorMessage(e));
+        },
+      },
+    );
   }
 
   function handleUseInventoryItem(item: InventoryItem) {
     if (!item.isConsumable) return;
+    if (useInventoryItem.isPending) return;
     if (item.type === 'streak_recovery') {
       setStreakTarget({ source: 'inventory', item });
       return;
@@ -133,25 +154,26 @@ export default function StoreScreen() {
     useInventoryItem.mutate(
       { item },
       {
-        onSuccess: (res) => Alert.alert('Item usado', res.message),
-        onError: (e) => Alert.alert('Ops', e instanceof Error ? e.message : 'Erro'),
+        onSuccess: (res) => toast.success('Item usado', res.message),
+        onError: (e) => toast.error('Ops', formatErrorMessage(e)),
       },
     );
   }
 
   function useStreakFor(habitId: string) {
     if (!streakTarget) return;
+    if (streakPending) return;
     if (streakTarget.source === 'shop') {
       buyItem.mutate(
         { itemId: streakTarget.item.id, habitId },
         {
           onSuccess: (res) => {
             setStreakTarget(null);
-            Alert.alert('Comprado!', res.message);
+            toast.success('Comprado!', res.message);
           },
           onError: (e) => {
             setStreakTarget(null);
-            Alert.alert('Ops', e instanceof Error ? e.message : 'Erro');
+            toast.error('Ops', formatErrorMessage(e));
           },
         },
       );
@@ -162,70 +184,70 @@ export default function StoreScreen() {
       {
         onSuccess: (res) => {
           setStreakTarget(null);
-          Alert.alert('Item usado', res.message);
+          toast.success('Item usado', res.message);
         },
         onError: (e) => {
           setStreakTarget(null);
-          Alert.alert('Ops', e instanceof Error ? e.message : 'Erro');
+          toast.error('Ops', formatErrorMessage(e));
         },
       },
     );
   }
 
-  function handleBuyEquipment(item: EquipmentCatalogItem) {
-    Alert.alert('Comprar?', `Gastar ${item.cost_gold} de ouro em "${item.name}"?`, [
-      { text: 'Cancelar', style: 'cancel' },
+  async function handleBuyEquipment(item: EquipmentCatalogItem) {
+    if (buyEquipment.isPending) return;
+    const ok = await confirm({
+      title: 'Comprar?',
+      message: `Gastar ${item.cost_gold} de ouro em "${item.name}"?`,
+      confirmLabel: 'Comprar',
+    });
+    if (!ok) return;
+    buyEquipment.mutate(
+      { catalogId: item.id },
       {
-        text: 'Comprar',
-        onPress: () =>
-          buyEquipment.mutate(
-            { catalogId: item.id },
-            {
-              onSuccess: () => Alert.alert('Comprado!', 'Item adicionado ao inventário.'),
-              onError: (e) => Alert.alert('Ops', e instanceof Error ? e.message : 'Erro'),
-            },
-          ),
+        onSuccess: () => toast.success('Comprado!', 'Item adicionado ao inventário.'),
+        onError: (e) => toast.error('Ops', formatErrorMessage(e)),
       },
-    ]);
+    );
   }
 
-  function handleBuyEquipmentEssencia(item: EquipmentCatalogItem) {
-    Alert.alert('Comprar?', `Gastar ${item.cost_essencia} de Essência em "${item.name}"?`, [
-      { text: 'Cancelar', style: 'cancel' },
+  async function handleBuyEquipmentEssencia(item: EquipmentCatalogItem) {
+    if (buyEquipmentEssencia.isPending) return;
+    const ok = await confirm({
+      title: 'Comprar?',
+      message: `Gastar ${item.cost_essencia} de Essência em "${item.name}"?`,
+      confirmLabel: 'Comprar',
+    });
+    if (!ok) return;
+    buyEquipmentEssencia.mutate(
+      { catalogId: item.id },
       {
-        text: 'Comprar',
-        onPress: () =>
-          buyEquipmentEssencia.mutate(
-            { catalogId: item.id },
-            {
-              onSuccess: () => Alert.alert('Comprado!', 'Item adicionado ao inventário.'),
-              onError: (e) => Alert.alert('Ops', e instanceof Error ? e.message : 'Erro'),
-            },
-          ),
+        onSuccess: () => toast.success('Comprado!', 'Item adicionado ao inventário.'),
+        onError: (e) => toast.error('Ops', formatErrorMessage(e)),
       },
-    ]);
+    );
   }
 
-  function handleBuyReward(reward: Reward) {
+  async function handleBuyReward(reward: Reward) {
+    if (buyReward.isPending) return;
     const essenciaCost = reward.cost_essencia ?? null;
     const priceLabel = essenciaCost == null ? `${reward.cost} de ouro` : `${essenciaCost} de Essência`;
-    Alert.alert('Resgatar?', `Gastar ${priceLabel} em "${reward.name}"?`, [
-      { text: 'Cancelar', style: 'cancel' },
+    const ok = await confirm({
+      title: 'Resgatar?',
+      message: `Gastar ${priceLabel} em "${reward.name}"?`,
+      confirmLabel: 'Resgatar',
+    });
+    if (!ok) return;
+    buyReward.mutate(
+      { rewardId: reward.id },
       {
-        text: 'Resgatar',
-        onPress: () =>
-          buyReward.mutate(
-            { rewardId: reward.id },
-            {
-              onSuccess: () => {
-                void scheduleRewardCooldownNotification(reward);
-                Alert.alert('Resgatado!', 'Aproveite!');
-              },
-              onError: (e) => Alert.alert('Ops', e instanceof Error ? e.message : 'Erro'),
-            },
-          ),
+        onSuccess: () => {
+          void scheduleRewardCooldownNotification(reward);
+          toast.success('Resgatado!', 'Aproveite!');
+        },
+        onError: (e) => toast.error('Ops', formatErrorMessage(e)),
       },
-    ]);
+    );
   }
 
   function openCreateCustomItem() {
@@ -235,6 +257,7 @@ export default function StoreScreen() {
     setCustomCategory('');
     setCustomIcon('');
     setCustomConsumable(true);
+    setCustomError(null);
     setCustomModal(true);
   }
 
@@ -245,15 +268,18 @@ export default function StoreScreen() {
     setCustomCategory(item.category ?? '');
     setCustomIcon(item.icon ?? '');
     setCustomConsumable(item.isConsumable);
+    setCustomError(null);
     setCustomModal(true);
   }
 
   function handleSaveCustomItem() {
     const name = customName.trim();
     if (!name) {
-      Alert.alert('Informe o nome', 'O item precisa ter um nome.');
+      // Erro inline no próprio modal (toast ficaria escondido atrás do Modal em web).
+      setCustomError('O item precisa ter um nome.');
       return;
     }
+    setCustomError(null);
     const payload = {
       name,
       description: customDescription.trim() || null,
@@ -269,9 +295,9 @@ export default function StoreScreen() {
           onSuccess: () => {
             setEditingItem(null);
             setCustomModal(false);
-            Alert.alert('Item atualizado', 'Sua bolsa foi atualizada.');
+            toast.success('Item atualizado', 'Sua bolsa foi atualizada.');
           },
-          onError: (e) => Alert.alert('Ops', e instanceof Error ? e.message : 'Erro'),
+          onError: (e) => toast.error('Ops', formatErrorMessage(e)),
         },
       );
       return;
@@ -287,9 +313,9 @@ export default function StoreScreen() {
           setCustomConsumable(true);
           setEditingItem(null);
           setCustomModal(false);
-          Alert.alert('Item criado', 'Agora você pode adicionar unidades à bolsa.');
+          toast.success('Item criado', 'Agora você pode adicionar unidades à bolsa.');
         },
-        onError: (e) => Alert.alert('Ops', e instanceof Error ? e.message : 'Erro'),
+        onError: (e) => toast.error('Ops', formatErrorMessage(e)),
       },
     );
   }
@@ -298,25 +324,24 @@ export default function StoreScreen() {
     grantUserItem.mutate(
       { itemId: item.id, quantity: 1 },
       {
-        onSuccess: () => Alert.alert('Adicionado', `${item.name} entrou na sua bolsa.`),
-        onError: (e) => Alert.alert('Ops', e instanceof Error ? e.message : 'Erro'),
+        onSuccess: () => toast.success('Adicionado', `${item.name} entrou na sua bolsa.`),
+        onError: (e) => toast.error('Ops', formatErrorMessage(e)),
       },
     );
   }
 
-  function handleDeleteUserItem(item: UserItem) {
-    Alert.alert('Remover item?', `Remover "${item.name}" da sua lista de itens próprios?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Remover',
-        style: 'destructive',
-        onPress: () =>
-          deleteUserItem.mutate(item.id, {
-            onSuccess: () => Alert.alert('Removido', 'O item foi desativado.'),
-            onError: (e) => Alert.alert('Ops', e instanceof Error ? e.message : 'Erro'),
-          }),
-      },
-    ]);
+  async function handleDeleteUserItem(item: UserItem) {
+    const ok = await confirm({
+      title: 'Remover item?',
+      message: `Remover "${item.name}" da sua lista de itens próprios?`,
+      confirmLabel: 'Remover',
+      destructive: true,
+    });
+    if (!ok) return;
+    deleteUserItem.mutate(item.id, {
+      onSuccess: () => toast.success('Removido', 'O item foi desativado.'),
+      onError: (e) => toast.error('Ops', formatErrorMessage(e)),
+    });
   }
 
   return (
@@ -349,10 +374,10 @@ export default function StoreScreen() {
           options={[
             { value: 'inventory', label: 'Bolsa', icon: Backpack, color: theme.colors.primary },
             { value: 'magic', label: 'Loja', icon: Wand2, color: theme.colors.skill },
-            { value: 'rewards', label: 'Recomp.', icon: Gift, color: theme.colors.gold },
+            { value: 'rewards', label: 'Recompensas', icon: Gift, color: theme.colors.gold },
             { value: 'custom', label: 'Criar', icon: Box, color: theme.colors.success },
-            { value: 'equipment', label: 'Equip.', icon: Swords, color: theme.colors.primary },
-            { value: 'history', label: 'Hist.', icon: Clock3, color: theme.colors.gold },
+            { value: 'equipment', label: 'Equipamento', icon: Swords, color: theme.colors.primary },
+            { value: 'history', label: 'Histórico', icon: Clock3, color: theme.colors.gold },
           ]}
         />
 
@@ -389,16 +414,34 @@ export default function StoreScreen() {
 
         {mode === 'magic' ? (
           <Section title="Itens mágicos" hint="Use agora ou guarde na bolsa">
-            {(items.data ?? []).map((item) => (
-              <SystemItemCard key={item.id} item={item} gold={gold} onBuy={handleBuyItem} />
-            ))}
+            {items.isLoading ? (
+              <ActivityIndicator color={theme.colors.primary} />
+            ) : items.isError ? (
+              <ErrorState onRetry={() => void items.refetch()} />
+            ) : (items.data ?? []).length === 0 ? (
+              <EmptyState title="Vitrine vazia" description="Nenhum item mágico à venda no momento." />
+            ) : (
+              (items.data ?? []).map((item) => (
+                <SystemItemCard
+                  key={item.id}
+                  item={item}
+                  gold={gold}
+                  onBuy={handleBuyItem}
+                  busy={buyItem.isPending || buyItemToInventory.isPending}
+                />
+              ))
+            )}
           </Section>
         ) : null}
 
         {mode === 'equipment' ? (
           <Section title="Equipamentos" hint={`Nível ${level}`}>
-            {(equipment.data ?? []).length === 0 ? (
-              <Text variant="bodyMuted">Nenhum equipamento à venda no momento.</Text>
+            {equipment.isLoading ? (
+              <ActivityIndicator color={theme.colors.primary} />
+            ) : equipment.isError ? (
+              <ErrorState onRetry={() => void equipment.refetch()} />
+            ) : (equipment.data ?? []).length === 0 ? (
+              <EmptyState title="Sem equipamentos" description="Nenhum equipamento à venda no momento." />
             ) : (
               (equipment.data ?? []).map((item) => (
                 <EquipmentCatalogCard
@@ -429,11 +472,22 @@ export default function StoreScreen() {
               </Pressable>
             }
           >
-            {(rewards.data ?? []).length === 0 ? (
-              <Text variant="bodyMuted">Crie recompensas para você e gaste seu ouro nelas.</Text>
+            {rewards.isLoading ? (
+              <ActivityIndicator color={theme.colors.primary} />
+            ) : rewards.isError ? (
+              <ErrorState onRetry={() => void rewards.refetch()} />
+            ) : (rewards.data ?? []).length === 0 ? (
+              <EmptyState title="Nenhuma recompensa" description="Crie recompensas para você e gaste seu ouro nelas." />
             ) : (
               (rewards.data ?? []).map((reward) => (
-                <RewardCard key={reward.id} reward={reward} gold={gold} essencia={essencia} onBuy={handleBuyReward} />
+                <RewardCard
+                  key={reward.id}
+                  reward={reward}
+                  gold={gold}
+                  essencia={essencia}
+                  onBuy={handleBuyReward}
+                  busy={buyReward.isPending}
+                />
               ))
             )}
           </Section>
@@ -450,7 +504,7 @@ export default function StoreScreen() {
             }
           >
             {(userItems.data ?? []).length === 0 ? (
-              <EmptyState title="Nenhum item personalizado" description="Crie pocoes, tickets ou objetos pessoais e adicione unidades na Bolsa quando quiser." />
+              <EmptyState title="Nenhum item personalizado" description="Crie poções, tickets ou objetos pessoais e adicione unidades na Bolsa quando quiser." />
             ) : (
               (userItems.data ?? []).map((item) => (
                 <UserItemCard
@@ -466,6 +520,37 @@ export default function StoreScreen() {
           </Section>
         ) : null}
       </ScrollView>
+
+      <Modal visible={!!buyTarget} transparent animationType="fade" onRequestClose={() => setBuyTarget(null)}>
+        <View style={styles.backdrop}>
+          <Card style={styles.pickerCard}>
+            <Text variant="h2">Item mágico</Text>
+            <Text variant="bodyMuted">{`O que deseja fazer com "${buyTarget?.name ?? ''}"?`}</Text>
+            <Button
+              label="Usar agora"
+              onPress={buyTargetUseNow}
+              fullWidth
+              loading={buyItem.isPending}
+              disabled={buyItem.isPending || buyItemToInventory.isPending}
+            />
+            <Button
+              label="Guardar na bolsa"
+              variant="outline"
+              onPress={buyTargetStore}
+              fullWidth
+              loading={buyItemToInventory.isPending}
+              disabled={buyItem.isPending || buyItemToInventory.isPending}
+            />
+            <Button
+              label="Cancelar"
+              variant="ghost"
+              onPress={() => setBuyTarget(null)}
+              fullWidth
+              disabled={buyItem.isPending || buyItemToInventory.isPending}
+            />
+          </Card>
+        </View>
+      </Modal>
 
       <Modal visible={!!streakTarget} transparent animationType="fade" onRequestClose={() => setStreakTarget(null)}>
         <View style={styles.backdrop}>
@@ -519,6 +604,11 @@ export default function StoreScreen() {
               </View>
               <Switch value={customConsumable} onValueChange={setCustomConsumable} />
             </View>
+            {customError ? (
+              <Text variant="bodyMedium" color={theme.colors.hp}>
+                {customError}
+              </Text>
+            ) : null}
             <View style={styles.modalActions}>
               <Button label="Cancelar" variant="outline" onPress={() => setCustomModal(false)} disabled={createUserItem.isPending || updateUserItem.isPending} />
               <Button label={editingItem ? 'Salvar' : 'Criar'} onPress={handleSaveCustomItem} loading={createUserItem.isPending || updateUserItem.isPending} />
@@ -565,6 +655,18 @@ function EmptyState({ title, description }: { title: string; description: string
   );
 }
 
+function ErrorState({ onRetry }: { onRetry: () => void }) {
+  return (
+    <Card accent={theme.colors.hp} style={styles.emptyCard}>
+      <Text variant="title" color={theme.colors.hp}>
+        Erro ao carregar
+      </Text>
+      <Text variant="bodyMuted">Não foi possível buscar os itens. Verifique a conexão.</Text>
+      <Button label="Tentar novamente" size="sm" onPress={onRetry} />
+    </Card>
+  );
+}
+
 function InventoryCard({
   item,
   onUse,
@@ -596,7 +698,7 @@ function InventoryCard({
           {item.itemKind === 'custom' ? 'Próprio' : 'Sistema'}
         </Text>
         {item.category ? <Text variant="bodyMuted">{item.category}</Text> : null}
-        {item.rarity ? <Text variant="bodyMuted">{item.rarity}</Text> : null}
+        {item.rarity ? <Text variant="bodyMuted">{rarityLabel(item.rarity)}</Text> : null}
       </View>
       <Button
         label={item.isConsumable ? 'Usar' : 'Guardado'}
@@ -686,7 +788,25 @@ function reasonLabel(reason: string) {
     manual_user_item_grant: 'Manual',
     weekly_contract_stake: 'Contrato',
   };
-  return labels[reason] ?? reason;
+  // Fallback humanizado: troca _ por espaço e capitaliza, em vez do enum cru.
+  return labels[reason] ?? humanizeToken(reason);
+}
+
+function rarityLabel(rarity: string) {
+  const labels: Record<string, string> = {
+    custom: 'Personalizado',
+    common: 'Comum',
+    uncommon: 'Incomum',
+    rare: 'Raro',
+    epic: 'Épico',
+    legendary: 'Lendário',
+  };
+  return labels[rarity] ?? humanizeToken(rarity);
+}
+
+function humanizeToken(value: string) {
+  const spaced = value.replaceAll('_', ' ').trim();
+  return spaced ? spaced.charAt(0).toUpperCase() + spaced.slice(1) : value;
 }
 
 function formatDateTime(value: string) {
@@ -732,7 +852,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.xs,
   },
-  content: { padding: theme.spacing.lg, paddingTop: theme.spacing.sm, paddingBottom: 120, gap: theme.spacing.md },
+  content: {
+    padding: theme.spacing.lg,
+    paddingTop: theme.spacing.sm,
+    paddingBottom: theme.sizes.tabBarClearance,
+    gap: theme.spacing.md,
+  },
   section: { gap: theme.spacing.md },
   sectionHeader: {
     flexDirection: 'row',
@@ -741,8 +866,8 @@ const styles = StyleSheet.create({
     gap: theme.spacing.md,
   },
   addBtn: {
-    width: 40,
-    height: 40,
+    width: theme.sizes.touch,
+    height: theme.sizes.touch,
     borderRadius: theme.radius.md,
     borderWidth: 1,
     borderColor: theme.colors.primaryBright,

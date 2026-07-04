@@ -32,6 +32,24 @@ export function useInactiveHabits() {
   });
 }
 
+/**
+ * POST /character/reset-progress (core.controller): zera XP/ouro/streaks e
+ * apaga logs de hábito. Destrutivo — a tela limpa o cache inteiro no sucesso.
+ */
+export function useResetProgress() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiFetch<{ reset: boolean; habitLogsDeleted: number }>('/character/reset-progress', {
+        method: 'POST',
+      }),
+    onSuccess: () => {
+      // Reset atinge personagem, hábitos, skills, corpo e logs: invalida tudo.
+      qc.invalidateQueries();
+    },
+  });
+}
+
 export function useReactivateHabit() {
   const qc = useQueryClient();
   return useMutation({

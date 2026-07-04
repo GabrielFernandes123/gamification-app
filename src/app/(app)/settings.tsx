@@ -1,10 +1,11 @@
 import { useRouter } from 'expo-router';
-import { Bell, ChevronLeft, LogOut, RotateCcw } from 'lucide-react-native';
+import { Bell, ChevronLeft, LogOut, RotateCcw, ShieldAlert, X } from 'lucide-react-native';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { Input } from '@/components/ui/Input';
 import { NumericPickerField } from '@/components/ui/NumericPickerField';
 import { Screen } from '@/components/ui/Screen';
@@ -16,6 +17,7 @@ import { useCharacter, useProfile } from '@/features/character/hooks/useCharacte
 import {
   useInactiveHabits,
   useReactivateHabit,
+  useResetProgress,
   useUpdateGoals,
   useUpdateProfile,
 } from '@/features/settings/hooks/useSettings';
@@ -164,6 +166,8 @@ export default function SettingsScreen() {
         )}
       </View>
 
+      <DangerZone />
+
       <Button
         label="Sair"
         variant="danger"
@@ -173,6 +177,114 @@ export default function SettingsScreen() {
         style={styles.signOut}
       />
     </Screen>
+  );
+}
+
+const RESET_CONFIRM_WORD = 'RESETAR';
+
+// Zona de perigo: reset total do progresso, com confirmação em duas etapas
+// (confirm destrutivo + digitar RESETAR) dado o impacto irreversível.
+function DangerZone() {
+  const confirm = useConfirm();
+  const toast = useToast();
+  const resetProgress = useResetProgress();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [confirmText, setConfirmText] = useState('');
+
+  async function onRequestReset() {
+    const ok = await confirm({
+      title: 'Zerar todo o progresso?',
+      message:
+        'XP, ouro, sequências, níveis de skills/corpo e todos os registros de hábitos serão apagados. Hábitos, treinos e recompensas cadastrados são mantidos. Isso não pode ser desfeito.',
+      confirmLabel: 'Continuar',
+      destructive: true,
+    });
+    if (!ok) return;
+    setConfirmText('');
+    setModalOpen(true);
+  }
+
+  function onConfirmReset() {
+    if (confirmText.trim().toUpperCase() !== RESET_CONFIRM_WORD) return;
+    resetProgress.mutate(undefined, {
+      onSuccess: (result) => {
+        setModalOpen(false);
+        toast.success(
+          'Progresso zerado',
+          `${result.habitLogsDeleted} registro(s) de hábito apagado(s). Recomeço limpo.`,
+        );
+      },
+      onError: (e) => toast.error('Erro ao resetar', formatErrorMessage(e)),
+    });
+  }
+
+  const canConfirm = confirmText.trim().toUpperCase() === RESET_CONFIRM_WORD;
+
+  return (
+    <View style={styles.section}>
+      <Text variant="h2" color={theme.colors.hp}>
+        Zona de perigo
+      </Text>
+      <Card accent={theme.colors.hp} style={styles.dangerCard}>
+        <View style={styles.alertHeader}>
+          <View style={[styles.alertIcon, styles.dangerIcon]}>
+            <ShieldAlert color={theme.colors.textInverse} size={20} />
+          </View>
+          <View style={styles.flex}>
+            <Text variant="title">Zerar progresso</Text>
+            <Text variant="bodyMuted">
+              Volta XP, ouro, HP e sequências ao início. Ação irreversível.
+            </Text>
+          </View>
+        </View>
+        <Button
+          label="Zerar todo o progresso"
+          variant="danger"
+          onPress={onRequestReset}
+          loading={resetProgress.isPending}
+          fullWidth
+        />
+      </Card>
+
+      <Modal
+        visible={modalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setModalOpen(false)}
+      >
+        <View style={styles.backdrop}>
+          <Card accent={theme.colors.hp} style={styles.dangerCard}>
+            <View style={styles.modalHeader}>
+              <Text variant="h2" color={theme.colors.hp}>
+                Última confirmação
+              </Text>
+              <Pressable onPress={() => setModalOpen(false)} hitSlop={10} accessibilityLabel="Fechar">
+                <X color={theme.colors.textMuted} size={22} />
+              </Pressable>
+            </View>
+            <Text variant="bodyMuted">
+              Para confirmar, digite {RESET_CONFIRM_WORD} abaixo. Todo o progresso do personagem
+              será zerado.
+            </Text>
+            <Input
+              label={`Digite ${RESET_CONFIRM_WORD}`}
+              value={confirmText}
+              onChangeText={setConfirmText}
+              placeholder={RESET_CONFIRM_WORD}
+              autoCapitalize="characters"
+            />
+            <Button
+              label="Zerar de vez"
+              variant="danger"
+              disabled={!canConfirm}
+              loading={resetProgress.isPending}
+              onPress={onConfirmReset}
+              fullWidth
+            />
+          </Card>
+        </View>
+      </Modal>
+    </View>
   );
 }
 
@@ -225,4 +337,18 @@ const styles = StyleSheet.create({
   },
   inactiveName: { flex: 1 },
   signOut: { marginTop: theme.spacing.lg },
+  dangerCard: { gap: theme.spacing.md },
+  dangerIcon: { backgroundColor: theme.colors.hp, borderColor: theme.colors.hp },
+  backdrop: {
+    flex: 1,
+    backgroundColor: theme.colors.overlay,
+    justifyContent: 'center',
+    padding: theme.spacing.lg,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.md,
+  },
 });

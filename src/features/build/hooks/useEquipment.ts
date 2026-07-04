@@ -19,17 +19,19 @@ export function useEquipmentCatalog() {
   return useQuery({
     queryKey: qk.equipmentCatalog,
     queryFn: async (): Promise<EquipmentCatalogItem[]> => {
-      console.log('[equip] GET /store/equipment — iniciando fetch');
+      if (__DEV__) console.log('[equip] GET /store/equipment — iniciando fetch');
       try {
         const data = await apiFetch<EquipmentCatalogItem[]>('/store/equipment');
-        console.log(
-          '[equip] resposta OK — itens:',
-          Array.isArray(data) ? data.length : typeof data,
-          Array.isArray(data) ? data.map((d) => d.name) : data,
-        );
+        if (__DEV__) {
+          console.log(
+            '[equip] resposta OK — itens:',
+            Array.isArray(data) ? data.length : typeof data,
+            Array.isArray(data) ? data.map((d) => d.name) : data,
+          );
+        }
         return data;
       } catch (err) {
-        console.log('[equip] ERRO no fetch:', err instanceof Error ? err.message : err);
+        if (__DEV__) console.log('[equip] ERRO no fetch:', err instanceof Error ? err.message : err);
         throw err;
       }
     },

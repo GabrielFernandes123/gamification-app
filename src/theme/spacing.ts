@@ -19,4 +19,7 @@ export const sizes = {
   barHeight: 12,
   hudBarHeight: 14,
   touch: 44, // alvo mínimo de toque (acessibilidade)
+  // Folga inferior para listas/scrolls das tabs: a tab bar flutuante ocupa
+  // ~86px (altura 76 + margem 10); 120 garante que nada fique escondido.
+  tabBarClearance: 120,
 } as const;

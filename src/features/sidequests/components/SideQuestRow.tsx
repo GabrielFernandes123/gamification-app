@@ -1,9 +1,11 @@
 import { useRouter } from 'expo-router';
 import { Check, Pencil } from 'lucide-react-native';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Card } from '@/components/ui/Card';
 import { Text } from '@/components/ui/Text';
+import { useToast } from '@/components/ui/Toast';
+import { formatErrorMessage } from '@/utils/errors';
 import { useDifficulties } from '@/features/habits/hooks/useDifficulties';
 import { DIFFICULTY_META } from '@/features/habits/meta';
 import { theme } from '@/theme/theme';
@@ -16,6 +18,7 @@ import { useCompleteSideQuest } from '../hooks/useSideQuests';
 
 export function SideQuestRow({ quest }: { quest: SideQuest }) {
   const router = useRouter();
+  const toast = useToast();
   const complete = useCompleteSideQuest();
   const { celebrate } = useLevelUp();
   const diffs = useDifficulties();
@@ -27,13 +30,13 @@ export function SideQuestRow({ quest }: { quest: SideQuest }) {
 
   function onComplete() {
     complete.mutate(quest.id, {
-      onError: (e) => Alert.alert('Ops', e instanceof Error ? e.message : 'Erro'),
+      onError: (e) => toast.error('Erro ao concluir missão', formatErrorMessage(e)),
       onSuccess: (res) => {
         if (res.leveledUp) celebrate(res.newLevel);
         const keys = res.newAchievements ?? [];
         if (keys.length > 0) {
           const titles = keys.map((k) => ACHIEVEMENT_BY_KEY[k]?.title ?? k).join(', ');
-          Alert.alert('🏆 Conquista desbloqueada!', titles);
+          toast.success('Conquista desbloqueada!', titles);
         }
       },
     });
