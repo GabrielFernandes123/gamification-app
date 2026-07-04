@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import type { Habit } from '@/features/habits/hooks/useHabits';
+import { clearTodayJourneyWidgetSnapshot } from '@/features/widgets/useTodayJourneyWidget';
 import { apiFetch } from '@/lib/api';
 import { qk } from '@/lib/queryKeys';
 
@@ -44,6 +45,7 @@ export function useResetProgress() {
         method: 'POST',
       }),
     onSuccess: () => {
+      clearTodayJourneyWidgetSnapshot();
       // Reset atinge personagem, hábitos, skills, corpo e logs: invalida tudo.
       qc.invalidateQueries();
     },

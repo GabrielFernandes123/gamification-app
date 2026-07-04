@@ -5,6 +5,7 @@ import { AppState } from 'react-native';
 import { clearCachedToken } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 import { queryClient } from '@/lib/queryClient';
+import { clearTodayJourneyWidgetSnapshot } from '@/features/widgets/useTodayJourneyWidget';
 
 type AuthResult = { error?: string };
 
@@ -26,6 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
+      clearTodayJourneyWidgetSnapshot();
       setLoading(false);
     });
 
@@ -34,6 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Zera o token em cache no logout ou troca de usuário no mesmo aparelho.
         if (event === 'SIGNED_OUT' || (newSession?.user?.id && prev?.user?.id && newSession.user.id !== prev.user.id)) {
           clearCachedToken();
+          clearTodayJourneyWidgetSnapshot();
         }
         return newSession;
       });
@@ -73,6 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await supabase.auth.signOut();
         clearCachedToken(); // zera Bearer em cache p/ não vazar entre usuários
         queryClient.clear(); // limpa cache p/ não vazar dados entre sessões
+        clearTodayJourneyWidgetSnapshot();
       },
     }),
     [session, loading],
