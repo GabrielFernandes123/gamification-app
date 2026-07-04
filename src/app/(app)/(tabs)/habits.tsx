@@ -82,23 +82,14 @@ export default function HabitsScreen() {
       (sum, habit) => {
         // Economia vem do servidor (GET /difficulties) — nada hardcoded.
         const reward = difficulties.data?.[habit.difficulty] ?? { xp: 0, gold: 0 };
-        const progress = progressByHabit.get(habit.id) ?? habitProgress(undefined, habit.id);
-        const target = dailyTarget(habit);
-        const completed =
-          habit.type === 'positive'
-            ? progress.success >= target
-            : progress.settled || progress.fail >= target;
         return {
-          habits: sum.habits + 1,
           xp: sum.xp + reward.xp,
           gold: sum.gold + reward.gold,
-          remainingXp: sum.remainingXp + (completed ? 0 : reward.xp),
-          remainingGold: sum.remainingGold + (completed ? 0 : reward.gold),
         };
       },
-      { habits: 0, xp: 0, gold: 0, remainingXp: 0, remainingGold: 0 },
+      { xp: 0, gold: 0 },
     );
-  }, [difficulties.data, habits.data, progressByHabit, weekday]);
+  }, [difficulties.data, habits.data, weekday]);
 
   const renderHabit = useCallback(
     ({ item }: { item: Habit }) => (
@@ -121,7 +112,30 @@ export default function HabitsScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
-        <Text variant="h1">Hábitos</Text>
+        <View style={styles.headerInfo}>
+          <Text variant="h1" numberOfLines={1}>
+            Hábitos
+          </Text>
+          {mode === 'habits' ? (
+            <View
+              style={styles.headerStats}
+              accessibilityLabel={`Potencial do dia: ${dailyPotential.xp} XP e ${dailyPotential.gold} ouro`}
+            >
+              <HeaderMetric
+                icon={<Zap color={theme.colors.xp} size={14} />}
+                label="XP"
+                value={dailyPotential.xp}
+                color={theme.colors.xp}
+              />
+              <HeaderMetric
+                icon={<Coins color={theme.colors.gold} size={14} />}
+                label="Ouro"
+                value={dailyPotential.gold}
+                color={theme.colors.gold}
+              />
+            </View>
+          ) : null}
+        </View>
         <View style={styles.headerActions}>
           <Pressable
             onPress={() => router.push('/(app)/skills')}
@@ -153,33 +167,6 @@ export default function HabitsScreen() {
           ]}
         />
       </View>
-
-      {mode === 'habits' ? (
-        <View style={styles.potentialCard}>
-          <View style={styles.flex}>
-            <Text variant="label" color={theme.colors.primary}>
-              Potencial do dia
-            </Text>
-            <Text variant="bodyMuted">
-              Soma base dos {dailyPotential.habits} hábito(s) de hoje
-            </Text>
-          </View>
-          <View style={styles.potentialGrid}>
-            <PotentialPill
-              icon={<Zap color={theme.colors.xp} size={16} />}
-              label="XP base"
-              value={dailyPotential.xp}
-              detail={`${dailyPotential.remainingXp} restante`}
-            />
-            <PotentialPill
-              icon={<Coins color={theme.colors.gold} size={16} />}
-              label="Ouro base"
-              value={dailyPotential.gold}
-              detail={`${dailyPotential.remainingGold} restante`}
-            />
-          </View>
-        </View>
-      ) : null}
 
       {loading ? (
         <View style={styles.center}>
@@ -251,32 +238,29 @@ export default function HabitsScreen() {
   );
 }
 
-function PotentialPill({
+function HeaderMetric({
   icon,
   label,
   value,
-  detail,
+  color,
 }: {
   icon: React.ReactNode;
   label: string;
   value: number;
-  detail: string;
+  color: string;
 }) {
   return (
-    <View style={styles.potentialPill}>
+    <View style={styles.headerMetric}>
       {icon}
-      <View style={styles.flex}>
-        <Text variant="title">{value}</Text>
-        <Text variant="label">{label}</Text>
-        <Text variant="bodyMuted">{detail}</Text>
-      </View>
+      <Text variant="bodyMedium" color={color} style={styles.headerMetricText}>
+        {value} {label}
+      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: theme.colors.bg },
-  flex: { flex: 1, minWidth: 0 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -290,6 +274,36 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surface,
     gap: theme.spacing.sm,
+  },
+  headerInfo: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: theme.spacing.sm,
+  },
+  headerStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    flexShrink: 1,
+  },
+  headerMetric: {
+    minHeight: 26,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.sm,
+    borderRadius: theme.radius.pill,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  headerMetricText: {
+    fontSize: theme.fontSizes.xs,
+    lineHeight: 16,
+    includeFontPadding: false,
   },
   headerActions: {
     flexDirection: 'row',
@@ -320,33 +334,6 @@ const styles = StyleSheet.create({
   selector: {
     paddingHorizontal: theme.spacing.lg,
     paddingBottom: theme.spacing.sm,
-  },
-  potentialCard: {
-    gap: theme.spacing.sm,
-    marginHorizontal: theme.spacing.lg,
-    marginBottom: theme.spacing.sm,
-    borderRadius: theme.radius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-    padding: theme.spacing.md,
-  },
-  potentialGrid: {
-    flexDirection: 'row',
-    gap: theme.spacing.sm,
-  },
-  potentialPill: {
-    flex: 1,
-    minWidth: 0,
-    minHeight: 72,
-    borderRadius: theme.radius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surfaceSoft,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-    padding: theme.spacing.sm,
   },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   errorBox: {
