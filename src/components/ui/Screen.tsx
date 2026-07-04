@@ -23,7 +23,7 @@ export function Screen({
   refreshing,
   onRefresh,
 }: Props) {
-  const inner: ViewStyle[] = [padded ? styles.padded : styles.unpadded];
+  const inner: ViewStyle[] = [styles.baseContent, padded ? styles.padded : styles.unpadded];
   if (contentStyle) inner.push(contentStyle);
 
   return (
@@ -51,6 +51,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: theme.colors.bg },
   flex: { flex: 1 },
   scrollContent: { flexGrow: 1 },
+  baseContent: { backgroundColor: theme.colors.bg },
   padded: { padding: theme.spacing.lg },
   unpadded: {},
 });

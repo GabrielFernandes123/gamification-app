@@ -24,13 +24,13 @@ export function Segmented<T extends string | number>({ options, value, onChange,
             onPress={() => onChange(o.value)}
             accessibilityRole="button"
             accessibilityState={{ selected }}
-            style={[
-              styles.item,
-              { borderColor: selected ? tint : theme.colors.border },
+          style={[
+            styles.item,
+              { borderColor: selected ? tint : theme.colors.transparent },
               selected ? { backgroundColor: tint + '22' } : null,
             ]}
           >
-            <Text variant="bodyMedium" color={selected ? tint : theme.colors.textMuted}>
+            <Text variant="label" color={selected ? tint : theme.colors.textMuted} numberOfLines={1}>
               {o.label}
             </Text>
           </Pressable>
@@ -43,19 +43,19 @@ export function Segmented<T extends string | number>({ options, value, onChange,
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
-    gap: 0,
+    gap: theme.spacing.xs,
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.surfaceAlt,
-    padding: 3,
+    backgroundColor: theme.colors.surface,
+    padding: 4,
   },
   wrap: { flexWrap: 'wrap', gap: theme.spacing.xs },
   item: {
-    minHeight: theme.sizes.touch,
+    minHeight: 38,
     paddingHorizontal: theme.spacing.md,
     borderRadius: theme.radius.sm,
-    borderWidth: 0,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     flexGrow: 1,

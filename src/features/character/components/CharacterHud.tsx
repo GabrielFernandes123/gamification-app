@@ -155,7 +155,9 @@ const styles = StyleSheet.create({
   avatar: {
     width: 56,
     height: 56,
-    borderRadius: theme.radius.pill,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.primaryBright,
     backgroundColor: theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
@@ -164,6 +166,8 @@ const styles = StyleSheet.create({
   levelBadge: {
     alignSelf: 'flex-start',
     backgroundColor: theme.colors.primaryDim,
+    borderWidth: 1,
+    borderColor: theme.colors.primaryBright,
     borderRadius: theme.radius.sm,
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: 2,

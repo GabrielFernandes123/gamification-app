@@ -60,7 +60,8 @@ Cada ficha: o que recompensa · `source_type` · base de dificuldade · o que al
   (ver [02 §5.1](./02-economia.md)).
 - **Alimenta:** skill primária (100%) + secundária (50%) → e portanto os atributos
   mapeados ([03](./03-atributos-build.md)).
-- **Streak / dano:** sim / sim (fechamento diário/semanal/mensal).
+- **Streak / dano:** sim / sim. O streak é diário mesmo nos flexíveis; fechamento de
+  período só carimba a avaliação semanal/mensal.
 
 ### 4.2 Skills ✅ (entidade transversal, não é "atividade")
 - Não chama `_grant` por si; **recebe** XP de outros módulos.

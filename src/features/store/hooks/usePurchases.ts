@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Character } from '@/features/character/hooks/useCharacter';
 import { apiFetch } from '@/lib/api';
 import { qk } from '@/lib/queryKeys';
-import type { Reward, SystemItem } from './useStore';
+import type { InventoryItem, Reward, SystemItem, UserItem } from './useStore';
 
 export function usePurchaseSystemItem() {
   const qc = useQueryClient();
@@ -41,6 +41,129 @@ export function usePurchaseSystemItem() {
         qc.invalidateQueries({ queryKey: qk.activeBuffs });
       }
       qc.invalidateQueries({ queryKey: qk.purchases, refetchType: 'inactive' });
+    },
+  });
+}
+
+export function usePurchaseSystemItemToInventory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ itemId }: { itemId: string }) => {
+      return apiFetch<{ message: string; goldSpent: number; itemId: string }>(
+        `/store/system-items/${itemId}/purchase-to-inventory`,
+        { method: 'POST' },
+      );
+    },
+    onSuccess: (data) => {
+      qc.setQueryData<Character>(qk.character, (current) =>
+        current
+          ? {
+              ...current,
+              gold: Math.max(0, Number(current.gold) - data.goldSpent),
+            }
+          : current,
+      );
+      qc.invalidateQueries({ queryKey: qk.inventory });
+      qc.invalidateQueries({ queryKey: qk.inventoryTransactions });
+      qc.invalidateQueries({ queryKey: qk.purchases, refetchType: 'inactive' });
+    },
+  });
+}
+
+export function useUseInventoryItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      item,
+      habitId,
+    }: {
+      item: InventoryItem;
+      habitId?: string;
+    }) =>
+      apiFetch<{ message: string; itemId: string; itemKind: 'system' | 'custom'; quantityUsed: number }>(
+        `/store/inventory/${item.itemId}/use`,
+        {
+          method: 'POST',
+          body: { habitId, itemKind: item.itemKind },
+        },
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.inventory });
+      qc.invalidateQueries({ queryKey: qk.inventoryTransactions });
+      qc.invalidateQueries({ queryKey: qk.character });
+      qc.invalidateQueries({ queryKey: qk.activeBuffs });
+      qc.invalidateQueries({ queryKey: qk.habits });
+    },
+  });
+}
+
+export function useCreateUserItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: {
+      name: string;
+      description?: string | null;
+      category?: string | null;
+      icon?: string | null;
+      rarity?: string | null;
+      is_consumable?: boolean;
+    }) => apiFetch<UserItem>('/store/user-items', { method: 'POST', body: payload }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.userItems }),
+  });
+}
+
+export function useUpdateUserItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      itemId,
+      payload,
+    }: {
+      itemId: string;
+      payload: Partial<{
+        name: string;
+        description: string | null;
+        category: string | null;
+        icon: string | null;
+        rarity: string | null;
+        is_consumable: boolean;
+        is_active: boolean;
+      }>;
+    }) => apiFetch<UserItem>(`/store/user-items/${itemId}`, { method: 'PATCH', body: payload }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.userItems });
+      qc.invalidateQueries({ queryKey: qk.inventory });
+    },
+  });
+}
+
+export function useDeleteUserItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (itemId: string) =>
+      apiFetch<{ deleted: boolean }>(`/store/user-items/${itemId}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.userItems });
+      qc.invalidateQueries({ queryKey: qk.inventory });
+    },
+  });
+}
+
+export function useGrantUserItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ itemId, quantity }: { itemId: string; quantity: number }) =>
+      apiFetch<{ itemId: string; itemKind: 'custom'; quantity: number; quantityAdded: number }>(
+        `/store/user-items/${itemId}/grant`,
+        {
+          method: 'POST',
+          body: { quantity },
+        },
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.inventory });
+      qc.invalidateQueries({ queryKey: qk.inventoryTransactions });
+      qc.invalidateQueries({ queryKey: qk.userItems });
     },
   });
 }

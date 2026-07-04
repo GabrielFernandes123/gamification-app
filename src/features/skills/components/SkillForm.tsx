@@ -126,10 +126,25 @@ export function SkillForm({ skill }: { skill?: Skill }) {
 
 const styles = StyleSheet.create({
   content: { gap: theme.spacing.lg },
-  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    padding: theme.spacing.md,
+  },
   field: { gap: theme.spacing.sm },
   colors: { flexDirection: 'row', gap: theme.spacing.md, flexWrap: 'wrap' },
-  swatch: { width: 40, height: 40, borderRadius: theme.radius.pill, borderWidth: 2, borderColor: 'transparent' },
-  swatchOn: { borderColor: theme.colors.text },
+  swatch: {
+    width: 40,
+    height: 40,
+    borderRadius: theme.radius.md,
+    borderWidth: 2,
+    borderColor: theme.colors.border,
+  },
+  swatchOn: { borderColor: theme.colors.text, transform: [{ scale: 1.08 }] },
   deleteBtn: { marginTop: theme.spacing.sm },
 });

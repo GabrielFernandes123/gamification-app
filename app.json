@@ -48,6 +48,29 @@
           "icon": "./assets/logo.png",
           "color": "#A855F7"
         }
+      ],
+      [
+        "expo-widgets",
+        {
+          "bundleIdentifier": "com.gabriel.evolve.widgets",
+          "groupIdentifier": "group.com.gabriel.evolve",
+          "widgets": [
+            {
+              "name": "TodayJourneyWidget",
+              "displayName": "Jornada de Hoje",
+              "description": "Ações, metas e estado do personagem para manter a campanha do dia viva.",
+              "contentMarginsDisabled": true,
+              "supportedFamilies": [
+                "systemSmall",
+                "systemMedium",
+                "systemLarge",
+                "accessoryCircular",
+                "accessoryRectangular",
+                "accessoryInline"
+              ]
+            }
+          ]
+        }
       ]
     ],
     "experiments": {

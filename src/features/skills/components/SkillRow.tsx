@@ -42,7 +42,16 @@ export function SkillRow({ skill }: { skill: Skill }) {
 
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md },
-  iconWrap: { width: 40, alignItems: 'center' },
+  iconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   info: { flex: 1, gap: 2 },
   bar: { marginTop: theme.spacing.md },
 });

@@ -193,7 +193,16 @@ function formatDate(date: string) {
 const styles = StyleSheet.create({
   loading: { flex: 1, backgroundColor: theme.colors.bg, justifyContent: 'center' },
   content: { gap: theme.spacing.lg, paddingBottom: theme.spacing.xxl },
-  header: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    padding: theme.spacing.md,
+  },
   headerCopy: { flex: 1, minWidth: 0 },
   iconBtn: {
     width: 42,
@@ -203,11 +212,17 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.colors.surfaceSoft,
   },
-  hero: { gap: theme.spacing.lg, backgroundColor: theme.colors.surfaceAlt },
+  hero: { gap: theme.spacing.lg, backgroundColor: theme.colors.surfaceSoft },
   heroTop: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm },
-  typeBadge: { borderRadius: theme.radius.sm, paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.xs },
+  typeBadge: {
+    borderRadius: theme.radius.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xs,
+  },
   diffBadge: {
     borderRadius: theme.radius.sm,
     borderWidth: 1,

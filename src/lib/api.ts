@@ -57,7 +57,7 @@ async function getAccessToken(): Promise<string> {
   } = await supabase.auth.getSession();
 
   if (!session?.access_token) {
-    throw new Error('Nao autenticado');
+    throw new Error('Não autenticado');
   }
 
   cachedAccessToken = session.access_token;

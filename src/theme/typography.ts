@@ -14,9 +14,9 @@ export const fontSizes = {
   sm: 14,
   md: 16,
   lg: 18,
-  xl: 22,
-  xxl: 28,
-  display: 40,
+  xl: 21,
+  xxl: 27,
+  display: 38,
 } as const;
 
 export type FontKey = keyof typeof fonts;

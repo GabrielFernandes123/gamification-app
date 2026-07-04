@@ -12,7 +12,7 @@ export const CLASSES: readonly {
 }[] = [
   { key: 'guerreiro', label: 'Guerreiro', favorite: 'forca', hint: 'Treino e disciplina física' },
   { key: 'mago', label: 'Mago', favorite: 'foco', hint: 'Estudo e mente' },
-  { key: 'ladino', label: 'Ladino', favorite: 'agilidade', hint: 'Constância e streaks' },
+  { key: 'ladino', label: 'Ladino', favorite: 'agilidade', hint: 'Constância e sequências' },
 ];
 
 /** Custo do respec de classe em Essência (espelha a API; 1ª escolha é grátis). */

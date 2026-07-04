@@ -113,7 +113,14 @@ skill_secundária.xp += floor(xp_final × 0.5)        # 50%
 
 Dois níveis (o segundo é 🆕):
 
-- **Streak por hábito** ✅🔄: no **fixo/diário** (`weekdays`) incrementa a cada **dia** cumprido (positivo) ou resistido (negativo); no **flexível** (`weekly_count`/`monthly`) incrementa quando a **meta de dias do período** é batida (no fechamento de período). Reseta a 0 no dia perdido (fixo) ou no período não-batido (flexível). Overshoot não afeta. Campos: `current_streak`, `last_streak`, `best_streak`. Alimenta o bônus de §5.2.
+- **Streak por hábito** ✅🔄: é **diário** em todos os agendamentos. No **fixo/diário**
+  (`weekdays`) incrementa a cada dia cumprido (positivo) ou resistido (negativo) e
+  zera no dia obrigatório perdido. No **flexível** (`weekly_count`/`monthly`), positivo
+  incrementa quando o dia bate a meta diária; negativo incrementa quando o dia fecha
+  resistido. Dias sem execução **não sobem** e **não zeram** enquanto ainda for possível
+  cumprir a meta do período; zeram quando a margem acaba (positivo) ou quando o limite
+  diário é estourado (negativo). Overshoot/extras não dão mais de +1 por dia. Campos:
+  `current_streak`, `last_streak`, `best_streak`. Alimenta o bônus de §5.2.
 - **Streak de personagem** 🆕: "dias consecutivos com ≥1 evento positivo no ledger". É o número de narrativa global do HUD. Lido direto do `economy_events`, não precisa de coluna nova. (Quebra: um dia sem nenhum evento positivo.)
 
 ## 7. Dano
@@ -125,10 +132,10 @@ dano = ceil( dificuldade.fator_dano × proporção_faltante )   # teto: 80% do m
 - **Fixo/diário:** dia incompleto → dano acima + streak zera. Cada dia marcado é
   obrigatório, **sem tolerância**. Ex.: fez 2 de 10 (faltou 80%) num hábito difícil
   (fator 18) → ceil(18 × 0.8) = 15.
-- **Flexível:** dia incompleto só toma dano quando a **margem acabou** — i.e., quando
-  nem completando todos os dias restantes dá pra bater a meta de dias do período. Até
-  lá, dia incompleto rende só o prêmio parcial, **sem dano**. Não bater o período =
-  streak zera (sem dano extra — o dano já foi cobrado por dia).
+- **Flexível:** dia incompleto só toma dano e zera streak quando a **margem acabou** —
+  i.e., quando nem completando todos os dias restantes dá pra bater a meta de dias do
+  período. Até lá, dia incompleto rende só o prêmio parcial, **sem dano** e sem mexer
+  no streak. Não há reset extra no fechamento do período.
 
 ### 7.2 Hábito negativo 🔄 (resistência premiada — dano imediato no dia)
 Vale para **todo** agendamento (não é mais adiado p/ o fechamento do período):
@@ -137,7 +144,8 @@ Vale para **todo** agendamento (não é mais adiado p/ o fechamento do período)
 - **ALÉM do limite** (registro contínuo, sem teto de quantidade): dano **escalante** por
   recaída extra — base `fator_dano / limite`, **+20%/extra se limite = 1** (tolerância
   zero), **+10%/extra se limite ≥ 2**; teto 80% HP por golpe, acumula **até a morte**.
-- **Período:** só ajusta o streak (resistiu ≥ meta de dias?); sem dano/recompensa extra.
+- **Período:** mede se a meta de dias foi batida para histórico/analytics; sem dano,
+  recompensa ou incremento extra de streak.
 
 ### 7.3 Redução de dano (buff) ✅
 Dano efetivo = `floor( dano × (1 − redução%/100) )`, da maior redução ativa em

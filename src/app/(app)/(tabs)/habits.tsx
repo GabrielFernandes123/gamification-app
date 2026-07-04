@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { Flag, Hexagon, Plus, Repeat } from 'lucide-react-native';
+import { Coins, Flag, Hexagon, Plus, Repeat, Zap } from 'lucide-react-native';
 import { memo, useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,7 +15,7 @@ import {
   usePeriodLogs,
   useTodayLogs,
 } from '@/features/habits/hooks/useTodayLogs';
-import { isDueToday } from '@/features/habits/meta';
+import { dailyTarget, isDueToday } from '@/features/habits/meta';
 import { SideQuestRow } from '@/features/sidequests/components/SideQuestRow';
 import { useSideQuests, type SideQuest } from '@/features/sidequests/hooks/useSideQuests';
 import { useToday } from '@/hooks/useToday';
@@ -26,6 +26,14 @@ type Mode = 'habits' | 'sidequests';
 
 const Row = memo(HabitRow);
 const QuestRow = memo(SideQuestRow);
+
+const BASE_REWARD: Record<Habit['difficulty'], { xp: number; gold: number }> = {
+  trivial: { xp: 10, gold: 4 },
+  easy: { xp: 20, gold: 8 },
+  medium: { xp: 40, gold: 16 },
+  hard: { xp: 80, gold: 32 },
+  epic: { xp: 150, gold: 64 },
+};
 
 export default function HabitsScreen() {
   const router = useRouter();
@@ -51,20 +59,21 @@ export default function HabitsScreen() {
     }
   }, [mode, qc, today, quests]);
 
-  const data = useMemo(
-    () =>
-      (habits.data ?? []).slice().sort((a, b) => {
-        const da = isDueToday(a, weekday) ? 0 : 1;
-        const db = isDueToday(b, weekday) ? 0 : 1;
-        return da - db;
-      }),
-    [habits.data, weekday],
-  );
   const progressByHabit = useMemo(() => {
     const map = new Map<string, ReturnType<typeof habitProgress>>();
     for (const habit of habits.data ?? []) map.set(habit.id, habitProgress(logs.data, habit.id));
     return map;
   }, [habits.data, logs.data]);
+  const data = useMemo(
+    () =>
+      (habits.data ?? []).slice().sort((a, b) => {
+        const pa = habitSortPriority(a, progressByHabit.get(a.id), weekday);
+        const pb = habitSortPriority(b, progressByHabit.get(b.id), weekday);
+        if (pa !== pb) return pa - pb;
+        return a.name.localeCompare(b.name, 'pt-BR');
+      }),
+    [habits.data, progressByHabit, weekday],
+  );
   const periodProgressByHabit = useMemo(() => {
     const map = new Map<string, ReturnType<typeof periodDayProgress>>();
     for (const habit of habits.data ?? []) {
@@ -72,6 +81,29 @@ export default function HabitsScreen() {
     }
     return map;
   }, [habits.data, periodLogs.data, today]);
+
+  const dailyPotential = useMemo(() => {
+    const dueHabits = (habits.data ?? []).filter((habit) => isDueToday(habit, weekday));
+    return dueHabits.reduce(
+      (sum, habit) => {
+        const reward = BASE_REWARD[habit.difficulty];
+        const progress = progressByHabit.get(habit.id) ?? habitProgress(undefined, habit.id);
+        const target = dailyTarget(habit);
+        const completed =
+          habit.type === 'positive'
+            ? progress.success >= target
+            : progress.settled || progress.fail >= target;
+        return {
+          habits: sum.habits + 1,
+          xp: sum.xp + reward.xp,
+          gold: sum.gold + reward.gold,
+          remainingXp: sum.remainingXp + (completed ? 0 : reward.xp),
+          remainingGold: sum.remainingGold + (completed ? 0 : reward.gold),
+        };
+      },
+      { habits: 0, xp: 0, gold: 0, remainingXp: 0, remainingGold: 0 },
+    );
+  }, [habits.data, progressByHabit, weekday]);
 
   const renderHabit = useCallback(
     ({ item }: { item: Habit }) => (
@@ -125,6 +157,33 @@ export default function HabitsScreen() {
         />
       </View>
 
+      {mode === 'habits' ? (
+        <View style={styles.potentialCard}>
+          <View style={styles.flex}>
+            <Text variant="label" color={theme.colors.primary}>
+              Potencial do dia
+            </Text>
+            <Text variant="bodyMuted">
+              Soma base dos {dailyPotential.habits} hábito(s) de hoje
+            </Text>
+          </View>
+          <View style={styles.potentialGrid}>
+            <PotentialPill
+              icon={<Zap color={theme.colors.xp} size={16} />}
+              label="XP base"
+              value={dailyPotential.xp}
+              detail={`${dailyPotential.remainingXp} restante`}
+            />
+            <PotentialPill
+              icon={<Coins color={theme.colors.gold} size={16} />}
+              label="Ouro base"
+              value={dailyPotential.gold}
+              detail={`${dailyPotential.remainingGold} restante`}
+            />
+          </View>
+        </View>
+      ) : null}
+
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator color={theme.colors.primary} />
@@ -174,15 +233,44 @@ export default function HabitsScreen() {
   );
 }
 
+function PotentialPill({
+  icon,
+  label,
+  value,
+  detail,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  detail: string;
+}) {
+  return (
+    <View style={styles.potentialPill}>
+      {icon}
+      <View style={styles.flex}>
+        <Text variant="title">{value}</Text>
+        <Text variant="label">{label}</Text>
+        <Text variant="bodyMuted">{detail}</Text>
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: theme.colors.bg },
+  flex: { flex: 1, minWidth: 0 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.md,
-    paddingBottom: theme.spacing.sm,
+    marginHorizontal: theme.spacing.lg,
+    marginTop: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
+    padding: theme.spacing.md,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
     gap: theme.spacing.sm,
   },
   headerActions: {
@@ -199,12 +287,14 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.colors.surfaceAlt,
   },
   addBtn: {
     width: theme.sizes.touch,
     height: theme.sizes.touch,
-    borderRadius: theme.radius.pill,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.primaryBright,
     backgroundColor: theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
@@ -213,8 +303,63 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
     paddingBottom: theme.spacing.sm,
   },
+  potentialCard: {
+    gap: theme.spacing.sm,
+    marginHorizontal: theme.spacing.lg,
+    marginBottom: theme.spacing.sm,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    padding: theme.spacing.md,
+  },
+  potentialGrid: {
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+  },
+  potentialPill: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 72,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceSoft,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    padding: theme.spacing.sm,
+  },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   list: { padding: theme.spacing.lg, paddingTop: theme.spacing.sm, flexGrow: 1 },
-  empty: { alignItems: 'center', gap: theme.spacing.sm, marginTop: theme.spacing.xxl * 2, paddingHorizontal: theme.spacing.xl },
+  empty: {
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    marginTop: theme.spacing.xxl * 2,
+    padding: theme.spacing.xl,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
   emptyText: { textAlign: 'center' },
 });
+
+function habitSortPriority(
+  habit: Habit,
+  progress: ReturnType<typeof habitProgress> | undefined,
+  weekday: number,
+) {
+  if (!isDueToday(habit, weekday)) return 4;
+  const current = progress ?? habitProgress(undefined, habit.id);
+  const target = dailyTarget(habit);
+  if (current.settled) return 3;
+  if (habit.type === 'positive') {
+    if (current.success >= target) return 2;
+    if (current.success > 0) return 1;
+    return 0;
+  }
+  if (current.fail >= target) return 2;
+  if (current.fail > 0) return 1;
+  return 0;
+}

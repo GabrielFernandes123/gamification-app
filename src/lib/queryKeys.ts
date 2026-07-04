@@ -14,6 +14,9 @@ export const qk = {
   systemItems: ['systemItems'] as const,
   rewards: ['rewards'] as const,
   activeBuffs: ['activeBuffs'] as const,
+  inventory: ['inventory'] as const,
+  inventoryTransactions: ['inventoryTransactions'] as const,
+  userItems: ['userItems'] as const,
   purchases: ['purchases'] as const,
   achievements: ['achievements'] as const,
   sideQuests: ['sideQuests'] as const,
@@ -39,5 +42,7 @@ export const qk = {
   currentSeason: ['currentSeason'] as const,
   seasonStory: ['seasonStory'] as const,
   seasonSaga: ['seasonSaga'] as const,
+  objectivesOverview: ['objectivesOverview'] as const,
+  objectiveSuggestions: ['objectiveSuggestions'] as const,
   notificationSnapshot: ['notificationSnapshot'] as const,
 };

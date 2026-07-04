@@ -48,7 +48,8 @@
   `schedule`(weekdays|weekly_count|monthly), `executions_per_day` (**meta/limite
   DIÁRIO**), `weekdays[]`, `weekly_target`/`monthly_target` (**meta de período EM
   DIAS** — quantos dias completos/resistidos), `last_period_close` (🆕 idempotência do
-  fechamento de período), `primary_skill_id`, `secondary_skill_id`, `current_streak`,
+  fechamento de período; o streak flexível é diário), `primary_skill_id`,
+  `secondary_skill_id`, `current_streak`,
   `last_streak`, `best_streak`, `is_active`. 🔄 `monthly_day` **removido** (não há fixo
   mensal; o enum `schedule` já codifica fixo=`weekdays` vs flexível=`weekly_count`/`monthly`).
 - **habit_logs** ✅ — `habit_id`, `user_id`, `occurred_on`, `success`, `is_auto`,

@@ -11,7 +11,13 @@ type Props = {
 
 export function Card({ children, style, accent }: Props) {
   return (
-    <View style={[styles.card, accent ? { borderLeftWidth: 4, borderLeftColor: accent } : null, style]}>
+    <View
+      style={[
+        styles.card,
+        accent ? { borderColor: accent, borderLeftWidth: 4, shadowColor: accent } : null,
+        style,
+      ]}
+    >
       {children}
     </View>
   );
@@ -22,7 +28,12 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
     borderColor: theme.colors.border,
     borderWidth: 1,
-    borderRadius: theme.radius.lg,
+    borderRadius: theme.radius.md,
     padding: theme.spacing.lg,
+    shadowColor: theme.colors.primary,
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 2,
   },
 });

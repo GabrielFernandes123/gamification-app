@@ -21,7 +21,7 @@ type Props = {
 const BG: Record<Variant, string> = {
   primary: theme.colors.primary,
   success: theme.colors.success,
-  danger: theme.colors.hp,
+  danger: theme.colors.danger,
   ghost: theme.colors.transparent,
   outline: theme.colors.transparent,
 };
@@ -82,13 +82,15 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.md,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.transparent,
   },
-  md: { minHeight: 50, paddingHorizontal: theme.spacing.lg },
-  sm: { minHeight: 40, paddingHorizontal: theme.spacing.md },
-  outline: { borderWidth: 1, borderColor: theme.colors.border },
+  md: { minHeight: 48, paddingHorizontal: theme.spacing.lg },
+  sm: { minHeight: 38, paddingHorizontal: theme.spacing.md },
+  outline: { borderColor: theme.colors.border, backgroundColor: theme.colors.surfaceSoft },
   fullWidth: { alignSelf: 'stretch' },
   pressed: { opacity: 0.8 },
   disabled: { opacity: 0.45 },
   row: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm },
-  label: { fontSize: theme.fontSizes.md },
+  label: { fontSize: theme.fontSizes.sm, textTransform: 'uppercase', letterSpacing: 0.5 },
 });

@@ -27,7 +27,7 @@ function parseTime(t: string): { hour: number; minute: number } | null {
 
 function content(habit: SchedulableHabit): Notifications.NotificationContentInput {
   const title = habit.type === 'positive' ? `Hora de: ${habit.name}` : `Segura firme: ${habit.name}`;
-  const body = habit.type === 'positive' ? 'Registre e ganhe XP.' : 'Evite a recaida e mantenha o streak.';
+  const body = habit.type === 'positive' ? 'Registre e ganhe XP.' : 'Evite a recaída e mantenha a sequência.';
   return { title, body, data: { habitId: habit.id } };
 }
 
@@ -85,7 +85,7 @@ async function scheduleBodyAlerts(alerts: string[]) {
 export async function syncAppNotifications(habits: SchedulableHabit[], bodyAlerts: string[] = []) {
   try {
     await Notifications.setNotificationChannelAsync('habits', {
-      name: 'Habitos',
+      name: 'Hábitos',
       importance: Notifications.AndroidImportance.DEFAULT,
     });
     await Notifications.setNotificationChannelAsync('body', {
@@ -96,7 +96,7 @@ export async function syncAppNotifications(habits: SchedulableHabit[], bodyAlert
     for (const h of habits) await scheduleForHabit(h);
     await scheduleBodyAlerts(bodyAlerts);
   } catch {
-    // Notificacoes sao best-effort.
+    // Notificações são best-effort.
   }
 }
 

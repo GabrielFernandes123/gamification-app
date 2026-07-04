@@ -95,11 +95,11 @@ const styles = StyleSheet.create({
   },
   toast: {
     minHeight: 58,
-    borderRadius: theme.radius.lg,
+    borderRadius: theme.radius.md,
     borderWidth: 1,
     borderLeftWidth: 4,
     borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surfaceAlt,
+    backgroundColor: theme.colors.surfaceSoft,
     padding: theme.spacing.md,
     flexDirection: 'row',
     alignItems: 'center',

@@ -20,7 +20,7 @@ export function useDailySummary() {
         }
       })
       .catch(() => {
-        // Informativo: nao bloqueia a abertura do app.
+        // Informativo: não bloqueia a abertura do app.
       });
     return () => {
       active = false;

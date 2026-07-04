@@ -15,7 +15,7 @@ export async function scheduleRewardCooldownNotification(reward: Reward) {
 
   await Notifications.scheduleNotificationAsync({
     content: {
-      title: 'Recompensa disponivel',
+      title: 'Recompensa disponível',
       body: `${reward.name} saiu do cooldown.`,
       data: { route: '/(app)/(tabs)/store', rewardId: reward.id, type: 'reward-cooldown' },
     },

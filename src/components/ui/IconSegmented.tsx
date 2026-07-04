@@ -39,7 +39,7 @@ export function IconSegmented<T extends string | number>({ options, value, onCha
         return (
           <Pressable
             key={String(o.value)}
-            style={styles.item}
+            style={[styles.item, selected && { borderColor: tint, backgroundColor: tint + '14' }]}
             onPress={() => onChange(o.value)}
             accessibilityRole="button"
             accessibilityState={{ selected }}
@@ -49,7 +49,7 @@ export function IconSegmented<T extends string | number>({ options, value, onCha
               style={[
                 styles.icon,
                 { borderColor: selected ? tint : theme.colors.border },
-                selected ? { backgroundColor: tint + '22' } : null,
+                selected ? { backgroundColor: tint + '24' } : null,
               ]}
             >
               {createElement(o.icon, { color: fg, size: 20 })}
@@ -66,14 +66,22 @@ export function IconSegmented<T extends string | number>({ options, value, onCha
 
 const styles = StyleSheet.create({
   scroll: { flexGrow: 0, alignSelf: 'stretch' },
-  grid: { gap: theme.spacing.md, paddingRight: theme.spacing.sm },
-  item: { width: 72, alignItems: 'center', gap: theme.spacing.xs },
+  grid: { gap: theme.spacing.sm, paddingRight: theme.spacing.sm },
+  item: {
+    width: 76,
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    borderWidth: 1,
+    borderColor: theme.colors.transparent,
+    borderRadius: theme.radius.md,
+    paddingVertical: theme.spacing.xs,
+  },
   icon: {
-    width: 48,
-    height: 48,
+    width: 46,
+    height: 46,
     borderRadius: theme.radius.md,
     borderWidth: 1,
-    backgroundColor: theme.colors.surfaceAlt,
+    backgroundColor: theme.colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -1,20 +1,36 @@
 import * as Notifications from 'expo-notifications';
 import { Tabs, useRouter } from 'expo-router';
-import { Dumbbell, Home, ShoppingBag, Target } from 'lucide-react-native';
+import { Backpack, Dumbbell, Home, Repeat2, Swords } from 'lucide-react-native';
+import type { ReactNode } from 'react';
 import { useEffect } from 'react';
-import { Image, StyleSheet } from 'react-native';
+import { StyleSheet, View, type ColorValue } from 'react-native';
 
 import { useNotificationSync } from '@/features/notifications/useNotificationSync';
 import { theme } from '@/theme/theme';
 
-// Botão central: a logo do app, flutuando acima da tab bar.
-function HistoriaIcon({ focused }: { focused: boolean }) {
+function TabIcon({
+  focused,
+  color,
+  children,
+}: {
+  focused: boolean;
+  color: ColorValue;
+  children: ReactNode;
+}) {
+  const tint = String(color);
   return (
-    <Image
-      source={require('../../../../assets/logo.png')}
-      style={[styles.historiaLogo, focused && styles.historiaLogoOn]}
-      resizeMode="contain"
-    />
+    <View
+      style={[
+        styles.iconShell,
+        focused && {
+          borderColor: color,
+          backgroundColor: tint.startsWith('#') ? `${tint}1F` : 'rgba(250,204,21,0.12)',
+        },
+      ]}
+    >
+      {children}
+      {focused ? <View style={[styles.iconPulse, { backgroundColor: color }]} /> : null}
+    </View>
   );
 }
 
@@ -43,53 +59,66 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: theme.colors.primary,
+        tabBarActiveTintColor: theme.colors.gold,
         tabBarInactiveTintColor: theme.colors.textMuted,
-        tabBarStyle: {
-          backgroundColor: theme.colors.surface,
-          borderTopColor: theme.colors.border,
-          height: 72,
-          overflow: 'visible',
-          paddingTop: 6,
-        },
-        tabBarLabelStyle: { fontFamily: theme.fonts.bodyMedium, fontSize: 11 },
+        tabBarStyle: styles.tabBar,
+        tabBarItemStyle: styles.tabItem,
+        tabBarLabelStyle: styles.tabLabel,
       }}
     >
       <Tabs.Screen
         name="dashboard"
         options={{
-          title: 'Início',
-          tabBarIcon: ({ color, size }) => <Home color={color} size={size} />,
+          title: 'Home',
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon focused={focused} color={color}>
+              <Home color={color} size={20} />
+            </TabIcon>
+          ),
         }}
       />
       <Tabs.Screen
         name="habits"
         options={{
-          title: 'Hábitos',
-          tabBarIcon: ({ color, size }) => <Target color={color} size={size} />,
-        }}
-      />
-      <Tabs.Screen
-        name="historia"
-        options={{
-          title: 'História',
-          tabBarItemStyle: styles.historiaTab,
-          tabBarLabel: () => null,
-          tabBarIcon: ({ focused }) => <HistoriaIcon focused={focused} />,
+          title: 'Rotina',
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon focused={focused} color={color}>
+              <Repeat2 color={color} size={20} />
+            </TabIcon>
+          ),
         }}
       />
       <Tabs.Screen
         name="body"
         options={{
           title: 'Corpo',
-          tabBarIcon: ({ color, size }) => <Dumbbell color={color} size={size} />,
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon focused={focused} color={color}>
+              <Dumbbell color={color} size={20} />
+            </TabIcon>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="historia"
+        options={{
+          title: 'Jornada',
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon focused={focused} color={color}>
+              <Swords color={color} size={20} />
+            </TabIcon>
+          ),
         }}
       />
       <Tabs.Screen
         name="store"
         options={{
-          title: 'Loja',
-          tabBarIcon: ({ color, size }) => <ShoppingBag color={color} size={size} />,
+          title: 'Bolsa',
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon focused={focused} color={color}>
+              <Backpack color={color} size={20} />
+            </TabIcon>
+          ),
         }}
       />
     </Tabs>
@@ -97,26 +126,47 @@ export default function TabsLayout() {
 }
 
 const styles = StyleSheet.create({
-  historiaLogo: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    marginTop: -32,
-    opacity: 0.82,
-    borderWidth: 2,
-    borderColor: 'rgba(167,139,250,0.45)',
-    shadowColor: '#7C3AED',
-    shadowOpacity: 0.5,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 10,
+  tabBar: {
+    height: 76,
+    marginHorizontal: 14,
+    marginBottom: 10,
+    borderRadius: 20,
+    borderTopWidth: 0,
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.22)',
+    backgroundColor: 'rgba(2,6,23,0.94)',
+    overflow: 'visible',
+    paddingTop: 8,
+    paddingBottom: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.35,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 18,
   },
-  historiaLogoOn: {
-    opacity: 1,
-    borderWidth: 3,
-    borderColor: '#A78BFA',
-    shadowOpacity: 0.75,
-    transform: [{ scale: 1.14 }],
+  tabItem: {
+    minWidth: 0,
+    paddingHorizontal: 0,
   },
-  historiaTab: { justifyContent: 'center' },
+  tabLabel: {
+    fontFamily: theme.fonts.bodySemibold,
+    fontSize: 11,
+    marginTop: 3,
+  },
+  iconShell: {
+    width: 38,
+    height: 32,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconPulse: {
+    position: 'absolute',
+    bottom: -5,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+  },
 });

@@ -34,6 +34,7 @@ function syntheticLog(habitId: string, today: string, success: boolean, salt: nu
 }
 
 function invalidateHabitActivity(qc: ReturnType<typeof useQueryClient>, today: string) {
+  qc.invalidateQueries({ queryKey: qk.habits });
   qc.invalidateQueries({ queryKey: qk.todayLogs(today) });
   qc.invalidateQueries({ queryKey: qk.periodLogs(today) });
   qc.invalidateQueries({ queryKey: qk.habitLogsRoot });
@@ -58,7 +59,9 @@ function addCharacterReward(qc: ReturnType<typeof useQueryClient>, data: Complet
     total_xp: Math.max(0, Number(current.total_xp) + xp),
     gold: Math.max(0, Number(current.gold) + gold),
     ...('newLevel' in data && data.leveledUp ? { level: data.newLevel } : null),
-    ...('newStreak' in data ? { character_streak: data.newStreak } : null),
+    ...('characterStreak' in data && data.characterStreak !== undefined
+      ? { character_streak: data.characterStreak }
+      : null),
   }));
 }
 

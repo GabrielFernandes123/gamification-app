@@ -1068,6 +1068,14 @@
     sf-symbols-typescript "^2.1.0"
     vaul "^1.1.2"
 
+"@expo/ui@~56.0.18":
+  version "56.0.18"
+  resolved "https://registry.npmjs.org/@expo/ui/-/ui-56.0.18.tgz"
+  integrity sha512-2XgH5obigGtXm8zlb/V3g87NSiIcBcJ1xoQOEQYPoExL1DCNsHzaIecTh1XG/f/45ardo4OZNJwpbfYJ9X3qrQ==
+  dependencies:
+    sf-symbols-typescript "^2.1.0"
+    vaul "^1.1.2"
+
 "@expo/ws-tunnel@^1.0.1":
   version "1.0.6"
   resolved "https://registry.npmjs.org/@expo/ws-tunnel/-/ws-tunnel-1.0.6.tgz"
@@ -3383,6 +3391,14 @@ expo-web-browser@~56.0.5:
   version "56.0.5"
   resolved "https://registry.npmjs.org/expo-web-browser/-/expo-web-browser-56.0.5.tgz"
   integrity sha512-kaN+wcR5lHwPCH1IgrU1XyPUQvBRzdF1TMp65uAF9iUCyipqYnmrvV87eqAmrdkFFopWVgU7FcxPu1UZw+gvUQ==
+
+expo-widgets@^56.0.16, expo-widgets@~56.0.19:
+  version "56.0.19"
+  resolved "https://registry.npmjs.org/expo-widgets/-/expo-widgets-56.0.19.tgz"
+  integrity sha512-D2RWectoEalVdGwXyE2LX3L9T6q6jSKh8jjvk1K3JSE1qOcCVZk+TJtvBUveTq8OoLblkeFMXqQ2fHG+kg655w==
+  dependencies:
+    "@expo/plist" "^0.7.0"
+    "@expo/ui" "~56.0.18"
 
 expo@*, expo@~56.0.9:
   version "56.0.9"

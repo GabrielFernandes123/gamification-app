@@ -334,7 +334,16 @@ function ErrorText({ msg }: { msg: string }) {
 
 const styles = StyleSheet.create({
   content: { gap: theme.spacing.lg },
-  header: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    padding: theme.spacing.md,
+  },
   stack: { gap: theme.spacing.md },
   center: { paddingVertical: theme.spacing.xxl, alignItems: 'center' },
   attrCard: { gap: theme.spacing.md },
@@ -344,5 +353,5 @@ const styles = StyleSheet.create({
   slotCard: { gap: theme.spacing.sm },
   invCard: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md },
   classCard: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md },
-  classOn: { borderColor: theme.colors.primary, borderWidth: 1 },
+  classOn: { borderColor: theme.colors.primaryBright, borderWidth: 1, backgroundColor: theme.colors.primaryDim },
 });

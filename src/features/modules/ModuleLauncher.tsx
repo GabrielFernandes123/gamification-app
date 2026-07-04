@@ -59,13 +59,13 @@ export function ModuleLauncher() {
 const styles = StyleSheet.create({
   card: { gap: theme.spacing.md },
   grid: { gap: theme.spacing.md, paddingRight: theme.spacing.sm },
-  item: { width: 72, alignItems: 'center', gap: theme.spacing.xs },
+  item: { width: 76, alignItems: 'center', gap: theme.spacing.xs },
   icon: {
     width: 48,
     height: 48,
     borderRadius: theme.radius.md,
     borderWidth: 1,
-    backgroundColor: theme.colors.surfaceAlt,
+    backgroundColor: theme.colors.surfaceSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },

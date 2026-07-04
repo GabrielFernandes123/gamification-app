@@ -110,7 +110,7 @@ export default function SettingsScreen() {
       <Field label="Morte">
         <Segmented options={DEATH_MODES} value={deathMode} onChange={setDeathModeDraft} wrap />
         <Text variant="bodyMuted">
-          Temporada reduz ouro e streak; Leve reduz pouco; Hardcore reinicia XP, ouro e progresso volátil.
+          Temporada reduz ouro e sequência; Leve reduz pouco; Hardcore reinicia XP, ouro e progresso volátil.
         </Text>
       </Field>
 
@@ -187,7 +187,16 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 const styles = StyleSheet.create({
   content: { gap: theme.spacing.lg, paddingBottom: theme.spacing.xxl },
-  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    padding: theme.spacing.md,
+  },
   field: { gap: theme.spacing.sm },
   flex: { flex: 1, minWidth: 0 },
   alertCard: { gap: theme.spacing.md },
@@ -196,12 +205,24 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.primaryBright,
     backgroundColor: theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   section: { gap: theme.spacing.md, marginTop: theme.spacing.md },
-  inactiveRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: theme.spacing.md },
+  inactiveRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.md,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceSoft,
+    padding: theme.spacing.md,
+  },
   inactiveName: { flex: 1 },
   signOut: { marginTop: theme.spacing.lg },
 });

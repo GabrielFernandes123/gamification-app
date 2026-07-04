@@ -19,7 +19,7 @@ export default function AchievementsScreen() {
   return (
     <Screen scroll contentStyle={styles.content}>
       <View style={styles.topBar}>
-        <Pressable onPress={() => router.back()} hitSlop={10} accessibilityLabel="Voltar">
+        <Pressable onPress={() => router.back()} hitSlop={10} accessibilityLabel="Voltar" style={styles.iconBtn}>
           <ChevronLeft color={theme.colors.text} size={26} />
         </Pressable>
         <Text variant="h1">Conquistas</Text>
@@ -62,10 +62,36 @@ export default function AchievementsScreen() {
 
 const styles = StyleSheet.create({
   content: { gap: theme.spacing.md, paddingBottom: theme.spacing.xxl },
-  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  progress: { marginBottom: theme.spacing.sm },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    padding: theme.spacing.md,
+  },
+  iconBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  progress: {
+    marginBottom: theme.spacing.sm,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceSoft,
+    padding: theme.spacing.md,
+  },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.md },
-  card: { flexBasis: '47%', flexGrow: 1, gap: theme.spacing.xs, alignItems: 'flex-start' },
+  card: { flexBasis: '47%', flexGrow: 1, gap: theme.spacing.xs, alignItems: 'flex-start', minHeight: 150 },
   locked: { opacity: 0.5 },
   desc: { minHeight: 36 },
 });

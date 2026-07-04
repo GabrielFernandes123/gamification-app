@@ -20,7 +20,7 @@ export default function SideQuestsScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={10} accessibilityLabel="Voltar">
+        <Pressable onPress={() => router.back()} hitSlop={10} accessibilityLabel="Voltar" style={styles.iconBtn}>
           <ChevronLeft color={theme.colors.text} size={26} />
         </Pressable>
         <Text variant="h1">Side Quests</Text>
@@ -68,20 +68,47 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.md,
-    paddingBottom: theme.spacing.sm,
+    marginHorizontal: theme.spacing.lg,
+    marginTop: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
+    padding: theme.spacing.md,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    gap: theme.spacing.sm,
+  },
+  iconBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   addBtn: {
     width: theme.sizes.touch,
     height: theme.sizes.touch,
-    borderRadius: theme.radius.pill,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.primaryBright,
     backgroundColor: theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   list: { padding: theme.spacing.lg, paddingTop: theme.spacing.sm, flexGrow: 1 },
-  empty: { alignItems: 'center', gap: theme.spacing.sm, marginTop: theme.spacing.xxl * 2, paddingHorizontal: theme.spacing.xl },
+  empty: {
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    marginTop: theme.spacing.xxl * 2,
+    padding: theme.spacing.xl,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
   emptyText: { textAlign: 'center' },
 });

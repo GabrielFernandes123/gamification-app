@@ -18,7 +18,12 @@ export default function AppLayout() {
 
   return (
     <Stack
-      screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.colors.bg } }}
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: theme.colors.bg },
+        animation: 'slide_from_right',
+        presentation: 'card',
+      }}
     >
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="character" />

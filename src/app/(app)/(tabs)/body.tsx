@@ -514,7 +514,7 @@ function MeasurementsPanel() {
             return (
               <Pressable
                 key={metric.key}
-                style={[styles.measurementChip, selected && { borderColor: metric.color, backgroundColor: theme.colors.surfaceAlt }]}
+                style={[styles.measurementChip, selected && { borderColor: metric.color, backgroundColor: theme.colors.surfaceSoft }]}
                 onPress={() => toggleTrendMetric(metric.key)}
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: selected }}
@@ -528,42 +528,53 @@ function MeasurementsPanel() {
         <MultiMeasurementTrend data={measurements.data ?? []} metrics={trendMetrics} />
         <Text variant="title">Histórico</Text>
         {(measurements.data ?? []).length === 0 ? (
-          <Text variant="bodyMuted">Nenhuma medicao registrada.</Text>
+          <Text variant="bodyMuted">Nenhuma medição registrada.</Text>
         ) : (
           (measurements.data ?? []).slice(0, 8).map((item) => <MeasurementRow key={item.id} item={item} />)
         )}
       </Card>
 
       <BodyModal title="Registrar medidas" visible={measurementModalOpen} onClose={() => setMeasurementModalOpen(false)}>
-        <Text variant="label">{formatDate(today)}</Text>
-        <Segmented
-          value={activeMetric}
-          onChange={setActiveMetric}
-          options={MEASUREMENT_METRICS.map((metric) => ({ value: metric.key, label: metric.label, color: metric.color }))}
-          wrap
-        />
-        <MeasurementRuler
-          key={activeMetric}
-          config={activeConfig}
-          value={draft[activeMetric] ?? defaultMeasurementValue(activeConfig)}
-          onChange={(value) => updateMetric(activeMetric, value)}
-        />
+        <View style={styles.measurementFocusCard}>
+          <View style={styles.flex}>
+            <Text variant="label" color={activeConfig.color}>Editando agora</Text>
+            <Text variant="h2">{activeConfig.label}</Text>
+            <Text variant="bodyMuted">{formatDate(today)}</Text>
+          </View>
+          <View style={[styles.measurementFocusValue, { borderColor: activeConfig.color }]}>
+            <Text variant="stat" color={activeConfig.color}>
+              {formatMeasurementValue(draft[activeMetric] ?? defaultMeasurementValue(activeConfig))}
+            </Text>
+            <Text variant="label">{activeConfig.unit}</Text>
+          </View>
+        </View>
         <View style={styles.measurementSummaryGrid}>
           {MEASUREMENT_METRICS.map((metric) => (
             <Pressable
               key={metric.key}
-              style={[styles.measurementSummaryItem, activeMetric === metric.key && { borderColor: metric.color }]}
+              style={[
+                styles.measurementSummaryItem,
+                activeMetric === metric.key && { borderColor: metric.color, backgroundColor: theme.colors.surfaceSoft },
+              ]}
               onPress={() => setActiveMetric(metric.key)}
               accessibilityRole="button"
               accessibilityState={{ selected: activeMetric === metric.key }}
             >
-              <Text variant="label">{metric.label}</Text>
+              <Text variant="label" color={activeMetric === metric.key ? metric.color : theme.colors.textMuted}>
+                {metric.label}
+              </Text>
               <Text variant="bodyMedium">
                 {formatMeasurementValue(draft[metric.key] ?? defaultMeasurementValue(metric))}{metric.unit}
               </Text>
             </Pressable>
           ))}
         </View>
+        <MeasurementRuler
+          key={activeMetric}
+          config={activeConfig}
+          value={draft[activeMetric] ?? defaultMeasurementValue(activeConfig)}
+          onChange={(value) => updateMetric(activeMetric, value)}
+        />
         {measurementError ? <Text variant="bodyMuted" color={theme.colors.hp}>{measurementError}</Text> : null}
         <Pressable style={[styles.successBtn, saving && styles.btnDisabled]} onPress={save} disabled={saving}>
           {saving ? (
@@ -1111,7 +1122,7 @@ function MultiMeasurementTrend({ data, metrics }: { data: BodyMeasurement[]; met
   if (metrics.length === 0) {
     return (
       <View style={styles.trendEmptyBox}>
-        <Text variant="bodyMuted">Selecione uma medida para ver a evoluÃ§Ã£o.</Text>
+        <Text variant="bodyMuted">Selecione uma medida para ver a evolução.</Text>
       </View>
     );
   }
@@ -1119,7 +1130,7 @@ function MultiMeasurementTrend({ data, metrics }: { data: BodyMeasurement[]; met
   if (series.length === 0) {
     return (
       <View style={styles.trendEmptyBox}>
-        <Text variant="bodyMuted">Registre pelo menos duas mediÃ§Ãµes para gerar o grÃ¡fico.</Text>
+        <Text variant="bodyMuted">Registre pelo menos duas medições para gerar o gráfico.</Text>
       </View>
     );
   }
@@ -1531,7 +1542,17 @@ function formatDateTime(date: string) {
 
 const styles = StyleSheet.create({
   content: { gap: theme.spacing.lg, paddingBottom: theme.spacing.xxl },
-  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: theme.spacing.sm },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.sm,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    padding: theme.spacing.md,
+  },
   titleCopy: { flex: 1, minWidth: 0 },
   headerActions: { flexDirection: 'row', gap: theme.spacing.xs, alignItems: 'center', flexShrink: 0 },
   headerIconBtn: {
@@ -1540,7 +1561,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.md,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.colors.surfaceSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1557,6 +1578,7 @@ const styles = StyleSheet.create({
   modalCard: {
     maxHeight: '88%',
     gap: theme.spacing.md,
+    borderColor: theme.colors.primaryDim,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1571,14 +1593,16 @@ const styles = StyleSheet.create({
   focusCard: {
     gap: theme.spacing.md,
     borderColor: theme.colors.primary,
-    backgroundColor: theme.colors.surfaceAlt,
+    backgroundColor: theme.colors.surfaceSoft,
   },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: theme.spacing.md },
-  hero: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.lg, backgroundColor: theme.colors.surfaceAlt },
+  hero: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.lg, backgroundColor: theme.colors.surfaceSoft },
   heroIcon: {
     width: 52,
     height: 52,
     borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.primaryBright,
     backgroundColor: theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1590,7 +1614,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: theme.spacing.sm,
     borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceSoft,
     padding: theme.spacing.sm,
   },
   metricItem: {
@@ -1610,6 +1636,8 @@ const styles = StyleSheet.create({
     width: theme.sizes.touch,
     height: theme.sizes.touch,
     borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.primaryBright,
     backgroundColor: theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1617,6 +1645,8 @@ const styles = StyleSheet.create({
   primaryBtn: {
     minHeight: theme.sizes.touch,
     borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.borderStrong,
     backgroundColor: theme.colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1627,6 +1657,8 @@ const styles = StyleSheet.create({
   successBtn: {
     minHeight: theme.sizes.touch,
     borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.borderStrong,
     backgroundColor: theme.colors.success,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1640,7 +1672,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.md,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.colors.surfaceSoft,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1652,7 +1684,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.md,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surfaceAlt,
+    backgroundColor: theme.colors.surfaceSoft,
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.sm,
@@ -1666,7 +1698,9 @@ const styles = StyleSheet.create({
   selectionRow: {
     minHeight: 58,
     borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.surfaceAlt,
+    backgroundColor: theme.colors.surfaceSoft,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.md,
@@ -1676,7 +1710,9 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: theme.radius.sm,
-    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1693,7 +1729,9 @@ const styles = StyleSheet.create({
   optionList: {
     gap: theme.spacing.xs,
     borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceSoft,
     padding: theme.spacing.xs,
   },
   optionRow: {
@@ -1725,7 +1763,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.md,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surfaceAlt,
+    backgroundColor: theme.colors.surfaceSoft,
     overflow: 'hidden',
   },
   templateMain: {
@@ -1760,7 +1798,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: theme.spacing.md,
     borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceSoft,
     padding: theme.spacing.md,
   },
   treinoCard: {
@@ -1769,7 +1809,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: theme.spacing.md,
     borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.surfaceAlt,
+    backgroundColor: theme.colors.surfaceSoft,
     padding: theme.spacing.md,
   },
   historyRow: {
@@ -1783,7 +1823,7 @@ const styles = StyleSheet.create({
   },
   setGroup: {
     gap: theme.spacing.xs,
-    backgroundColor: theme.colors.surfaceAlt,
+    backgroundColor: theme.colors.surfaceSoft,
     borderRadius: theme.radius.md,
     padding: theme.spacing.md,
   },
@@ -1802,7 +1842,9 @@ const styles = StyleSheet.create({
   checklistBox: {
     gap: theme.spacing.sm,
     borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceSoft,
     padding: theme.spacing.md,
   },
   checklistRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm },
@@ -1819,7 +1861,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: theme.spacing.md,
     borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceSoft,
     padding: theme.spacing.md,
   },
   outlineBtn: {
@@ -1834,7 +1878,9 @@ const styles = StyleSheet.create({
   rulerBox: {
     gap: theme.spacing.md,
     borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceSoft,
     paddingVertical: theme.spacing.lg,
     overflow: 'hidden',
   },
@@ -1888,13 +1934,33 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: theme.spacing.sm,
   },
+  measurementFocusCard: {
+    minHeight: 86,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceSoft,
+    padding: theme.spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+  },
+  measurementFocusValue: {
+    minWidth: 86,
+    minHeight: 62,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.bgElevated,
+  },
   measurementSummaryItem: {
     width: '48%',
     minHeight: 58,
     borderRadius: theme.radius.md,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surfaceAlt,
+    backgroundColor: theme.colors.surfaceSoft,
     justifyContent: 'center',
     gap: theme.spacing.xs,
     paddingHorizontal: theme.spacing.md,
@@ -1909,7 +1975,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.sm,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.colors.surfaceSoft,
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.xs,
@@ -1924,7 +1990,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.md,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surfaceAlt,
+    backgroundColor: theme.colors.surfaceSoft,
     overflow: 'hidden',
   },
   trendEmptyBox: {
@@ -1932,7 +1998,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.md,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surfaceAlt,
+    backgroundColor: theme.colors.surfaceSoft,
     alignItems: 'center',
     justifyContent: 'center',
     padding: theme.spacing.md,

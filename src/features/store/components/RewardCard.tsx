@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { Clock, Coins, Gift, Pencil, Sparkles } from 'lucide-react-native';
+import { CheckCircle2, Clock, Coins, Gift, LockKeyhole, Pencil, Sparkles } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -33,7 +33,10 @@ export function RewardCard({
   const essenciaCost = reward.cost_essencia ?? null;
   const usesEssencia = essenciaCost != null;
   const hasCurrency = usesEssencia ? essencia >= essenciaCost : gold >= reward.cost;
-  const canBuy = hasCurrency && !outOfStock && !inCooldown && !alreadyPurchased;
+  const requirements = reward.requirements;
+  const requirementsPassed = requirements?.passed ?? true;
+  const requirementItems = requirements?.groups?.flatMap((group) => group.requirements ?? []) ?? [];
+  const canBuy = hasCurrency && requirementsPassed && !outOfStock && !inCooldown && !alreadyPurchased;
 
   useEffect(() => {
     if (!cooldownUntil) return;
@@ -78,6 +81,30 @@ export function RewardCard({
               </View>
             ) : null}
           </View>
+          {requirementItems.length > 0 ? (
+            <View style={styles.requirementsBox}>
+              <View style={styles.requirementsHead}>
+                {requirementsPassed ? (
+                  <CheckCircle2 color={theme.colors.success} size={15} />
+                ) : (
+                  <LockKeyhole color={theme.colors.gold} size={15} />
+                )}
+                <Text variant="label" color={requirementsPassed ? theme.colors.success : theme.colors.gold}>
+                  {requirementsPassed ? 'Requisitos cumpridos' : 'Requisitos para liberar'}
+                </Text>
+              </View>
+              {requirementItems.slice(0, 3).map((requirement) => (
+                <View key={requirement.id} style={styles.requirementRow}>
+                  <Text variant="bodyMuted" style={styles.requirementName}>
+                    {rewardRequirementLabel(requirement.metric)}
+                  </Text>
+                  <Text variant="label" color={requirement.passed ? theme.colors.success : theme.colors.textMuted}>
+                    {requirement.currentValue}/{requirement.targetValue}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
         </View>
         <Pressable
           onPress={() => router.push({ pathname: '/(app)/rewards/[id]', params: { id: reward.id } })}
@@ -107,6 +134,7 @@ export function RewardCard({
             outOfStock,
             remainingMs,
             cost: usesEssencia ? essenciaCost : reward.cost,
+            requirementsPassed,
           })}
         </Text>
       </Pressable>
@@ -136,6 +164,7 @@ function buyLabel({
   outOfStock,
   remainingMs,
   cost,
+  requirementsPassed,
 }: {
   alreadyPurchased: boolean;
   hasCurrency: boolean;
@@ -143,12 +172,28 @@ function buyLabel({
   outOfStock: boolean;
   remainingMs: number;
   cost: number;
+  requirementsPassed: boolean;
 }) {
   if (outOfStock) return 'Esgotado';
   if (alreadyPurchased) return 'Já resgatado';
   if (inCooldown) return `Disponível em ${formatCountdown(remainingMs)}`;
+  if (!requirementsPassed) return 'Requisitos pendentes';
   if (!hasCurrency) return `Precisa de ${cost}`;
   return cost;
+}
+
+function rewardRequirementLabel(metric: string) {
+  const labels: Record<string, string> = {
+    habit_success_days: 'Dias de hábito',
+    habit_executions: 'Execuções de hábito',
+    habit_clean_days: 'Dias limpos',
+    habit_failed_days: 'Dias com falha',
+    workout_sessions: 'Treinos',
+    body_measurement_count: 'Medidas corporais',
+    xp_gained: 'XP ganho',
+    gold_gained: 'Ouro ganho',
+  };
+  return labels[metric] ?? metric;
 }
 
 function formatCountdown(ms: number) {
@@ -166,6 +211,23 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', gap: theme.spacing.md, alignItems: 'flex-start' },
   info: { flex: 1, gap: 2 },
   metaRow: { flexDirection: 'row', gap: theme.spacing.md, flexWrap: 'wrap', marginTop: 2 },
+  requirementsBox: {
+    gap: theme.spacing.xs,
+    marginTop: theme.spacing.sm,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceSoft,
+    padding: theme.spacing.sm,
+  },
+  requirementsHead: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.xs },
+  requirementRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.sm,
+  },
+  requirementName: { flex: 1 },
   cooldownPill: {
     minHeight: 24,
     flexDirection: 'row',
@@ -173,18 +235,29 @@ const styles = StyleSheet.create({
     gap: theme.spacing.xs,
   },
   cooldownPillActive: {
-    borderRadius: theme.radius.pill,
+    borderRadius: theme.radius.md,
     backgroundColor: theme.colors.primaryDim,
     paddingHorizontal: theme.spacing.sm,
   },
-  edit: { padding: 4 },
+  edit: {
+    width: 34,
+    height: 34,
+    borderRadius: theme.radius.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   buy: {
     marginTop: theme.spacing.md,
     alignSelf: 'flex-end',
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.xs,
-    backgroundColor: theme.colors.surfaceAlt,
+    backgroundColor: theme.colors.surfaceSoft,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     borderRadius: theme.radius.md,
     paddingHorizontal: theme.spacing.md,
     minHeight: 40,

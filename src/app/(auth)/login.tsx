@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
@@ -27,14 +28,14 @@ export default function LoginScreen() {
 
   return (
     <Screen scroll contentStyle={styles.content}>
-      <View style={styles.header}>
+      <Card accent={theme.colors.primary} style={styles.header}>
         <Text variant="display" color={theme.colors.primary}>
           EVOLVE
         </Text>
         <Text variant="bodyMuted">Sua evolução, gamificada.</Text>
-      </View>
+      </Card>
 
-      <View style={styles.form}>
+      <Card style={styles.form}>
         <Input
           label="E-mail"
           value={email}
@@ -42,7 +43,7 @@ export default function LoginScreen() {
           autoCapitalize="none"
           keyboardType="email-address"
           autoComplete="email"
-          placeholder="voce@email.com"
+          placeholder="seu@email.com"
         />
         <Input
           label="Senha"
@@ -53,7 +54,7 @@ export default function LoginScreen() {
         />
         {error ? <Text color={theme.colors.hp}>{error}</Text> : null}
         <Button label="Entrar" onPress={onSubmit} loading={loading} fullWidth />
-      </View>
+      </Card>
 
       <View style={styles.footer}>
         <Text variant="bodyMuted">Não tem conta? </Text>
@@ -66,8 +67,8 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { flexGrow: 1, justifyContent: 'center', gap: theme.spacing.xxl },
-  header: { alignItems: 'center', gap: theme.spacing.xs },
+  content: { flexGrow: 1, justifyContent: 'center', gap: theme.spacing.lg },
+  header: { gap: theme.spacing.xs },
   form: { gap: theme.spacing.lg },
   footer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
 });

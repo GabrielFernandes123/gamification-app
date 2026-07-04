@@ -15,7 +15,8 @@ export type CompleteHabitResult = {
   xpGained: number;
   goldGained: number;
   dayComplete: boolean; // a meta DIÁRIA foi batida
-  newStreak: number;
+  newStreak: number; // sequência do hábito
+  characterStreak?: number;
   leveledUp: boolean;
   newLevel: number;
   doneToday: number; // execuções de sucesso hoje

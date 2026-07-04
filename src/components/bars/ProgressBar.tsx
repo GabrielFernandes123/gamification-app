@@ -16,7 +16,7 @@ type Props = {
 export function ProgressBar({
   progress,
   color,
-  trackColor = theme.colors.surfaceAlt,
+  trackColor = theme.colors.surfaceSoft,
   height = theme.sizes.barHeight,
   rounded = true,
 }: Props) {
@@ -48,6 +48,6 @@ export function ProgressBar({
 }
 
 const styles = StyleSheet.create({
-  track: { width: '100%', overflow: 'hidden' },
+  track: { width: '100%', overflow: 'hidden', borderWidth: 1, borderColor: theme.colors.border },
   fill: { height: '100%' },
 });
