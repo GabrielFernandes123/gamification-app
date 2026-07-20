@@ -43,6 +43,7 @@ import { Segmented } from '@/components/ui/Segmented';
 import { useToast } from '@/components/ui/Toast';
 import { ATTRIBUTE_LABEL, ATTRIBUTES } from '@/features/character/attributes';
 import { useModules } from '@/features/modules/useModules';
+import { useToday } from '@/hooks/useToday';
 import {
   useApplyObjectiveSuggestion,
   useActivateWeeklyContract,
@@ -1625,7 +1626,9 @@ function ObjectiveFormModal({
   onAddRequirement: (groupId: string, payload: ObjectiveRequirementPayload) => void;
   onDeleteRequirement: (requirementId: string) => void;
 }) {
-  const today = new Date().toISOString().slice(0, 10);
+  // Fuso do usuário, não UTC: toISOString() a oeste de Greenwich já devolve o
+  // dia seguinte à noite, criando objetivos com data errada.
+  const { today } = useToday();
   const [kind, setKind] = useState<ObjectiveKind>('compositeGoal');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');

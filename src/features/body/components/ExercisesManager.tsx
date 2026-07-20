@@ -1,50 +1,29 @@
 import { Image as ExpoImage } from 'expo-image';
 import * as WebBrowser from 'expo-web-browser';
-import { ChevronDown, ChevronLeft, ChevronRight, Dumbbell, Image as ImageIcon, Pencil, Play, Plus, Search, Trophy, X, Zap } from 'lucide-react-native';
+import { ChevronDown, ChevronLeft, ChevronRight, Dumbbell, Play, Trophy, Zap } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Card } from '@/components/ui/Card';
-import { ImageUploadPicker } from '@/components/ui/ImageUploadPicker';
 import { Input } from '@/components/ui/Input';
 import { Text } from '@/components/ui/Text';
-import { useToast } from '@/components/ui/Toast';
-import { useBodyParts, useCreateFitnessExercise, useExerciseSets, useFitnessExercises, useUpdateFitnessExercise, useWorkoutRecords } from '@/features/body/hooks/useBody';
-import { useSkills } from '@/features/skills/hooks/useSkills';
+import { useBodyParts, useExerciseSets, useFitnessExercises, useWorkoutRecords } from '@/features/body/hooks/useBody';
 import { theme } from '@/theme/theme';
 import type { BodyPart, FitnessExercise, WorkoutSet } from '@/types/body';
-import { formatErrorMessage } from '@/utils/errors';
-
-type SelectOption = { value: string; label: string; color?: string; description?: string | null; mediaUrl?: string | null };
 
 const ALL = 'all';
 const NONE = 'none';
 
-/** Gestor de exercícios in-screen (lista + filtros + modal CRUD + detalhe). Renderizado como painel do Corpo (08 §6.3). */
+/** Lista de exercícios do usuário (somente leitura no app — criação/edição ficam no painel web). */
 export function ExercisesManager() {
-  const toast = useToast();
   const exercises = useFitnessExercises();
   const bodyParts = useBodyParts();
-  const skills = useSkills();
-  const createExercise = useCreateFitnessExercise();
-  const updateExercise = useUpdateFitnessExercise();
 
   const [partFilter, setPartFilter] = useState<string>(ALL);
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [name, setName] = useState('');
-  const [primaryPartId, setPrimaryPartId] = useState('');
-  const [secondaryPartId, setSecondaryPartId] = useState('');
-  const [skillId, setSkillId] = useState('');
-  const [mediaUrl, setMediaUrl] = useState('');
-  const [videoUrl, setVideoUrl] = useState('');
-  const [formError, setFormError] = useState('');
-
   const selected = (exercises.data ?? []).find((e) => e.id === selectedId) ?? null;
-  const saving = createExercise.isPending || updateExercise.isPending;
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -59,74 +38,8 @@ export function ExercisesManager() {
     });
   }, [exercises.data, partFilter, query]);
 
-  const partOptions = [{ value: '', label: 'Nenhuma' }, ...(bodyParts.data ?? []).map((p) => ({ value: p.id, label: p.name, color: p.color ?? undefined, mediaUrl: p.media_url }))];
-  const skillOptions = [{ value: '', label: 'Nenhuma' }, ...(skills.data ?? []).map((s) => ({ value: s.id, label: s.name, color: s.color ?? undefined }))];
-
-  function openCreate() {
-    setEditingId(null);
-    setName('');
-    setPrimaryPartId(partFilter !== ALL && partFilter !== NONE ? partFilter : '');
-    setSecondaryPartId('');
-    setSkillId('');
-    setMediaUrl('');
-    setVideoUrl('');
-    setFormError('');
-    setModalOpen(true);
-  }
-
-  function openEdit(exercise: FitnessExercise) {
-    setEditingId(exercise.id);
-    setName(exercise.name);
-    setPrimaryPartId(exercise.primary_body_part_id ?? '');
-    setSecondaryPartId(exercise.secondary_body_part_id ?? '');
-    setSkillId(exercise.primary_skill_id ?? '');
-    setMediaUrl(exercise.media_url ?? '');
-    setVideoUrl(exercise.video_url ?? '');
-    setFormError('');
-    setModalOpen(true);
-  }
-
-  async function submitForm() {
-    const trimmed = name.trim();
-    if (!trimmed) return setFormError('Informe o nome do exercício.');
-    const video = videoUrl.trim();
-    if (video && !isValidUrl(video)) return setFormError('Link de vídeo inválido. Cole a URL completa do YouTube.');
-    setFormError('');
-    const payload = {
-      name: trimmed,
-      primary_skill_id: skillId || null,
-      primary_body_part_id: primaryPartId || null,
-      secondary_body_part_id: secondaryPartId || null,
-      media_url: mediaUrl.trim() || null,
-      video_url: video || null,
-    };
-    try {
-      if (editingId) {
-        await updateExercise.mutateAsync({ id: editingId, patch: payload });
-        toast.success('Exercício atualizado', trimmed);
-      } else {
-        await createExercise.mutateAsync(payload);
-        toast.success('Exercício criado', trimmed);
-      }
-      setModalOpen(false);
-    } catch (e) {
-      setFormError(formatErrorMessage(e));
-    }
-  }
-
   if (selected) {
-    return (
-      <>
-        <ExerciseDetail exercise={selected} onClose={() => setSelectedId(null)} onEdit={() => openEdit(selected)} />
-        <BodyModal title={editingId ? 'Editar exercício' : 'Novo exercício'} visible={modalOpen} onClose={() => setModalOpen(false)}>
-          <ExerciseForm
-            name={name} setName={setName} partOptions={partOptions} primaryPartId={primaryPartId} setPrimaryPartId={setPrimaryPartId}
-            secondaryPartId={secondaryPartId} setSecondaryPartId={setSecondaryPartId} skillOptions={skillOptions} skillId={skillId} setSkillId={setSkillId}
-            mediaUrl={mediaUrl} setMediaUrl={setMediaUrl} videoUrl={videoUrl} setVideoUrl={setVideoUrl} formError={formError} saving={saving} editingId={editingId} onSubmit={submitForm}
-          />
-        </BodyModal>
-      </>
-    );
+    return <ExerciseDetail exercise={selected} onClose={() => setSelectedId(null)} />;
   }
 
   return (
@@ -135,11 +48,6 @@ export function ExercisesManager() {
         <Text variant="h1">Exercícios</Text>
         <Text variant="bodyMuted">Filtre por grupo muscular e veja histórico e recordes.</Text>
       </View>
-
-      <Pressable style={styles.primaryBtn} onPress={openCreate}>
-        <Plus color={theme.colors.textInverse} size={18} />
-        <Text variant="title" color={theme.colors.textInverse}>Novo exercício</Text>
-      </Pressable>
 
       <Input value={query} onChangeText={setQuery} placeholder="Buscar exercício" autoCapitalize="none" />
 
@@ -154,7 +62,7 @@ export function ExercisesManager() {
       <Card style={styles.panel}>
         <Text variant="title">{filtered.length} exercício{filtered.length === 1 ? '' : 's'}</Text>
         {(exercises.data ?? []).length === 0 ? (
-          <Text variant="bodyMuted">Nenhum exercício criado ainda. Toque em Novo exercício.</Text>
+          <Text variant="bodyMuted">Nenhum exercício ainda. Adicione pela Biblioteca no painel web.</Text>
         ) : filtered.length === 0 ? (
           <Text variant="bodyMuted">Nenhum exercício para este filtro.</Text>
         ) : (
@@ -176,46 +84,7 @@ export function ExercisesManager() {
           ))
         )}
       </Card>
-
-      <BodyModal title={editingId ? 'Editar exercício' : 'Novo exercício'} visible={modalOpen} onClose={() => setModalOpen(false)}>
-        <ExerciseForm
-          name={name} setName={setName} partOptions={partOptions} primaryPartId={primaryPartId} setPrimaryPartId={setPrimaryPartId}
-          secondaryPartId={secondaryPartId} setSecondaryPartId={setSecondaryPartId} skillOptions={skillOptions} skillId={skillId} setSkillId={setSkillId}
-          mediaUrl={mediaUrl} setMediaUrl={setMediaUrl} videoUrl={videoUrl} setVideoUrl={setVideoUrl} formError={formError} saving={saving} editingId={editingId} onSubmit={submitForm}
-        />
-      </BodyModal>
     </View>
-  );
-}
-
-function ExerciseForm(props: {
-  name: string; setName: (v: string) => void;
-  partOptions: SelectOption[]; primaryPartId: string; setPrimaryPartId: (v: string) => void;
-  secondaryPartId: string; setSecondaryPartId: (v: string) => void;
-  skillOptions: SelectOption[]; skillId: string; setSkillId: (v: string) => void;
-  mediaUrl: string; setMediaUrl: (v: string) => void; videoUrl: string; setVideoUrl: (v: string) => void;
-  formError: string; saving: boolean; editingId: string | null; onSubmit: () => void;
-}) {
-  return (
-    <>
-      <Input label="Nome" value={props.name} onChangeText={props.setName} placeholder="Supino reto" />
-      <SelectionField label="Divisão principal" title="Escolher divisão" options={props.partOptions} value={props.primaryPartId} onChange={props.setPrimaryPartId} />
-      <SelectionField label="Divisão secundária" title="Escolher divisão" options={props.partOptions} value={props.secondaryPartId} onChange={props.setSecondaryPartId} />
-      <SelectionField label="Skill principal" title="Escolher skill" options={props.skillOptions} value={props.skillId} onChange={props.setSkillId} />
-      <ImageUploadPicker value={props.mediaUrl} onChange={props.setMediaUrl} />
-      <Input label="Vídeo (YouTube)" value={props.videoUrl} onChangeText={props.setVideoUrl} placeholder="https://youtu.be/..." autoCapitalize="none" keyboardType="url" />
-      {props.formError ? <Text variant="bodyMuted" color={theme.colors.hp}>{props.formError}</Text> : null}
-      <Pressable style={[styles.primaryBtn, props.saving && styles.btnDisabled]} onPress={props.onSubmit} disabled={props.saving}>
-        {props.saving ? (
-          <ActivityIndicator color={theme.colors.textInverse} />
-        ) : (
-          <>
-            <Plus color={theme.colors.textInverse} size={18} />
-            <Text variant="title" color={theme.colors.textInverse}>{props.editingId ? 'Salvar alterações' : 'Criar exercício'}</Text>
-          </>
-        )}
-      </Pressable>
-    </>
   );
 }
 
@@ -254,7 +123,7 @@ function FilterChip({ label, color, active, onPress }: { label: string; color?: 
   );
 }
 
-function ExerciseDetail({ exercise, onClose, onEdit }: { exercise: FitnessExercise; onClose: () => void; onEdit: () => void }) {
+function ExerciseDetail({ exercise, onClose }: { exercise: FitnessExercise; onClose: () => void }) {
   const sets = useExerciseSets(exercise.id);
   const records = useWorkoutRecords();
   const mine = sets.data ?? [];
@@ -275,10 +144,6 @@ function ExerciseDetail({ exercise, onClose, onEdit }: { exercise: FitnessExerci
           <ChevronLeft color={theme.colors.text} size={18} />
           <Text variant="bodyMedium">Exercícios</Text>
         </Pressable>
-        <Pressable style={styles.editBtn} onPress={onEdit} accessibilityLabel="Editar exercício">
-          <Pencil color={theme.colors.text} size={16} />
-          <Text variant="bodyMedium">Editar</Text>
-        </Pressable>
       </View>
       <Card style={styles.hero}>
         <View style={styles.heroIcon}>
@@ -291,9 +156,17 @@ function ExerciseDetail({ exercise, onClose, onEdit }: { exercise: FitnessExerci
         <View style={styles.heroCopy}>
           <Text variant="label">Exercício</Text>
           <Text variant="h2">{exercise.name}</Text>
-          <Text variant="bodyMuted">{exercise.primaryBodyPart?.name ?? 'Sem divisão principal'}</Text>
+          <Text variant="bodyMuted">
+            {[exercise.primaryBodyPart?.name ?? 'Sem divisão principal', exercise.equipment].filter(Boolean).join(' · ')}
+          </Text>
         </View>
       </Card>
+      {exercise.instructions ? (
+        <Card style={styles.panel}>
+          <Text variant="title">Como executar</Text>
+          <Text variant="bodyMuted">{exercise.instructions}</Text>
+        </Card>
+      ) : null}
       {exercise.video_url ? (
         <Card style={styles.videoCard}>
           <Text variant="title">Tutorial</Text>
@@ -404,104 +277,6 @@ function ExerciseHistory({ sets, loading }: { sets: WorkoutSet[]; loading: boole
   );
 }
 
-function BodyModal({ title, visible, onClose, children }: { title: string; visible: boolean; onClose: () => void; children: React.ReactNode }) {
-  return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <KeyboardAvoidingView style={styles.modalBackdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Card style={styles.modalCard}>
-          <View style={styles.modalHeader}>
-            <Text variant="h2">{title}</Text>
-            <Pressable onPress={onClose} hitSlop={10} accessibilityLabel="Fechar">
-              <X color={theme.colors.textMuted} size={22} />
-            </Pressable>
-          </View>
-          <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-            {children}
-          </ScrollView>
-        </Card>
-      </KeyboardAvoidingView>
-    </Modal>
-  );
-}
-
-function SelectionField({
-  label,
-  title,
-  options,
-  value,
-  onChange,
-  emptyLabel = 'Nenhuma opção disponível.',
-}: {
-  label: string;
-  title: string;
-  options: SelectOption[];
-  value: string;
-  onChange: (value: string) => void;
-  emptyLabel?: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState('');
-  const selected = options.find((option) => option.value === value);
-  const filtered = options.filter((option) => `${option.label} ${option.description ?? ''}`.toLowerCase().includes(query.trim().toLowerCase()));
-
-  function choose(nextValue: string) {
-    onChange(nextValue);
-    setOpen(false);
-    setQuery('');
-  }
-
-  return (
-    <Field label={label}>
-      <Pressable style={styles.selectionButton} onPress={() => setOpen(true)} accessibilityRole="button">
-        <View style={selected?.mediaUrl ? styles.selectionGlyphMedia : [styles.selectionGlyph, selected?.color ? { backgroundColor: selected.color } : null]}>
-          {selected?.mediaUrl ? <ImageIcon color={theme.colors.primary} size={18} /> : <Search color={theme.colors.textMuted} size={18} />}
-        </View>
-        <View style={styles.flex}>
-          <Text variant="bodyMedium">{selected?.label ?? 'Selecionar'}</Text>
-          {selected?.description ? <Text variant="bodyMuted">{selected.description}</Text> : null}
-        </View>
-        <ChevronRight color={theme.colors.textMuted} size={18} />
-      </Pressable>
-      <BodyModal title={title} visible={open} onClose={() => setOpen(false)}>
-        <Input value={query} onChangeText={setQuery} placeholder="Buscar" autoCapitalize="none" />
-        <View style={styles.selectionList}>
-          {filtered.length === 0 ? <Text variant="bodyMuted">{emptyLabel}</Text> : null}
-          {filtered.map((option) => {
-            const isSelected = option.value === value;
-            return (
-              <Pressable
-                key={option.value || 'empty-option'}
-                style={[styles.selectionRow, isSelected && styles.optionRowSelected]}
-                onPress={() => choose(option.value)}
-                accessibilityRole="button"
-                accessibilityState={{ selected: isSelected }}
-              >
-                <View style={option.mediaUrl ? styles.selectionGlyphMedia : [styles.selectionGlyph, option.color ? { backgroundColor: option.color } : null]}>
-                  {option.mediaUrl ? <ImageIcon color={theme.colors.primary} size={18} /> : null}
-                </View>
-                <View style={styles.flex}>
-                  <Text variant="bodyMedium">{option.label}</Text>
-                  {option.description ? <Text variant="bodyMuted">{option.description}</Text> : null}
-                </View>
-                {isSelected ? <View style={styles.radioDotInner} /> : null}
-              </Pressable>
-            );
-          })}
-        </View>
-      </BodyModal>
-    </Field>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <View style={styles.field}>
-      <Text variant="label">{label}</Text>
-      {children}
-    </View>
-  );
-}
-
 function MiniCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <Card style={styles.miniCard}>
@@ -554,10 +329,6 @@ function formatWorkoutDate(date: string) {
   return new Date(date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
-function isValidUrl(value: string) {
-  return /^https?:\/\/\S+$/i.test(value);
-}
-
 function youtubeId(url: string): string | null {
   const patterns = [
     /youtu\.be\/([\w-]{11})/,
@@ -576,7 +347,6 @@ const styles = StyleSheet.create({
   stack: { gap: theme.spacing.lg },
   panel: { gap: theme.spacing.md },
   flex: { flex: 1, minWidth: 0 },
-  field: { gap: theme.spacing.sm },
   backButton: {
     minHeight: 40,
     flexDirection: 'row',
@@ -592,10 +362,7 @@ const styles = StyleSheet.create({
   chipScroll: { flexGrow: 0, flexShrink: 0 },
   chipRow: { flexDirection: 'row', gap: theme.spacing.sm, alignItems: 'center' },
   chip: { height: 40, borderRadius: theme.radius.md, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surfaceSoft, paddingHorizontal: theme.spacing.md, alignItems: 'center', justifyContent: 'center' },
-  primaryBtn: { minHeight: theme.sizes.touch, borderRadius: theme.radius.md, borderWidth: 1, borderColor: theme.colors.primaryBright, backgroundColor: theme.colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: theme.spacing.sm, paddingHorizontal: theme.spacing.lg },
-  btnDisabled: { opacity: 0.6 },
   detailHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  editBtn: { minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: theme.spacing.xs, borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.radius.md, backgroundColor: theme.colors.surfaceSoft, paddingHorizontal: theme.spacing.md },
   videoCard: { gap: theme.spacing.md },
   videoThumbWrap: { borderRadius: theme.radius.md, borderWidth: 1, borderColor: theme.colors.border, overflow: 'hidden', aspectRatio: 16 / 9, backgroundColor: theme.colors.surfaceSoft, alignItems: 'center', justifyContent: 'center' },
   videoThumb: { width: '100%', height: '100%' },
@@ -630,15 +397,4 @@ const styles = StyleSheet.create({
   setTagWarm: { borderColor: theme.colors.xp + '55', backgroundColor: theme.colors.xp + '18' },
   setTagRpe: { borderColor: theme.colors.skill + '55', backgroundColor: theme.colors.skill + '18' },
   seeMoreBtn: { minHeight: 40, borderRadius: theme.radius.md, borderWidth: 1, borderColor: theme.colors.border, alignItems: 'center', justifyContent: 'center' },
-  modalBackdrop: { flex: 1, backgroundColor: theme.colors.overlay, justifyContent: 'flex-end', padding: theme.spacing.lg },
-  modalCard: { maxHeight: '88%', gap: theme.spacing.md, borderColor: theme.colors.primaryDim },
-  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: theme.spacing.md },
-  modalContent: { gap: theme.spacing.md, paddingBottom: theme.spacing.md },
-  selectionButton: { minHeight: theme.sizes.touch, borderRadius: theme.radius.md, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surfaceSoft, flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm, paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm },
-  selectionList: { gap: theme.spacing.sm, paddingBottom: theme.spacing.md },
-  selectionRow: { minHeight: 58, borderRadius: theme.radius.md, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surfaceSoft, flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md, padding: theme.spacing.md },
-  selectionGlyph: { width: 34, height: 34, borderRadius: theme.radius.sm, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
-  selectionGlyphMedia: { width: 34, height: 34, borderRadius: theme.radius.sm, borderWidth: 1, borderColor: theme.colors.primary, backgroundColor: theme.colors.primaryDim, alignItems: 'center', justifyContent: 'center' },
-  optionRowSelected: { backgroundColor: theme.colors.primaryDim },
-  radioDotInner: { width: 8, height: 8, borderRadius: 4, backgroundColor: theme.colors.primary },
 });

@@ -6,6 +6,10 @@ type Tables = Database['public']['Tables'];
 export type BodyPart = Tables['body_parts']['Row'];
 
 export type FitnessExercise = Tables['fitness_exercises']['Row'] & {
+  // Colunas novas (catálogo de exercícios) ainda fora dos tipos gerados do Supabase.
+  equipment?: string | null;
+  instructions?: string | null;
+  catalog_id?: string | null;
   primaryBodyPart?: BodyPart | null;
   secondaryBodyPart?: BodyPart | null;
 };

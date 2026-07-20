@@ -21,7 +21,7 @@ import { createWidget, type WidgetEnvironment } from 'expo-widgets';
 import type { TodayJourneyWidgetProps } from './todayJourney';
 
 function TodayJourneyWidget(
-  rawProps: Partial<TodayJourneyWidgetProps>,
+  rawProps: Partial<TodayJourneyWidgetProps> = {},
   environment: WidgetEnvironment,
 ) {
   'widget';

@@ -307,7 +307,13 @@ export default function DashboardScreen() {
     xp.span,
   ]);
 
-  useTodayJourneyWidget(widgetSnapshot);
+  const widgetReady =
+    !character.isLoading &&
+    !profile.isLoading &&
+    !habits.isLoading &&
+    !logs.isLoading &&
+    !objectives.isLoading;
+  useTodayJourneyWidget(widgetReady ? widgetSnapshot : null);
 
   // Estado de carregamento: evita mostrar "Aventureiro, Nível 1, 0 ouro" falsos
   // enquanto as queries principais ainda não responderam.

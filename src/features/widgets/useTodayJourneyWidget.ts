@@ -6,8 +6,11 @@ import { EMPTY_TODAY_JOURNEY_WIDGET, type TodayJourneyWidgetProps } from './toda
 export function updateTodayJourneyWidgetSnapshot(snapshot: TodayJourneyWidgetProps) {
   try {
     TodayJourneyWidget.updateSnapshot(snapshot);
-  } catch {
+  } catch (err) {
     // Widgets sao iOS/development-build only; falhar aqui nao deve quebrar o app.
+    // Mas engolir o erro em silencio torna a widget impossivel de diagnosticar:
+    // se a escrita falha, ela fica no placeholder ("loading") para sempre.
+    console.warn('[widget] updateSnapshot falhou:', err);
   }
 }
 
@@ -17,6 +20,7 @@ export function clearTodayJourneyWidgetSnapshot() {
 
 export function useTodayJourneyWidget(snapshot: TodayJourneyWidgetProps | null) {
   useEffect(() => {
-    updateTodayJourneyWidgetSnapshot(snapshot ?? EMPTY_TODAY_JOURNEY_WIDGET);
+    if (!snapshot) return;
+    updateTodayJourneyWidgetSnapshot(snapshot);
   }, [snapshot]);
 }

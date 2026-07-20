@@ -27,7 +27,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
-      clearTodayJourneyWidgetSnapshot();
+      if (!data.session) {
+        clearTodayJourneyWidgetSnapshot();
+      }
       setLoading(false);
     });
 

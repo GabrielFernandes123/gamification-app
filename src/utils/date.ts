@@ -3,20 +3,33 @@
 export function todayInTz(tz: string): string {
   try {
     return new Intl.DateTimeFormat('en-CA', {
-      timeZone: tz,
+      // tz vazio => fuso do aparelho (não force um fuso fixo aqui).
+      timeZone: tz || undefined,
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
     }).format(new Date());
   } catch {
-    return new Date().toISOString().slice(0, 10);
+    return localDateOnly();
   }
+}
+
+/** 'YYYY-MM-DD' no fuso do aparelho. Nunca use toISOString() aqui: ele dá a
+ *  data em UTC, que a oeste de Greenwich já é o dia seguinte à noite. */
+function localDateOnly(): string {
+  const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
 }
 
 // 0=Dom .. 6=Sáb no fuso do usuário.
 export function weekdayInTz(tz: string): number {
   try {
-    const wd = new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'short' }).format(new Date());
+    const wd = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz || undefined,
+      weekday: 'short',
+    }).format(new Date());
     return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(wd);
   } catch {
     return new Date().getDay();
