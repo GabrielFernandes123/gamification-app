@@ -74,6 +74,19 @@ export type ProtectionFlags = {
   shield_armed?: boolean;
   screen_time_authorized?: boolean;
   safari_enabled?: boolean;
+  /**
+   * Fontes de app COM e SEM app do iPhone vinculado, por matcher.
+   *
+   * O vínculo é um token de FamilyActivitySelection que vive só no App Group —
+   * nunca trafega e o servidor não tem como descobrir sozinho. Sem este relato
+   * o painel só poderia adivinhar por ausência de medição, o que acusaria
+   * falsamente toda fonte vinculada e não usada (e toda fonte medida por
+   * atalhos, que nunca gera intervalo de DeviceActivity).
+   *
+   * Ausentes = "não sei" — não zeram o que o servidor já sabia.
+   */
+  linked_matchers?: string[];
+  unlinked_matchers?: string[];
 };
 
 async function deviceFetch<T>(

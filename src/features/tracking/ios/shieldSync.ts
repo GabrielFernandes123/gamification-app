@@ -349,15 +349,20 @@ export async function syncShield(): Promise<SyncResult> {
     let armed = 0;
     let blocked = 0;
     let unlockedCount = 0;
-    let unlinked = 0;
+    // Relato do vínculo app<->fonte para o painel web. Só este laço sabe: o
+    // token da seleção vive no App Group e nunca sai do aparelho.
+    const linkedMatchers: string[] = [];
+    const unlinkedMatchers: string[] = [];
 
     for (const source of shieldableSources(policy)) {
       const selectionId = selectionIdFor(source.matcher);
       const selection = DeviceActivity.getFamilyActivitySelectionId(selectionId);
       if (!selection) {
-        unlinked++; // fonte cadastrada mas sem app do iPhone vinculado
+        // fonte cadastrada mas sem app do iPhone vinculado
+        unlinkedMatchers.push(source.matcher);
         continue;
       }
+      linkedMatchers.push(source.matcher);
 
       // Bolsa: quantas liberações o saldo REAL cobre. É isto que impede
       // liberação sem lastro, já que a extension decide offline.
@@ -454,6 +459,8 @@ export async function syncShield(): Promise<SyncResult> {
     await sendHeartbeat(token, {
       screen_time_authorized: true,
       shield_armed: DeviceActivity.isShieldActive() || armed > 0,
+      linked_matchers: linkedMatchers,
+      unlinked_matchers: unlinkedMatchers,
     });
 
     return {
@@ -461,7 +468,7 @@ export async function syncShield(): Promise<SyncResult> {
       armed,
       blocked,
       unlocked: unlockedCount,
-      unlinked,
+      unlinked: unlinkedMatchers.length,
       filteredDomains,
       safariKeywords,
       measuredIntervals: measured.length,
