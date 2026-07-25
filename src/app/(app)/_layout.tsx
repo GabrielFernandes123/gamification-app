@@ -38,6 +38,7 @@ export default function AppLayout() {
       <Stack.Screen name="achievements" />
       <Stack.Screen name="settings" />
       <Stack.Screen name="stats" />
+      <Stack.Screen name="tracking/index" />
       <Stack.Screen name="body/workouts/[id]" />
       <Stack.Screen name="body/templates/index" />
       <Stack.Screen name="body/settings/index" />

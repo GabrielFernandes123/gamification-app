@@ -50,4 +50,7 @@ export const qk = {
   requirementsEvaluation: (ownerType: string, ownerId: string) =>
     ['requirementsEvaluation', ownerType, ownerId] as const,
   notificationSnapshot: ['notificationSnapshot'] as const,
+  trackingSources: ['trackingSources'] as const,
+  trackingSummary: (date: string) => ['trackingSummary', date] as const,
+  trackingDevices: ['trackingDevices'] as const,
 };

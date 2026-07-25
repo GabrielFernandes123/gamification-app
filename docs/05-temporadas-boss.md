@@ -86,6 +86,13 @@ dano_recebido = ataque_boss × (1 − redução_Vitalidade)      # se não esqui
   dano de hábito perdido, ver [02 §7.3](./02-economia.md).)
 - **Esquiva (Agilidade):** chance `= min(0.50, Agilidade × 0.005)`; se esquiva, dano = 0. 🆕
 - O contra-ataque pode **levar à morte** (HP→0) pelas regras de [02 §8](./02-economia.md).
+- **O boss se alimenta do tempo perdido (tracking, zona 3)** 🆕: segundos de uso acima
+  do `boss_threshold_seconds` de cada fonte ([11-tracking](./11-tracking-tempo-de-tela.md))
+  amplificam o contra-ataque do dia: `dano × (1 + min(0.50, ⌊feed/5min⌋ × 0.01))`.
+  E **1h+ de zona 3 torna o dia ruim por si só** — contra-ataque mesmo com a meta de
+  XP batida. Um beat narrativo (`meta.event: 'tracking_feed'`) registra o banquete.
+  Tracking fica FORA dos objetivos de fase e da eleição de fraqueza (só gera ouro
+  negativo; um objetivo "avance no módulo" seria incompletável).
 
 ### 3.3 Foco → sabedoria (explorar a fraqueza)
 Foco governa **como você luta**, não o que ganha:

@@ -20,6 +20,8 @@ const ROUTES: Record<string, Href> = {
   body_goal: '/(app)/(tabs)/body',
   body_measurement: '/(app)/(tabs)/body',
   sidequest: '/(app)/sidequests',
+  // typedRoutes ainda não regenerou a rota nova — cast até o próximo prebuild
+  tracking: '/(app)/tracking' as Href,
 };
 
 /** Atalhos de módulo na Início, enumerados do registry (08 §6.1). */
