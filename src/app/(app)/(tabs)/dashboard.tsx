@@ -34,6 +34,7 @@ import {
   useObjectivesOverview,
   type ObjectiveOverviewItem,
 } from '@/features/objectives/hooks/useObjectives';
+import { ModuleLauncher } from '@/features/modules/ModuleLauncher';
 import { useCurrentSeason } from '@/features/season/hooks/useCurrentSeason';
 import { useSideQuests } from '@/features/sidequests/hooks/useSideQuests';
 import { OnboardingModal } from '@/features/onboarding/OnboardingModal';
@@ -274,9 +275,9 @@ export default function DashboardScreen() {
       essence: c?.essencia ?? 0,
       claimableObjectives: claimable,
       atRiskObjectives: atRisk,
-      bossName: boss?.name ?? null,
-      bossHp: boss?.current_hp ?? null,
-      bossMaxHp: boss?.max_hp ?? null,
+      bossName: boss?.name ?? '',
+      bossHp: boss?.current_hp ?? 0,
+      bossMaxHp: boss?.max_hp ?? 0,
       actions: actions.slice(0, 5),
       updatedAt: new Date().toISOString(),
     };
@@ -646,6 +647,10 @@ export default function DashboardScreen() {
           onPress={() => router.push('/(app)/(tabs)/habits')}
         />
       </View>
+
+      {/* Atalhos dos módulos do registry (08 §6.1) — é o único caminho do app
+          para telas sem aba própria, como Tempo de tela. */}
+      <ModuleLauncher />
 
       <DailySummaryModal summary={summary} onDismiss={dismiss} />
       <OnboardingModal />

@@ -12,6 +12,7 @@
       "icon": "./assets/logo.png",
       "supportsTablet": false,
       "bundleIdentifier": "com.gabriel.evolve",
+      "appleTeamId": "DYT84KCFF7",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -47,6 +48,14 @@
         {
           "icon": "./assets/logo.png",
           "color": "#A855F7"
+        }
+      ],
+      [
+        "react-native-device-activity",
+        {
+          "appGroup": "group.com.gabriel.evolve",
+          "appleTeamId": "DYT84KCFF7",
+          "copyToTargetFolder": false
         }
       ],
       [

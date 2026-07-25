@@ -18,6 +18,10 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
+# Credenciais locais do iOS (credentialsSource: local) — contêm a senha do .p12
+credentials.json
+certs/
+
 # Metro
 .metro-health-check*
 

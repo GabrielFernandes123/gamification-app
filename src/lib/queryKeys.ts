@@ -53,4 +53,5 @@ export const qk = {
   trackingSources: ['trackingSources'] as const,
   trackingSummary: (date: string) => ['trackingSummary', date] as const,
   trackingDevices: ['trackingDevices'] as const,
+  trackingDayMarks: ['trackingDayMarks'] as const,
 };

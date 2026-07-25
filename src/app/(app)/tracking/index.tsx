@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import {
   AppWindow,
   ChevronLeft,
@@ -9,12 +9,13 @@ import {
   Plus,
   Puzzle,
   RefreshCw,
+  ShieldCheck,
   Smartphone,
   Timer,
   Trash2,
 } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Image, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ProgressBar } from '@/components/bars/ProgressBar';
 import { Button } from '@/components/ui/Button';
@@ -28,6 +29,9 @@ import { Text } from '@/components/ui/Text';
 import { useToast } from '@/components/ui/Toast';
 import {
   formatDuration,
+  sourceIconUrl,
+  useDayMarks,
+  useMarkDay,
   useCreateSource,
   useDeleteSource,
   useGeneratePairCode,
@@ -36,8 +40,12 @@ import {
   useTrackingSources,
   useTrackingSummary,
   useUpdateSource,
+  type ChargeMode,
+  type DayMode,
   type TrackedSource,
 } from '@/features/tracking/hooks/useTracking';
+import { ShieldStatusCard } from '@/features/tracking/ios/ShieldStatusCard';
+import { SourceShieldRow } from '@/features/tracking/ios/SourceShieldRow';
 import { useToday } from '@/hooks/useToday';
 import { theme } from '@/theme/theme';
 import { formatErrorMessage } from '@/utils/errors';
@@ -82,8 +90,81 @@ export default function TrackingScreen() {
   );
 }
 
-function SourceIcon({ kind, color }: { kind: 'domain' | 'app'; color: string }) {
+/**
+ * Ícone da fonte: site usa favicon do domínio, app usa o ícone enviado pelo
+ * desktop. Sem imagem (ou falha de rede) cai no ícone genérico.
+ */
+function SourceIcon({
+  kind,
+  matcher,
+  iconUrl,
+  color,
+}: {
+  kind: 'domain' | 'app';
+  matcher?: string;
+  iconUrl?: string | null;
+  color: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  const uri = matcher ? sourceIconUrl(kind, matcher, iconUrl) : null;
+  if (uri && !failed) {
+    return (
+      <Image
+        source={{ uri }}
+        style={styles.sourceIcon}
+        onError={() => setFailed(true)}
+        accessibilityIgnoresInvertColors
+      />
+    );
+  }
   return kind === 'domain' ? <Globe color={color} size={16} /> : <AppWindow color={color} size={16} />;
+}
+
+/**
+ * Marca do dia — a única configuração de exigência por dia no app (o resto é no
+ * web). Vale só para hoje e mexe nos limites de tela E na meta de XP do boss.
+ */
+function DayModeCard() {
+  const toast = useToast();
+  const marks = useDayMarks();
+  const mark = useMarkDay();
+  const current = marks.data?.today_mode ?? null;
+
+  const apply = (mode: DayMode | null) =>
+    mark.mutate(mode, {
+      onSuccess: () =>
+        toast.success(
+          mode === 'tranquilo'
+            ? 'Dia tranquilo'
+            : mode === 'pesado'
+              ? 'Dia pesado'
+              : 'Dia normal',
+          mode === 'tranquilo'
+            ? 'Limites mais folgados e meta menor hoje.'
+            : mode === 'pesado'
+              ? 'Menos folga e meta maior hoje.'
+              : 'Voltou aos limites do dia da semana.',
+        ),
+      onError: (e) => toast.error('Erro ao marcar o dia', formatErrorMessage(e)),
+    });
+
+  return (
+    <Card style={styles.sourceCard}>
+      <Text variant="title">Como é o dia de hoje</Text>
+      <Text variant="bodyMuted">
+        Feriado, folga ou plantão: ajusta limites de tela e a meta de XP só para hoje.
+      </Text>
+      <Segmented
+        value={current ?? 'normal'}
+        onChange={(value) => apply(value === 'normal' ? null : (value as DayMode))}
+        options={[
+          { value: 'normal', label: 'Normal' },
+          { value: 'tranquilo', label: 'Tranquilo' },
+          { value: 'pesado', label: 'Pesado' },
+        ]}
+      />
+    </Card>
+  );
 }
 
 function TodayPanel() {
@@ -93,17 +174,21 @@ function TodayPanel() {
 
   if (!data || data.sources.length === 0) {
     return (
-      <Card>
-        <Text variant="bodyMuted">
-          Nada rastreado hoje. Pareie a extensão, o desktop ou o iPhone em Dispositivos — o tempo
-          aparece aqui e o excedente da franquia vira custo em ouro.
-        </Text>
-      </Card>
+      <View style={styles.stack}>
+        <DayModeCard />
+        <Card>
+          <Text variant="bodyMuted">
+            Nada rastreado hoje. Pareie a extensão, o desktop ou o iPhone em Dispositivos — o tempo
+            aparece aqui e o excedente da franquia vira custo em ouro.
+          </Text>
+        </Card>
+      </View>
     );
   }
 
   return (
     <View style={styles.stack}>
+      <DayModeCard />
       <Card style={styles.heroRow}>
         <View style={styles.heroItem}>
           <Timer color={theme.colors.primary} size={20} />
@@ -128,7 +213,12 @@ function TodayPanel() {
         return (
           <Card key={`${source.kind}:${source.matcher}`} style={styles.sourceCard}>
             <View style={styles.rowLine}>
-              <SourceIcon kind={source.kind} color={theme.colors.textMuted} />
+              <SourceIcon
+                kind={source.kind}
+                matcher={source.matcher}
+                iconUrl={source.icon_url}
+                color={theme.colors.textMuted}
+              />
               <Text variant="title" style={styles.rowTitle} numberOfLines={1}>
                 {source.label}
               </Text>
@@ -156,7 +246,11 @@ function TodayPanel() {
               )}
             </View>
             <Text variant="bodyMuted">
-              {formatDuration(source.seconds)}
+              {formatDuration(source.seconds)} ativo
+              {source.parallel_seconds > 0
+                ? ` · ${formatDuration(source.parallel_seconds)} paralelo`
+                : ''}
+              {source.audio_seconds > 0 ? ` · ${formatDuration(source.audio_seconds)} áudio` : ''}
               {source.is_tracked && source.gold_per_hour
                 ? ` · ${source.gold_per_hour} ouro/h após ${formatDuration(free)} grátis`
                 : ''}
@@ -164,7 +258,7 @@ function TodayPanel() {
             {source.is_tracked && free > 0 ? (
               <>
                 <ProgressBar
-                  progress={Math.min(1, source.seconds / free)}
+                  progress={Math.min(1, (source.counted_seconds ?? source.seconds) / free)}
                   color={source.gold_charged > 0 ? theme.colors.gold : theme.colors.success}
                 />
                 <Text variant="bodyMuted">
@@ -186,8 +280,19 @@ const EMPTY_FORM = {
   freeMinutes: 60,
   goldPerHour: 60,
   bossMinutes: 0, // zona 3; 0 = nunca alimenta o boss
+  blockMinutes: 0, // zona 4; 0 = nunca bloqueia
+  unlockCost: 50,
+  unlockMinutes: 15,
+  chargeMode: 'active' as ChargeMode,
   active: true,
 };
+
+/** O que entra na conta da fonte (medições separadas, sempre 100%). */
+const CHARGE_MODES: Array<{ value: ChargeMode; label: string }> = [
+  { value: 'active', label: 'Só ativo' },
+  { value: 'parallel', label: '+ 2º monitor' },
+  { value: 'all', label: 'Tudo' },
+];
 
 function SourcesPanel() {
   const toast = useToast();
@@ -218,6 +323,12 @@ function SourcesPanel() {
       bossMinutes: source.boss_threshold_seconds
         ? Math.round(source.boss_threshold_seconds / 60)
         : 0,
+      blockMinutes: source.block_after_seconds
+        ? Math.round(source.block_after_seconds / 60)
+        : 0,
+      unlockCost: source.unlock_cost_gold,
+      unlockMinutes: source.unlock_minutes,
+      chargeMode: source.charge_mode ?? 'active',
       active: source.is_active,
     });
     setFormOpen(true);
@@ -231,6 +342,10 @@ function SourcesPanel() {
       daily_free_seconds: Math.max(0, Math.round(form.freeMinutes)) * 60,
       gold_per_hour: Math.max(0, Math.round(form.goldPerHour)),
       boss_threshold_seconds: Math.max(0, Math.round(form.bossMinutes)) * 60,
+      block_after_seconds: Math.max(0, Math.round(form.blockMinutes)) * 60,
+      unlock_cost_gold: Math.max(0, Math.round(form.unlockCost)),
+      unlock_minutes: Math.max(1, Math.round(form.unlockMinutes)),
+      charge_mode: form.chargeMode,
       is_active: form.active,
     };
     if (!payload.matcher) {
@@ -264,6 +379,8 @@ function SourcesPanel() {
 
   return (
     <View style={styles.stack}>
+      <ShieldStatusCard />
+
       <Button
         label="Nova fonte"
         icon={<Plus color={theme.colors.textInverse} size={16} />}
@@ -282,7 +399,12 @@ function SourcesPanel() {
         (sources.data ?? []).map((source) => (
           <Card key={source.id} style={styles.sourceCard}>
             <View style={styles.rowLine}>
-              <SourceIcon kind={source.kind} color={theme.colors.textMuted} />
+              <SourceIcon
+                kind={source.kind}
+                matcher={source.matcher}
+                iconUrl={source.icon_url}
+                color={theme.colors.textMuted}
+              />
               <View style={styles.rowTitle}>
                 <Text variant="title" numberOfLines={1}>
                   {source.label}
@@ -300,6 +422,15 @@ function SourcesPanel() {
                 <Trash2 color={theme.colors.hp} size={18} />
               </Pressable>
             </View>
+            {source.kind === 'app' ? (
+              <SourceShieldRow
+                sourceId={source.id}
+                matcher={source.matcher}
+                label={source.label}
+                blockAfterSeconds={source.block_after_seconds}
+                iosMeasure={source.ios_measure ?? 'shortcuts'}
+              />
+            ) : null}
           </Card>
         ))
       )}
@@ -307,6 +438,14 @@ function SourcesPanel() {
       <Modal visible={formOpen} transparent animationType="fade" onRequestClose={() => setFormOpen(false)}>
         <View style={styles.modalBackdrop}>
           <Card style={styles.modalCard}>
+            {/* O formulário tem muitos campos e passava da altura da tela,
+                deixando os botões (inclusive Cancelar) inalcançáveis. O conteúdo
+                rola; as ações ficam fixas no rodapé. */}
+            <ScrollView
+              contentContainerStyle={styles.modalScroll}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
             <Text variant="h2">{editing ? 'Editar fonte' : 'Nova fonte'}</Text>
             <Text variant="bodyMuted">
               O tempo acima da franquia diária é cobrado em ouro pela taxa por hora.
@@ -357,6 +496,14 @@ function SourcesPanel() {
               step={10}
               unit="ouro/h"
             />
+            <View style={styles.field}>
+              <Text variant="label">Cobrar</Text>
+              <Segmented
+                value={form.chargeMode}
+                onChange={(chargeMode) => setForm({ ...form, chargeMode })}
+                options={CHARGE_MODES}
+              />
+            </View>
             <NumericPickerField
               label="Limite antes do boss (0 = desligado)"
               title="Minutos até alimentar o boss"
@@ -367,6 +514,28 @@ function SourcesPanel() {
               step={15}
               unit="min/dia"
             />
+            <NumericPickerField
+              label="Bloquear depois de (0 = desligado)"
+              title="Minutos até bloquear"
+              value={form.blockMinutes}
+              onChange={(v) => setForm({ ...form, blockMinutes: v ?? 0 })}
+              min={0}
+              max={1440}
+              step={15}
+              unit="min/dia"
+            />
+            {form.blockMinutes > 0 ? (
+              <NumericPickerField
+                label="Custo para liberar"
+                title="Ouro para liberar"
+                value={form.unlockCost}
+                onChange={(v) => setForm({ ...form, unlockCost: v ?? 0 })}
+                min={0}
+                max={5000}
+                step={10}
+                unit="ouro"
+              />
+            ) : null}
             <View style={styles.field}>
               <Text variant="label">Status</Text>
               <Segmented
@@ -379,13 +548,22 @@ function SourcesPanel() {
               />
             </View>
 
-            <Button
-              label={editing ? 'Salvar' : 'Criar fonte'}
-              onPress={onSubmit}
-              loading={create.isPending || update.isPending}
-              fullWidth
-            />
-            <Button label="Cancelar" variant="ghost" onPress={() => setFormOpen(false)} fullWidth />
+            </ScrollView>
+
+            <View style={styles.modalActions}>
+              <Button
+                label={editing ? 'Salvar' : 'Criar fonte'}
+                onPress={onSubmit}
+                loading={create.isPending || update.isPending}
+                fullWidth
+              />
+              <Button
+                label="Cancelar"
+                variant="ghost"
+                onPress={() => setFormOpen(false)}
+                fullWidth
+              />
+            </View>
           </Card>
         </View>
       </Modal>
@@ -394,6 +572,7 @@ function SourcesPanel() {
 }
 
 function DevicesPanel() {
+  const router = useRouter();
   const toast = useToast();
   const confirm = useConfirm();
   const devices = useTrackedDevices();
@@ -459,6 +638,23 @@ function DevicesPanel() {
         />
       </Card>
 
+      {Platform.OS === 'ios' ? (
+        <Card style={styles.sourceCard}>
+          <Text variant="title">Bloqueio nativo (Screen Time)</Text>
+          <Text variant="bodyMuted">
+            Tela de validação do shield: autorização, escolha de apps e levantar/remover o
+            bloqueio. Exige build com o módulo nativo.
+          </Text>
+          <Button
+            label="Abrir spike do shield"
+            variant="outline"
+            icon={<ShieldCheck color={theme.colors.text} size={16} />}
+            // gerador de rotas tipadas está defasado; mesmo cast do ModuleLauncher
+            onPress={() => router.push('/(app)/tracking/shield-spike' as Href)}
+          />
+        </Card>
+      ) : null}
+
       <Card style={styles.sourceCard}>
         <Text variant="title">iPhone (Atalhos)</Text>
         <Text variant="bodyMuted">
@@ -521,6 +717,7 @@ const styles = StyleSheet.create({
   heroRow: { flexDirection: 'row', justifyContent: 'space-between', gap: theme.spacing.md },
   heroItem: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm },
   sourceCard: { gap: theme.spacing.sm },
+  sourceIcon: { width: 18, height: 18, borderRadius: 4 },
   field: { gap: theme.spacing.xs },
   rowLine: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm },
   rowTitle: { flex: 1 },
@@ -530,7 +727,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: theme.spacing.lg,
   },
-  modalCard: { gap: theme.spacing.md },
+  // teto de altura: o card nunca passa da tela, e o excesso rola por dentro
+  modalCard: { gap: theme.spacing.md, maxHeight: '88%' },
+  modalScroll: { gap: theme.spacing.md, paddingBottom: theme.spacing.sm },
+  modalActions: { gap: theme.spacing.xs },
   codeBox: {
     borderWidth: 1,
     borderColor: theme.colors.border,

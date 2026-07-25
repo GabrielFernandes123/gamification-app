@@ -1,6 +1,6 @@
 import { CheckCircle2, CircleAlert, Info, TriangleAlert } from 'lucide-react-native';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
 
 import { theme } from '@/theme/theme';
 import { Text } from './Text';
@@ -60,20 +60,34 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
+      {/*
+        O toast vive num Modal próprio, não numa View absoluta.
+        Motivo: o Modal do React Native renderiza numa JANELA NATIVA separada,
+        acima de toda a árvore do app — então um toast em árvore aparecia ATRÁS
+        de qualquer modal aberto (o formulário de fonte, por exemplo), e nenhum
+        zIndex resolvia. Como este Modal é apresentado depois, fica por cima.
+
+        `box-none` no container deixa os toques passarem fora do toast, para o
+        aviso não travar a tela por 3-4s enquanto está visível.
+      */}
       {toast && meta ? (
-        <Pressable style={styles.wrap} onPress={() => setToast(null)} accessibilityRole="button">
-          <View style={[styles.toast, { borderLeftColor: meta.color }]}>
-            {meta.icon}
-            <View style={styles.copy}>
-              <Text variant="bodyMedium">{toast.title}</Text>
-              {toast.message ? (
-                <Text variant="bodyMuted" numberOfLines={2}>
-                  {toast.message}
-                </Text>
-              ) : null}
-            </View>
+        <Modal transparent statusBarTranslucent animationType="fade" visible>
+          <View style={styles.wrap} pointerEvents="box-none">
+            <Pressable onPress={() => setToast(null)} accessibilityRole="button">
+              <View style={[styles.toast, { borderLeftColor: meta.color }]}>
+                {meta.icon}
+                <View style={styles.copy}>
+                  <Text variant="bodyMedium">{toast.title}</Text>
+                  {toast.message ? (
+                    <Text variant="bodyMuted" numberOfLines={2}>
+                      {toast.message}
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+            </Pressable>
           </View>
-        </Pressable>
+        </Modal>
       ) : null}
     </ToastContext.Provider>
   );
@@ -87,11 +101,10 @@ export function useToast() {
 
 const styles = StyleSheet.create({
   wrap: {
-    position: 'absolute',
-    left: theme.spacing.lg,
-    right: theme.spacing.lg,
-    bottom: 96,
-    zIndex: 1000,
+    flex: 1,
+    justifyContent: 'flex-end',
+    paddingHorizontal: theme.spacing.lg,
+    paddingBottom: 96,
   },
   toast: {
     minHeight: 58,

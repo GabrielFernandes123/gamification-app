@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { apiFetch } from '@/lib/api';
 import { qk } from '@/lib/queryKeys';
 import { ensureNotificationPermissions } from './permissions';
+import { registerPushToken } from './pushToken';
 import { syncAppNotifications, type SchedulableHabit } from './scheduler';
 
 type NotificationSnapshot = {
@@ -12,6 +13,11 @@ type NotificationSnapshot = {
 };
 
 export function useNotificationSync() {
+  // Push do servidor (alertas do que acontece no PC): registra uma vez por sessão.
+  useEffect(() => {
+    void registerPushToken();
+  }, []);
+
   const snapshot = useQuery({
     queryKey: qk.notificationSnapshot,
     queryFn: () => apiFetch<NotificationSnapshot>('/notifications/snapshot'),

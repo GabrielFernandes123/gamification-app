@@ -1,11 +1,17 @@
 import { Redirect, Stack } from 'expo-router';
 import { ActivityIndicator, View } from 'react-native';
 
+import { useShieldSyncRunner } from '@/features/tracking/ios/useShieldSync';
 import { useAuth } from '@/providers/AuthProvider';
 import { theme } from '@/theme/theme';
 
 export default function AppLayout() {
   const { session, loading } = useAuth();
+
+  // Bloqueio do iPhone: sincroniza aqui, e não numa tela, porque o shield e a
+  // política do Safari precisam ser reescritos sempre que o app abre — mesmo
+  // que o usuário nunca visite Tempo de tela.
+  useShieldSyncRunner(Boolean(session));
 
   if (loading) {
     return (

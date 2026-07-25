@@ -1,6 +1,7 @@
 import {
   Dumbbell,
   Footprints,
+  Monitor,
   Repeat,
   Ruler,
   ScrollText,
@@ -20,6 +21,7 @@ const ICONS: Record<string, LucideIcon> = {
   target: Target,
   ruler: Ruler,
   swords: Swords,
+  monitor: Monitor, // módulo 'tracking' (Tempo de tela)
 };
 
 export function moduleIcon(name: string): LucideIcon {

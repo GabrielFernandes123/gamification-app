@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      body {
+        margin: 0;
+        padding: 16px;
+        min-width: 260px;
+        font: 15px/1.45 -apple-system, system-ui, sans-serif;
+        background: #020617;
+        color: #f8fafc;
+      }
+      h1 {
+        margin: 0 0 4px;
+        font-size: 16px;
+      }
+      p {
+        margin: 0 0 12px;
+        color: #94a3b8;
+        font-size: 13px;
+      }
+      .state {
+        padding: 10px 12px;
+        border-radius: 8px;
+        background: #0b1220;
+        border: 1px solid #1e293b;
+        font-size: 13px;
+      }
+      .ok {
+        color: #4ade80;
+      }
+      .bad {
+        color: #fb7185;
+      }
+      ul {
+        margin: 8px 0 0;
+        padding-left: 18px;
+        color: #cbd5e1;
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Evolve</h1>
+    <p>Diagnóstico do bloqueio por palavra.</p>
+    <div class="state" id="state">Lendo…</div>
+    <script src="popup.js"></script>
+  </body>
+</html>

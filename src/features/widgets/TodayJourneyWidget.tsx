@@ -55,9 +55,9 @@ function TodayJourneyWidget(
     streak: rawProps.streak ?? 0,
     claimableObjectives: rawProps.claimableObjectives ?? 0,
     atRiskObjectives: rawProps.atRiskObjectives ?? 0,
-    bossName: rawProps.bossName ?? null,
-    bossHp: rawProps.bossHp ?? null,
-    bossMaxHp: rawProps.bossMaxHp ?? null,
+    bossName: rawProps.bossName ?? '',
+    bossHp: rawProps.bossHp ?? 0,
+    bossMaxHp: rawProps.bossMaxHp ?? 0,
     actions: rawProps.actions ?? [],
   };
 
@@ -90,7 +90,7 @@ function TodayJourneyWidget(
         ? 'checkmark.seal.fill'
         : 'flame.fill';
   const bossPercent =
-    props.bossHp !== null && props.bossMaxHp !== null && props.bossMaxHp > 0
+    props.bossMaxHp > 0
       ? Math.round(ratio(props.bossHp / props.bossMaxHp) * 100)
       : null;
   const formatAmount = (value: number) => {

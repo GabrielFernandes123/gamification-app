@@ -24,9 +24,12 @@ export type TodayJourneyWidgetProps = {
   essence: number;
   claimableObjectives: number;
   atRiskObjectives: number;
-  bossName: string | null;
-  bossHp: number | null;
-  bossMaxHp: number | null;
+  // Sentinelas em vez de null: o encoder nativo do widget rejeita null onde
+  // espera String/Double, e a falha aparece como "Exception in HostFunction".
+  // Sem boss ativo: nome vazio e HP zerado.
+  bossName: string;
+  bossHp: number;
+  bossMaxHp: number;
   actions: TodayJourneyAction[];
   updatedAt: string;
 };
@@ -50,9 +53,9 @@ export const EMPTY_TODAY_JOURNEY_WIDGET: TodayJourneyWidgetProps = {
   essence: 0,
   claimableObjectives: 0,
   atRiskObjectives: 0,
-  bossName: null,
-  bossHp: null,
-  bossMaxHp: null,
+  bossName: '',
+  bossHp: 0,
+  bossMaxHp: 0,
   actions: [],
   updatedAt: new Date(0).toISOString(),
 };

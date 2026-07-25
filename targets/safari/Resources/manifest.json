@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Evolve — palavras bloqueadas",
+  "version": "1.0",
+  "description": "Intercepta páginas que casam com as palavras que você mesmo bloqueou. Abrir custa ouro.",
+  "permissions": ["nativeMessaging", "storage"],
+  "host_permissions": ["*://*/*"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Evolve",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*/*"],
+      "js": ["content.js"],
+      "run_at": "document_start",
+      "all_frames": false
+    }
+  ]
+}
