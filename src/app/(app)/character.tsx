@@ -3,6 +3,7 @@ import { ChevronLeft, RotateCcw } from 'lucide-react-native';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
+import { ArtImage } from '@/components/ui/ArtImage';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
@@ -13,6 +14,7 @@ import { useToast } from '@/components/ui/Toast';
 import { ATTRIBUTE_LABEL, ATTRIBUTES } from '@/features/character/attributes';
 import { CLASSES, RESPEC_ESSENCIA_COST } from '@/features/character/classes';
 import { useCharacter } from '@/features/character/hooks/useCharacter';
+import { useRegenerateCharacterArt } from '@/features/character/hooks/useCharacterArt';
 import { useSelectClass } from '@/features/character/hooks/useClass';
 import {
   RESPEC_POINTS_ESSENCIA_COST,
@@ -54,6 +56,8 @@ export default function CharacterScreen() {
         <Text variant="h1">Personagem</Text>
       </View>
 
+      <AvatarCard />
+
       <Segmented
         value={mode}
         onChange={setMode}
@@ -68,6 +72,57 @@ export default function CharacterScreen() {
       {mode === 'equipamento' && <EquipmentPanel />}
       {mode === 'classe' && <ClassPanel />}
     </Screen>
+  );
+}
+
+// ------------------------------------------------------------------ Avatar
+/**
+ * Retrato do personagem. Só troca quando VOCÊ pede: a arte reflete classe,
+ * nível e equipamento equipado, mas regenerar automaticamente a cada mudança
+ * geraria imagem sem você querer (e custa dinheiro por chamada).
+ */
+function AvatarCard() {
+  const character = useCharacter();
+  const regenerate = useRegenerateCharacterArt();
+  const toast = useToast();
+  const avatar = character.data?.image_url ?? null;
+  const level = character.data?.level ?? 1;
+
+  const onRegenerate = () => {
+    regenerate.mutate(undefined, {
+      onSuccess: () => toast.success('Novo retrato gerado'),
+      onError: (e) => toast.error('Não foi possível gerar', formatErrorMessage(e)),
+    });
+  };
+
+  return (
+    <Card style={styles.avatarCard}>
+      <ArtImage uri={avatar} ratio={3 / 4} style={styles.avatarArt} />
+      <View style={styles.avatarCopy}>
+        <Text variant="label" color={theme.colors.textMuted}>
+          Retrato
+        </Text>
+        <Text variant="h1">Nível {level}</Text>
+        <Text variant="bodyMuted">
+          {avatar
+            ? 'Gerado a partir da sua classe, nível e equipamento equipado.'
+            : 'Ainda sem retrato. Gere um a partir da sua build atual.'}
+        </Text>
+        <Button
+          label={
+            regenerate.isPending
+              ? 'Gerando...'
+              : avatar
+                ? 'Reimaginar retrato'
+                : 'Gerar retrato'
+          }
+          size="sm"
+          variant="outline"
+          disabled={regenerate.isPending}
+          onPress={onRegenerate}
+        />
+      </View>
+    </Card>
   );
 }
 
@@ -252,9 +307,13 @@ function EquipmentPanel() {
               ) : null}
             </View>
             {eq ? (
-              <View>
-                <Text variant="title">{eq.name}</Text>
-                <Text variant="bodyMuted">{bonusText(eq)}</Text>
+              <View style={styles.equipRow}>
+                {/* Emblema do equipamento (IA); drop de boss não tem. */}
+                {eq.imageUrl ? <ArtImage uri={eq.imageUrl} style={styles.equipArt} /> : null}
+                <View style={styles.flex}>
+                  <Text variant="title">{eq.name}</Text>
+                  <Text variant="bodyMuted">{bonusText(eq)}</Text>
+                </View>
               </View>
             ) : (
               <Text variant="bodyMuted">Slot vazio</Text>
@@ -277,6 +336,7 @@ function EquipmentPanel() {
             const locked = level < it.required_level;
             return (
               <Card key={it.id} style={styles.invCard}>
+                {it.imageUrl ? <ArtImage uri={it.imageUrl} style={styles.equipArt} /> : null}
                 <View style={{ flex: 1 }}>
                   <Text variant="bodyMedium">{it.name}</Text>
                   <Text variant="bodyMuted">
@@ -396,6 +456,10 @@ function ErrorText({ msg }: { msg: string }) {
 
 const styles = StyleSheet.create({
   content: { gap: theme.spacing.lg },
+  // Retrato à esquerda (carta 3:4) e a identidade + ação à direita.
+  avatarCard: { flexDirection: 'row', alignItems: 'flex-start', gap: theme.spacing.lg },
+  avatarArt: { width: '38%' },
+  avatarCopy: { flex: 1, minWidth: 0, gap: theme.spacing.xs },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -413,6 +477,9 @@ const styles = StyleSheet.create({
   attrLines: { gap: theme.spacing.xs },
   sourceLine: { flexDirection: 'row', justifyContent: 'space-between' },
   slotCard: { gap: theme.spacing.sm },
+  equipRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md },
+  equipArt: { width: 44 },
+  flex: { flex: 1 },
   invCard: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md },
   classCard: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md },
   classOn: { borderColor: theme.colors.primaryBright, borderWidth: 1, backgroundColor: theme.colors.primaryDim },

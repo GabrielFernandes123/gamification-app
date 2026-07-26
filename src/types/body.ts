@@ -3,7 +3,13 @@ import type { BossProgressResult } from './rpc';
 
 type Tables = Database['public']['Tables'];
 
-export type BodyPart = Tables['body_parts']['Row'];
+export type BodyPart = Tables['body_parts']['Row'] & {
+  /**
+   * Emblema gerado por IA (coluna nova, ainda fora dos tipos gerados do
+   * Supabase). O `media_url` enviado pelo usuário tem prioridade sobre ela.
+   */
+  image_url?: string | null;
+};
 
 export type FitnessExercise = Tables['fitness_exercises']['Row'] & {
   // Colunas novas (catálogo de exercícios) ainda fora dos tipos gerados do Supabase.

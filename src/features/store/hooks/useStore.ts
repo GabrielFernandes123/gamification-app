@@ -29,6 +29,8 @@ export type InventoryItem = {
   category: string | null;
   icon: string | null;
   rarity: string | null;
+  /** Emblema gerado por IA; null enquanto o cron de arte não passou. */
+  imageUrl: string | null;
   isConsumable: boolean;
 };
 
@@ -41,6 +43,8 @@ export type UserItem = {
   rarity: string | null;
   isConsumable: boolean;
   isActive: boolean;
+  /** Emblema gerado por IA; null enquanto o cron de arte não passou. */
+  imageUrl: string | null;
   metadata: Record<string, unknown>;
   sortOrder: number;
   createdAt: string;

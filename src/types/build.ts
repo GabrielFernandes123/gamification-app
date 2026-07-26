@@ -32,6 +32,8 @@ export type OwnedEquipment = {
   source: EquipmentSource;
   is_equipped: boolean;
   created_at: string;
+  /** Emblema do CATÁLOGO de origem; drop de boss (sem catalog_id) vem null. */
+  imageUrl?: string | null;
 };
 
 /** Breakdown de um atributo (GET /build/attributes). */

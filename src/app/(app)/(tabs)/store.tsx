@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ArtImage } from '@/components/ui/ArtImage';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
@@ -680,9 +681,15 @@ function InventoryCard({
   return (
     <Card accent={accent} style={styles.itemCard}>
       <View style={styles.itemTop}>
-        <View style={[styles.itemIcon, { borderColor: accent }]}>
-          <Text variant="title">{item.icon || (item.itemKind === 'custom' ? '◆' : '✦')}</Text>
-        </View>
+        {/* Emblema de IA quando existir; senão o ícone-texto do item. */}
+        <ArtImage
+          uri={item.imageUrl}
+          tint={accent}
+          style={styles.itemIcon}
+          fallback={
+            <Text variant="title">{item.icon || (item.itemKind === 'custom' ? '◆' : '✦')}</Text>
+          }
+        />
         <View style={styles.flex}>
           <Text variant="title" numberOfLines={1}>
             {item.name}
@@ -736,9 +743,12 @@ function UserItemCard({
         </Pressable>
       </View>
       <View style={styles.itemTop}>
-        <View style={[styles.itemIcon, { borderColor: theme.colors.success }]}>
-          <Text variant="title">{item.icon || '◆'}</Text>
-        </View>
+        <ArtImage
+          uri={item.imageUrl}
+          tint={theme.colors.success}
+          style={styles.itemIcon}
+          fallback={<Text variant="title">{item.icon || '◆'}</Text>}
+        />
         <View style={styles.flex}>
           <Text variant="title" numberOfLines={1}>
             {item.name}
@@ -880,7 +890,6 @@ const styles = StyleSheet.create({
   itemTop: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md },
   itemIcon: {
     width: 44,
-    height: 44,
     borderRadius: theme.radius.md,
     borderWidth: 1,
     backgroundColor: theme.colors.surfaceSoft,

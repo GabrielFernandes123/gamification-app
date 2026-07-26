@@ -3,6 +3,7 @@ import { Hexagon } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ProgressBar } from '@/components/bars/ProgressBar';
+import { ArtImage } from '@/components/ui/ArtImage';
 import { Card } from '@/components/ui/Card';
 import { Text } from '@/components/ui/Text';
 import { theme } from '@/theme/theme';
@@ -19,9 +20,13 @@ export function SkillRow({ skill }: { skill: Skill }) {
     <Pressable onPress={() => router.push({ pathname: '/(app)/skills/[id]', params: { id: skill.id } })}>
       <Card accent={color}>
         <View style={styles.header}>
-          <View style={styles.iconWrap}>
-            <Hexagon color={color} size={28} />
-          </View>
+          {/* Emblema gerado por IA; sem arte, o hexágono segue no lugar. */}
+          <ArtImage
+            uri={skill.image_url}
+            tint={color}
+            style={styles.iconWrap}
+            fallback={<Hexagon color={color} size={28} />}
+          />
           <View style={styles.info}>
             <Text variant="title" numberOfLines={1}>
               {skill.name}
@@ -43,8 +48,8 @@ export function SkillRow({ skill }: { skill: Skill }) {
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md },
   iconWrap: {
+    // Altura vem da proporção 1:1 do ArtImage — sem `height` fixa aqui.
     width: 44,
-    height: 44,
     borderRadius: theme.radius.md,
     borderWidth: 1,
     borderColor: theme.colors.border,

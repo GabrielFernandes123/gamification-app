@@ -183,8 +183,13 @@ function PartCard({ part, onPress, onEdit }: { part: BodyPart; onPress: () => vo
       <Card accent={color}>
         <View style={styles.cardHeader}>
           <View style={[styles.glyph, { borderColor: color }]}>
-            {part.media_url ? (
-              <ExpoImage source={{ uri: part.media_url }} style={styles.glyphImage} contentFit="cover" />
+            {/* Upload do usuário manda; o emblema de IA só preenche o vazio. */}
+            {part.media_url ?? part.image_url ? (
+              <ExpoImage
+                source={{ uri: part.media_url ?? part.image_url ?? '' }}
+                style={styles.glyphImage}
+                contentFit="cover"
+              />
             ) : (
               <Activity color={color} size={24} />
             )}

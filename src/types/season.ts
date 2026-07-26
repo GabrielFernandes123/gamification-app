@@ -20,6 +20,8 @@ export type Season = {
   starts_on: string;
   ends_on: string;
   status: SeasonStatus;
+  /** Key art do arco (gerada por IA). Só a temporada do tier-topo tem. */
+  image_url: string | null;
 };
 
 export type Boss = {
@@ -40,6 +42,8 @@ export type Boss = {
   window_end: string;
   status: BossStatus;
   rewards_claimed: boolean;
+  /** Retrato gerado por IA; null enquanto o cron de arte não passou. */
+  image_url: string | null;
 };
 
 export type BossObjective = {
@@ -101,6 +105,8 @@ export type NarrativeBeat = {
   layer: number;
   meta: Record<string, unknown>;
   created_at: string;
+  /** Ilustração gerada por IA — só capítulos-marco recebem. */
+  image_url?: string | null;
 };
 
 /** Beat na visão de saga completa: traz o tier e o nome do boss de origem. */
@@ -127,6 +133,10 @@ export type ActiveSeasonStory = CurrentSeasonSnapshot & {
   narrativeBeats: NarrativeBeat[];
   storySettings: SeasonStorySettings;
   aiAvailable: boolean;
+  /** Key art do arco (temporada do tier-topo); null enquanto não gerada. */
+  arcKeyArt?: string | null;
+  /** IA de imagem configurada no servidor (habilita o botão "reimaginar"). */
+  artAvailable?: boolean;
 };
 
 /** Sem temporada ativa: o app mostra a tela de configuração/início. */

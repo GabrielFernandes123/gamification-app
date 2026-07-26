@@ -35,6 +35,7 @@ import {
 import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
 
 import { ProgressBar } from '@/components/bars/ProgressBar';
+import { ArtImage } from '@/components/ui/ArtImage';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { DatePickerField } from '@/components/ui/DatePickerField';
 import { Input } from '@/components/ui/Input';
@@ -374,6 +375,9 @@ export default function HistoriaScreen() {
     currentSeason.arc_lore ??
     currentSeason.lore ??
     'A história ainda está tomando forma...';
+  // A key art vive na temporada do tier-topo; a API resolve e manda a mesma
+  // imagem em qualquer aba de tier. Null = arte ainda não gerada.
+  const keyArt = story.data.arcKeyArt ?? currentSeason.image_url ?? null;
   const weaknessLabel =
     (boss.weakness_module_key && moduleLabels.get(boss.weakness_module_key)) ||
     (boss.weakness_module_key
@@ -383,14 +387,35 @@ export default function HistoriaScreen() {
   return (
     <Screen scroll refreshing={refreshing} onRefresh={onRefresh} contentStyle={styles.page}>
       <View style={styles.content}>
+        {/* Banner do arco: a key art sangra até as bordas e o título vem por
+            cima, com um véu escuro para o texto nunca competir com a arte. */}
+        {keyArt ? (
+          <View style={styles.bannerWrap}>
+            <ArtImage uri={keyArt} ratio={16 / 9} radius={0} style={styles.banner} />
+            <View style={styles.bannerVeil} pointerEvents="none" />
+            <View style={styles.bannerCopy} pointerEvents="none">
+              <T variant="label" color={H.primaryBright}>
+                Arco da temporada
+              </T>
+              <T variant="display" numberOfLines={2}>
+                {currentSeason.name}
+              </T>
+            </View>
+          </View>
+        ) : null}
+
         <View style={styles.topRow}>
           <View style={styles.flex}>
-            <T variant="label" color={H.primaryBright}>
-              Arco da temporada
-            </T>
-            <T variant="display" numberOfLines={2}>
-              {currentSeason.name}
-            </T>
+            {keyArt ? null : (
+              <>
+                <T variant="label" color={H.primaryBright}>
+                  Arco da temporada
+                </T>
+                <T variant="display" numberOfLines={2}>
+                  {currentSeason.name}
+                </T>
+              </>
+            )}
           </View>
           <View style={styles.topActions}>
             <Pressable
@@ -838,28 +863,33 @@ function BossHero({
 
   return (
     <HCard accent={visual.color} style={styles.heroCard}>
-      <View style={styles.rowGap}>
-        <View style={[styles.heroIcon, { backgroundColor: visual.color }]}>
-          <Icon color={H.text} size={28} />
-        </View>
-        <View style={styles.flex}>
+      {/* Retrato do boss em tamanho de carta de RPG (a arte é 3:4 e merece
+          espaço). Sem arte, o ícone do tier ocupa a mesma caixa. */}
+      <View style={styles.heroTop}>
+        <ArtImage
+          uri={boss.image_url}
+          ratio={3 / 4}
+          tint={visual.color}
+          style={styles.heroPortrait}
+          fallback={<Icon color={H.text} size={34} />}
+        />
+        <View style={styles.heroCopy}>
           <T variant="label" color={visual.color}>
             {TIER_ROLE[boss.tier]}
           </T>
-          <T variant="h1" numberOfLines={2}>
+          <T variant="h1" numberOfLines={3}>
             {boss.name}
           </T>
           <T variant="bodyMuted">
             {formatDate(boss.window_start)} — {formatDate(boss.window_end)}
           </T>
+          {boss.description ? (
+            <T variant="quote" color={visual.color} numberOfLines={5}>
+              “{boss.description}”
+            </T>
+          ) : null}
         </View>
       </View>
-
-      {boss.description ? (
-        <T variant="quote" color={visual.color}>
-          “{boss.description}”
-        </T>
-      ) : null}
 
       <View style={styles.hpBlock}>
         <View style={styles.spaceBetween}>
@@ -1077,6 +1107,12 @@ function MonthCard({
         </T>
         {icon}
       </View>
+      {/* Miniatura do miniboss daquele mês; mês futuro segue sem arte ("???").
+          Quadrada de propósito: o card do mês é estreito e 3:4 o deixaria alto
+          demais na régua horizontal. */}
+      {boss?.image_url ? (
+        <ArtImage uri={boss.image_url} ratio={1} tint={accent} style={styles.timelineArt} />
+      ) : null}
       <T variant="chapterTitle" numberOfLines={2} color={isFuture ? H.textDim : H.text}>
         {name}
       </T>
@@ -1127,6 +1163,14 @@ function TierMilestoneCard({
           {TIER_LABEL[tier]}
         </T>
       </View>
+      {boss?.image_url ? (
+        <ArtImage
+          uri={boss.image_url}
+          ratio={3 / 4}
+          tint={visual.color}
+          style={styles.timelineArt}
+        />
+      ) : null}
       <T variant="chapterTitle" numberOfLines={2} color={isFuture ? H.textDim : H.text}>
         {name}
       </T>
@@ -1329,6 +1373,10 @@ function ChapterCard({
             <T variant="bodyMuted">{formatDateTime(beat.created_at)}</T>
           </View>
           <T variant="chapterTitle">{beat.title ?? 'Novo capítulo'}</T>
+          {/* Só capítulos-marco ganham ilustração; os de rotina ficam em texto. */}
+          {beat.image_url ? (
+            <ArtImage uri={beat.image_url} ratio={16 / 9} style={styles.chapterArt} tint={dotColor} />
+          ) : null}
           <T variant="body">{beat.content}</T>
         </HCard>
       </View>
@@ -2843,6 +2891,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Banner do arco: sangra os 18px de padding lateral do Screen dos dois lados.
+  bannerWrap: {
+    // Anula exatamente o padding do Screen (theme.spacing.lg = 16) para a arte
+    // sangrar até as bordas.
+    marginHorizontal: -16,
+    marginTop: -16,
+    marginBottom: 4,
+    position: 'relative',
+  },
+  banner: { width: '100%', borderWidth: 0 },
+  // Véu escuro só na metade de baixo, onde o título assenta.
+  bannerVeil: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '58%',
+    backgroundColor: 'rgba(15,15,35,0.72)',
+  },
+  bannerCopy: { position: 'absolute', left: 16, right: 16, bottom: 14, gap: 2 },
+  // Retrato do boss: carta 3:4 ocupando ~42% da largura do card.
+  heroTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 14 },
+  heroPortrait: { width: '42%', borderWidth: 2 },
+  heroCopy: { flex: 1, minWidth: 0, gap: 4 },
+  // Miniatura de boss nos cards da linha do tempo (mês e marco de tier).
+  timelineArt: { width: '100%', borderWidth: 1 },
+  // Ilustração do capítulo-marco, acima do texto.
+  chapterArt: { width: '100%', marginTop: 8 },
   hpBlock: { gap: 8 },
   metrics: { flexDirection: 'row', gap: 8 },
   chargesBlock: {

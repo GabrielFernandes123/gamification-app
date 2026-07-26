@@ -7,6 +7,8 @@ import type { Database } from '@/types/db';
 export type Character = Database['public']['Tables']['characters']['Row'] & {
   /** Dias consecutivos com >=1 evento positivo no ledger (02 §6). */
   character_streak?: number;
+  /** Avatar gerado por IA; só muda por regeneração manual. */
+  image_url?: string | null;
 };
 export type Profile = Database['public']['Tables']['profiles']['Row'];
 
