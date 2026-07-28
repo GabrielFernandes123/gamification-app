@@ -113,7 +113,14 @@ export function SourceShieldRow({
           Apague as 2 automações deste app no Atalhos — o servidor já ignora os
           eventos delas, mas elas ficariam rodando à toa.
         </Text>
-      ) : null}
+      ) : (
+        // O padrão da fonte é `shortcuts`: vincular o app NÃO faz o iPhone medir.
+        // Sem as duas automações no Atalhos, o tempo desta fonte fica em zero.
+        <Text variant="label" color={theme.colors.gold}>
+          O tempo só é contado pelas 2 automações do Atalhos. Sem elas, toque em
+          "Medir pelo iOS".
+        </Text>
+      )}
 
       {pickerOpen ? (
         <DeviceActivity.DeviceActivitySelectionSheetViewPersisted

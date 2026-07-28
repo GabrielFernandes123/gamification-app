@@ -1,10 +1,12 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ChevronLeft, ChevronRight, Clock, Dumbbell, Pencil, Play } from 'lucide-react-native';
+import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { Card } from '@/components/ui/Card';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { MediaThumb } from '@/components/ui/MediaThumb';
+import { MediaViewer } from '@/components/ui/MediaViewer';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { useToast } from '@/components/ui/Toast';
@@ -151,6 +153,7 @@ function daysSince(date: string) {
 }
 
 function ExerciseBlock({ ex }: { ex: WorkoutTemplateExercise }) {
+  const [mediaOpen, setMediaOpen] = useState(false);
   const sets = ex.sets ?? [];
   const warm = sets.filter((s) => s.set_type === 'warmup');
   const work = sets.filter((s) => s.set_type !== 'warmup');
@@ -158,8 +161,18 @@ function ExerciseBlock({ ex }: { ex: WorkoutTemplateExercise }) {
 
   return (
     <Card style={styles.block}>
+      <MediaViewer
+        uri={mediaOpen ? ex.exercise?.media_url ?? null : null}
+        title={ex.exercise?.name}
+        onClose={() => setMediaOpen(false)}
+      />
       <View style={styles.blockHead}>
-        <MediaThumb uri={ex.exercise?.media_url} size={44} radius={theme.radius.sm} />
+        <MediaThumb
+          uri={ex.exercise?.media_url}
+          size={44}
+          radius={theme.radius.sm}
+          onPress={ex.exercise?.media_url ? () => setMediaOpen(true) : undefined}
+        />
         <View style={styles.flex}>
           <View style={styles.nameRow}>
             <Text variant="title" numberOfLines={1} style={styles.flex}>{ex.exercise?.name ?? 'Exercício'}</Text>

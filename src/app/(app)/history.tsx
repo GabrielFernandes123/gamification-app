@@ -17,12 +17,16 @@ import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { Segmented } from '@/components/ui/Segmented';
 import { Text } from '@/components/ui/Text';
+import { ACHIEVEMENTS } from '@/features/achievements/catalog';
 import { useHistory, type HistoryEvent } from '@/features/history/useHistory';
 import { moduleIcon } from '@/features/modules/moduleIcon';
 import { useModules, type ModuleRow } from '@/features/modules/useModules';
 import { monthLabel, monthRange, shiftMonth } from '@/features/warroom/month';
 import { useToday } from '@/hooks/useToday';
 import { theme } from '@/theme/theme';
+
+/** Catálogo de conquistas: o histórico recebe a CHAVE e traduz aqui. */
+const ACHIEVEMENT_TITLES = new Map(ACHIEVEMENTS.map((a) => [a.key, a.title] as const));
 
 type HistoryView = 'timeline' | 'calendar';
 const WEEK = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
@@ -165,11 +169,11 @@ function Timeline({
               </View>
             </View>
             <View style={styles.previewStack}>
-              {day.events.slice(0, 3).map((e) => (
-                <EventRow key={e.id} event={e} registry={registry} />
+              {groupEvents(day.events).slice(0, 3).map((g) => (
+                <GroupRow key={g.key} group={g} registry={registry} />
               ))}
-              {day.events.length > 3 ? (
-                <Text variant="bodyMuted">+{day.events.length - 3} mais…</Text>
+              {groupEvents(day.events).length > 3 ? (
+                <Text variant="bodyMuted">+{groupEvents(day.events).length - 3} mais…</Text>
               ) : null}
             </View>
           </Card>
@@ -179,17 +183,26 @@ function Timeline({
   );
 }
 
-function EventRow({ event, registry }: { event: HistoryEvent; registry: Record<string, ModuleRow> }) {
+function GroupRow({ group, registry }: { group: EventGroup; registry: Record<string, ModuleRow> }) {
+  const event = group.head;
   const mod = registry[event.sourceType];
-  const color = event.kind === 'fail' ? theme.colors.hp : mod?.cor ?? theme.colors.skill;
+  const color =
+    event.kind === 'heal'
+      ? theme.colors.success
+      : event.kind !== 'gain'
+        ? theme.colors.hp
+        : mod?.cor ?? theme.colors.skill;
+  const many = group.events.length > 1;
   return (
     <View style={styles.eventRow}>
       <View style={[styles.eventIcon, { borderColor: color }]}>
         {createElement(moduleIcon(mod?.icone ?? ''), { color, size: 16 })}
       </View>
       <View style={styles.flex}>
-        <Text variant="bodyMedium" numberOfLines={1}>{event.label ?? mod?.nome ?? event.sourceType}</Text>
-        <Text variant="bodyMuted" numberOfLines={1}>{eventDetail(event)}</Text>
+        <Text variant="bodyMedium" numberOfLines={1}>
+          {eventTitle(event, mod?.nome)}{many ? ` (${group.events.length}×)` : ''}
+        </Text>
+        <Text variant="bodyMuted" numberOfLines={1}>{groupDetail(group)}</Text>
       </View>
     </View>
   );
@@ -281,13 +294,99 @@ function DayModal({
             {events.length === 0 ? (
               <Text variant="bodyMuted">Nenhum registro neste dia.</Text>
             ) : (
-              events.map((e) => <EventRow key={e.id} event={e} registry={registry} />)
+              groupEvents(events).map((g) => <GroupRow key={g.key} group={g} registry={registry} />)
             )}
           </ScrollView>
         </Card>
       </View>
     </Modal>
   );
+}
+
+/**
+ * Consolida o que é a MESMA coisa repetida no dia (espelha o web).
+ *
+ * A cobrança de tempo de tela debita a diferença acumulada a cada
+ * sincronização: a 10 ouro/hora isso é uma linha de "−1 ouro" a cada 6 minutos.
+ * Somadas, escondem o que importa (multa, liberação paga, foco). O ledger
+ * continua fino; quem agrupa é a leitura.
+ */
+type EventGroup = {
+  key: string;
+  head: HistoryEvent;
+  events: HistoryEvent[];
+  xp: number;
+  gold: number;
+  essencia: number;
+  damage: number;
+  billableSeconds: number;
+};
+
+function reasonKey(e: HistoryEvent): string {
+  const meta = (e.meta ?? {}) as Record<string, unknown>;
+  if (e.kind === 'damage' || e.kind === 'heal') return 'plain';
+  if (e.sourceType === 'store') return 'purchase';
+  if (e.sourceType === 'death') return 'death';
+  if (e.sourceType !== 'tracking') return 'plain';
+  if (meta.refund_of) return 'refund';
+  if (meta.daily_bonus) return 'bonus';
+  if (Array.isArray(meta.sabotage)) return 'fine';
+  if (meta.unlock) return 'unlock';
+  if (meta.focus_session) return 'focus';
+  if (typeof meta.billable === 'number') return 'charge';
+  return 'plain';
+}
+
+function groupEvents(events: HistoryEvent[]): EventGroup[] {
+  const groups = new Map<string, EventGroup>();
+  for (const e of events) {
+    const reason = reasonKey(e);
+    const key = [e.kind, e.sourceType, reason, e.label ?? e.sourceId ?? ''].join('|');
+    const meta = (e.meta ?? {}) as Record<string, unknown>;
+    const g = groups.get(key) ?? {
+      key, head: e, events: [], xp: 0, gold: 0, essencia: 0, damage: 0, billableSeconds: 0,
+    };
+    g.events.push(e);
+    g.xp += Number(e.xp ?? 0);
+    g.gold += Number(e.gold ?? 0);
+    g.essencia += Number(e.essencia ?? 0);
+    g.damage += Number(meta.damage ?? 0);
+    if (reason === 'charge') {
+      g.billableSeconds = Math.max(g.billableSeconds, Number(meta.billable ?? 0));
+    }
+    groups.set(key, g);
+  }
+  return [...groups.values()];
+}
+
+/** Título da linha: o que aconteceu, não o módulo de onde veio. */
+function eventTitle(e: HistoryEvent, moduleName?: string): string {
+  if (e.sourceType === 'achievement' && e.label) {
+    return ACHIEVEMENT_TITLES.get(e.label) ?? e.label;
+  }
+  switch (reasonKey(e)) {
+    case 'fine': return 'Multa de proteção';
+    case 'focus': return 'Sessão de foco';
+    case 'refund': return 'Estorno';
+    case 'unlock': return e.label ? `${e.label} · liberação` : 'Liberação de bloqueio';
+    case 'bonus': return e.label ? `${e.label} · bônus` : 'Bônus de franquia';
+    default:
+      if (e.kind === 'heal') return e.label ?? 'Cura';
+      return e.label ?? moduleName ?? (e.kind === 'damage' ? 'Boss' : e.sourceType);
+  }
+}
+
+function groupDetail(g: EventGroup): string {
+  if (g.events.length === 1) return eventDetail(g.head);
+  const parts: string[] = [];
+  if (g.xp) parts.push(`${g.xp > 0 ? '+' : '−'}${Math.abs(g.xp)} XP`);
+  if (g.gold) parts.push(`${g.gold > 0 ? '+' : '−'}${Math.abs(g.gold)} ouro`);
+  if (g.essencia) parts.push(`${g.essencia > 0 ? '+' : '−'}${Math.abs(g.essencia)} essência`);
+  if (g.damage) parts.push(`${g.head.kind === 'heal' ? '+' : '−'}${g.damage} HP`);
+  // a cobrança é ESTADO acumulado: o total do dia é o último `billable`
+  if (g.billableSeconds > 0) parts.push(`${duration(g.billableSeconds)} acima da franquia`);
+  parts.push(`${g.events.length}×`);
+  return parts.join(' · ');
 }
 
 // ---- dados ----
@@ -312,6 +411,7 @@ function buildSummary(events: HistoryEvent[]) {
   let gold = 0;
   let fails = 0;
   for (const e of events) {
+    if (e.kind === 'damage' || e.kind === 'heal') continue; // não são falhas suas
     if (e.kind === 'fail') fails += 1;
     else {
       xp += Number(e.xp ?? 0);
@@ -321,15 +421,107 @@ function buildSummary(events: HistoryEvent[]) {
   return { activeDays, xp, gold, fails };
 }
 
+/** "1h 12min" — duração curta, para caber na linha do evento. */
+function duration(seconds: number): string {
+  const total = Math.round(seconds / 60);
+  const hours = Math.floor(total / 60);
+  const minutes = total % 60;
+  if (hours === 0) return `${minutes}min`;
+  return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}min`;
+}
+
+/**
+ * O MOTIVO do evento, lido do `meta` do ledger (espelha o web).
+ *
+ * Ouro de tempo de tela entra e sai por quatro caminhos diferentes (excesso,
+ * bônus de franquia, desbloqueio pago, foco) e ainda tem a multa de proteção.
+ * Sem isto a linha dizia só "−1 ouro" e não havia como saber de onde veio.
+ */
+function eventReason(e: HistoryEvent): string | null {
+  const meta = (e.meta ?? {}) as Record<string, unknown>;
+
+  if (e.sourceType === 'store') {
+    return meta.purchase === 'equipment'
+      ? 'equipamento comprado'
+      : meta.purchase === 'system_item'
+        ? 'item da loja'
+        : 'recompensa resgatada';
+  }
+  if (e.sourceType === 'death') {
+    if (meta.reset) return 'recomeço manual do personagem';
+    return `morte${meta.by ? ` — ${String(meta.by)}` : ''}`;
+  }
+  if (e.sourceType === 'build') {
+    return meta.respec === 'class' ? 'troca de classe' : 'redistribuição de pontos';
+  }
+  if (e.sourceType !== 'tracking') return null;
+
+  if (meta.refund_of) {
+    return typeof meta.reason === 'string' ? meta.reason : 'estorno';
+  }
+
+  if (meta.daily_bonus) {
+    const used = typeof meta.seconds === 'number' ? duration(meta.seconds) : null;
+    return used ? `bônus por fechar na franquia (${used})` : 'bônus por fechar na franquia';
+  }
+  if (Array.isArray(meta.sabotage)) {
+    const REASONS: Record<string, string> = {
+      sem_heartbeat: 'aparelho sem dar sinal',
+      autorizacao_revogada: 'autorização de tempo de tela desligada',
+      shield_desarmado: 'bloqueio desarmado',
+      safari_desligado: 'filtro do Safari desligado',
+    };
+    return `multa de proteção — ${meta.sabotage.map((k) => REASONS[String(k)] ?? String(k)).join(', ')}`;
+  }
+  if (meta.unlock) {
+    const minutes = typeof meta.minutes === 'number' ? ` por ${meta.minutes}min` : '';
+    return `liberou o bloqueio${minutes}`;
+  }
+  if (meta.focus_session) {
+    if (meta.completed_by_time) return 'sessão de foco liquidada no teto';
+    if (meta.bypass) return 'desistiu da sessão de foco antes da meta';
+    return meta.reached_goal ? 'sessão de foco concluída' : 'sessão de foco encerrada';
+  }
+  if (typeof meta.billable === 'number') return `${duration(meta.billable)} acima da franquia`;
+  return null;
+}
+
+/** O golpe do boss contado como frase: por que veio e quanto doeu. */
+function damageDetail(e: HistoryEvent): string {
+  const meta = (e.meta ?? {}) as Record<string, unknown>;
+  const damage = Number((meta as { damage?: number }).damage ?? 0);
+  const parts: string[] = [meta.dodged ? 'você desviou' : `−${damage} HP`];
+
+  if (meta.reason === 'milestone') {
+    const miss = typeof meta.missRatio === 'number' ? Math.round(meta.missRatio * 100) : null;
+    parts.push(miss === null ? 'marco do período' : `fechou o mês com ${miss}% do marco por cumprir`);
+  } else {
+    const xp = typeof meta.xpToday === 'number' ? meta.xpToday : null;
+    const goal = typeof meta.dailyGoal === 'number' ? meta.dailyGoal : null;
+    if (xp !== null && goal !== null && xp < goal) parts.push(`meta do dia: ${xp}/${goal} XP`);
+    const feed = typeof meta.feedSeconds === 'number' ? meta.feedSeconds : 0;
+    if (feed >= 300) parts.push(`${Math.floor(feed / 60)}min de tela além do limite`);
+  }
+  return parts.join(' · ');
+}
+
 function eventDetail(e: HistoryEvent): string {
+  if (e.kind === 'heal') {
+    const healed = Number(((e.meta ?? {}) as { damage?: number }).damage ?? 0);
+    return `+${healed} HP recuperados`;
+  }
+  if (e.kind === 'damage') return damageDetail(e);
   if (e.kind === 'fail') {
     const dmg = Number((e.meta as { damage?: number } | null)?.damage ?? 0);
     return dmg > 0 ? `${dmg} de dano` : 'Recaída registrada';
   }
   const parts: string[] = [];
-  if (e.xp) parts.push(`+${e.xp} XP`);
-  if (e.gold) parts.push(`+${e.gold} ouro`);
+  if (e.xp) parts.push(`${e.xp > 0 ? '+' : ''}${e.xp} XP`);
+  // ouro NEGATIVO é a regra no tempo de tela: o sinal precisa vir do valor
+  if (e.gold) parts.push(`${e.gold > 0 ? '+' : '−'}${Math.abs(Number(e.gold))} ouro`);
   if (e.essencia) parts.push(`+${e.essencia} essência`);
+  const reason = eventReason(e);
+  if (reason) parts.push(reason);
   return parts.join(' · ') || 'Sem recompensa';
 }
 
@@ -338,7 +530,8 @@ function dayColors(events: HistoryEvent[], registry: Record<string, ModuleRow>):
   const seen = new Set<string>();
   let hasFail = false;
   for (const e of events) {
-    if (e.kind === 'fail') {
+    if (e.kind === 'heal') continue;
+    if (e.kind !== 'gain') {
       hasFail = true;
       continue;
     }

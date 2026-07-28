@@ -54,7 +54,13 @@ export function ShieldStatusCard() {
       <Text variant="bodyMuted">{message}</Text>
       {result?.ok && result.unlinked > 0 ? (
         <Text variant="label" color={theme.colors.gold}>
-          {result.unlinked} fonte(s) com limite mas sem app vinculado — vincule abaixo.
+          {result.unlinked} fonte(s) sem app do iPhone vinculado — não medem nem
+          bloqueiam. Vincule abaixo.
+        </Text>
+      ) : null}
+      {result?.ok && result.failures.length > 0 ? (
+        <Text variant="label" color={theme.colors.gold}>
+          Falha ao armar: {result.failures.join(' · ')}
         </Text>
       ) : null}
       {needsAuth ? (

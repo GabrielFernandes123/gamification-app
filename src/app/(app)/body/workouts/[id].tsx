@@ -6,6 +6,7 @@ import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, Sc
 import { Card } from '@/components/ui/Card';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { MediaThumb } from '@/components/ui/MediaThumb';
+import { MediaViewer } from '@/components/ui/MediaViewer';
 import { NumericPickerField } from '@/components/ui/NumericPickerField';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
@@ -42,6 +43,8 @@ export default function WorkoutSessionScreen() {
 
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
   const [rest, setRest] = useState(0);
+  // mídia aberta em tela cheia (o gif do exercício), fora do fluxo da série
+  const [media, setMedia] = useState<{ uri: string; title: string } | null>(null);
 
   useEffect(() => {
     if (rest <= 0) return;
@@ -139,7 +142,20 @@ export default function WorkoutSessionScreen() {
           const complete = planned > 0 && done >= planned;
           return (
             <Pressable key={item.id} style={styles.exerciseRow} onPress={() => setSelectedExerciseId(item.exercise_id)}>
-              <MediaThumb uri={item.exercise?.media_url} size={44} radius={theme.radius.sm} />
+              <MediaThumb
+                uri={item.exercise?.media_url}
+                size={44}
+                radius={theme.radius.sm}
+                onPress={
+                  item.exercise?.media_url
+                    ? () =>
+                        setMedia({
+                          uri: item.exercise!.media_url!,
+                          title: item.exercise?.name ?? 'Exercício',
+                        })
+                    : undefined
+                }
+              />
               <View style={styles.flex}>
                 <View style={styles.nameRow}>
                   <Text variant="bodyMedium" numberOfLines={1} style={styles.flex}>{item.exercise?.name ?? 'Exercício'}</Text>
@@ -172,6 +188,8 @@ export default function WorkoutSessionScreen() {
           </Pressable>
         </>
       ) : null}
+
+      <MediaViewer uri={media?.uri ?? null} title={media?.title} onClose={() => setMedia(null)} />
     </Screen>
   );
 }
@@ -206,6 +224,7 @@ function ExerciseLogger({
   const history = useExerciseSets(item.exercise_id);
   const [logging, setLogging] = useState<{ planned: WorkoutTemplateSet; position: number } | null>(null);
   const [editingSet, setEditingSet] = useState<WorkoutSet | null>(null);
+  const [mediaOpen, setMediaOpen] = useState(false);
 
   const planned = item.sets ?? [];
   const done = [...sessionSets].sort((a, b) => a.set_number - b.set_number);
@@ -294,12 +313,26 @@ function ExerciseLogger({
       <BackRow label={item.exercise?.name ?? 'Exercício'} onPress={onBack} />
 
       <Card style={styles.heroRow}>
-        <MediaThumb uri={item.exercise?.media_url} size={56} />
+        <MediaThumb
+          uri={item.exercise?.media_url}
+          size={56}
+          onPress={item.exercise?.media_url ? () => setMediaOpen(true) : undefined}
+        />
         <View style={styles.flex}>
           <Text variant="h2" numberOfLines={2}>{item.exercise?.name ?? 'Exercício'}</Text>
-          <Text variant="bodyMuted">{item.exercise?.primaryBodyPart?.name ?? 'Sem divisão'}</Text>
+          <Text variant="bodyMuted">
+            {item.exercise?.media_url
+              ? 'Toque na imagem para ver a execução'
+              : item.exercise?.primaryBodyPart?.name ?? 'Sem divisão'}
+          </Text>
         </View>
       </Card>
+
+      <MediaViewer
+        uri={mediaOpen ? item.exercise?.media_url ?? null : null}
+        title={item.exercise?.name}
+        onClose={() => setMediaOpen(false)}
+      />
 
       {rest > 0 ? <RestBanner rest={rest} onSkip={() => onRest(0)} /> : null}
 

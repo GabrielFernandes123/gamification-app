@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api';
 
 export type HistoryEvent = {
-  kind: 'gain' | 'fail';
+  /** gain = ledger · fail = hábito falhado · damage = HP perdido · heal = HP recuperado */
+  kind: 'gain' | 'fail' | 'damage' | 'heal';
   id: string;
   sourceType: string;
   sourceId: string | null;

@@ -217,6 +217,27 @@ se `nível do personagem ≥ required_level`.
 7. conquistas + _sync_season
 ```
 
+## 9.1 A regra do extrato ✅ 🆕 (auditoria de 2026-07-28)
+
+**Todo movimento de moeda escreve em `economy_events`. Sem exceção.** A auditoria
+encontrou quatro saídas que não escreviam: compra na loja (existia só em
+`purchases`), respec de classe, respec de pontos e — a maior — a **morte**, que
+confiscava ouro sem deixar linha nenhuma. Somando o ledger e as compras de um
+perfil real, faltavam **453 de ouro** sem explicação: eram três mortes.
+
+Fontes novas em `economy_source_type`: `store` (compras), `death` (morte e
+recomeço manual) e `build` (respec). Todas com linha em `module_registry`
+(`kind = 'meta'`) só para dar nome/cor/ícone à linha — não entram nos filtros de
+módulo nem viram objetivo de boss. `achievement` ganhou a linha que faltava.
+
+**E o HP tem o seu próprio extrato:** `character_damage_events` registra os dois
+sentidos (`direction = 'loss' | 'gain'`) — golpe de hábito, contra-ataque e
+marco do boss, e cura de item. O histórico devolve quatro tipos de linha:
+`gain`, `fail`, `damage` e `heal`.
+
+**Como se confere:** `saldo do personagem == soma dos gold_delta do ledger`. Se
+divergir, existe um caminho gravando fora do livro — é bug, não arredondamento.
+
 ## 10. Decisões fechadas
 
 1. ✔ **Maestria (§5.2):** +1% de XP por nível da skill primária, teto +50%.

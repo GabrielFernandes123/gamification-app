@@ -71,7 +71,16 @@ function toComponents(hhmm: string) {
   return { hour: hour || 0, minute: minute || 0 };
 }
 
-export type WindowArmResult = { activities: string[]; blockedNow: number };
+export type WindowArmResult = {
+  activities: string[];
+  blockedNow: number;
+  /**
+   * Janelas de hoje que não puderam ser armadas porque NENHUM app do conjunto
+   * está vinculado neste aparelho. Era o furo mais silencioso do bloqueio: a
+   * janela existia, aparecia configurada na web, e o iPhone simplesmente pulava.
+   */
+  skipped: string[];
+};
 
 /**
  * Arma as janelas do dia e aplica o bloqueio das que já estão ativas.
@@ -88,6 +97,7 @@ export async function armWindows(
   pay: { apiUrl: string; token: string; gold: number; clientIdFor: (id: string) => string },
 ): Promise<WindowArmResult> {
   const activities: string[] = [];
+  const skipped: string[] = [];
   let blockedNow = 0;
 
   for (const win of windows) {
@@ -96,7 +106,11 @@ export async function armWindows(
 
     const selectionId = windowSelectionId(win.id);
     const selection = unionSelectionFor(win.targets);
-    if (!selection) continue; // nenhum app do conjunto vinculado neste aparelho
+    if (!selection) {
+      // nenhum app do conjunto vinculado neste aparelho: não há o que bloquear
+      skipped.push(win.name);
+      continue;
+    }
 
     DeviceActivity.setFamilyActivitySelectionId({
       id: selectionId,
@@ -181,7 +195,7 @@ export async function armWindows(
     }
   }
 
-  return { activities, blockedNow };
+  return { activities, blockedNow, skipped };
 }
 
 /**

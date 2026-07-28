@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DeviceActivity from 'react-native-device-activity';
 
 import { env } from '@/lib/env';
@@ -122,14 +123,26 @@ export type SyncResult =
       windowsBlocked: number;
       /** Há sessão de foco ativa aplicada neste aparelho. */
       focusActive: boolean;
+      /** Fontes que falharam ao armar (uma falha não derruba as outras). */
+      failures: string[];
     };
 
 /**
- * Só fontes de app com bloqueio configurado interessam ao shield. As de
- * `domain` são do PC; as sem `block_after_seconds` nunca bloqueiam.
+ * Fontes que este aparelho precisa monitorar. As de `domain` são do PC.
+ *
+ * Duas razões INDEPENDENTES para monitorar uma fonte de app:
+ *  • ela bloqueia (`block_after_seconds`), ou
+ *  • ela é MEDIDA aqui (`ios_measure = 'device_activity'`) — a escada de
+ *    limiares é o único jeito de medir, e ela precisa de uma atividade viva.
+ *
+ * Filtrar só por limite deixava a fonte medida-sem-bloqueio sem atividade
+ * nenhuma: nada era medido e o servidor via zero para sempre.
  */
-function shieldableSources(policy: Policy): PolicySource[] {
-  return policy.sources.filter((s) => s.kind === 'app' && s.block_after_seconds != null);
+function monitoredSources(policy: Policy): PolicySource[] {
+  return policy.sources.filter(
+    (s) =>
+      s.kind === 'app' && (s.block_after_seconds != null || measuresByDeviceActivity(s)),
+  );
 }
 
 /**
@@ -310,6 +323,53 @@ function armCallback(activityName: string, eventName: string, selectionId: strin
   });
 }
 
+/** Marca que esta instalação JÁ teve a autorização concedida alguma vez. */
+const AUTH_SEEN_KEY = 'tracking.screenTimeAuthorized';
+
+/**
+ * A autorização de Tempo de Uso, resolvida com paciência.
+ *
+ * `getAuthorizationStatus()` não é confiável no primeiro instante depois de
+ * abrir o app: o FamilyControls ainda está restaurando o estado e responde
+ * `notDetermined` (0) mesmo com a permissão concedida. Como o sync roda no
+ * layout raiz, ele caía exatamente nessa janela — o app dizia "autorização não
+ * concedida", o painel aparecia desvinculado e só voltava ao normal depois de
+ * o usuário conceder de novo (o que, na prática, era o iOS respondendo na
+ * hora, porque a permissão nunca tinha caído).
+ *
+ * Duas defesas, nesta ordem:
+ *  1. reler algumas vezes com folga — resolve a corrida de arranque;
+ *  2. se esta instalação já esteve autorizada, pedir de novo: com a permissão
+ *     ainda válida o iOS devolve na hora, SEM diálogo. Só aparece prompt se a
+ *     permissão tiver caído de verdade — que é o caso em que ele tem de
+ *     aparecer mesmo.
+ *
+ * `denied` (1) é resposta definitiva e sai na hora: ali o usuário disse não.
+ */
+async function resolveAuthorization(): Promise<number> {
+  let status = DeviceActivity.getAuthorizationStatus();
+  for (let attempt = 0; attempt < 3 && status === 0; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    status = DeviceActivity.getAuthorizationStatus();
+  }
+  if (status === 2) {
+    await AsyncStorage.setItem(AUTH_SEEN_KEY, '1');
+    return status;
+  }
+  if (status !== 0) return status;
+
+  const wasAuthorized = await AsyncStorage.getItem(AUTH_SEEN_KEY);
+  if (!wasAuthorized) return status;
+  try {
+    await DeviceActivity.requestAuthorization('individual');
+  } catch {
+    // negar aqui é uma resposta legítima: o status abaixo conta a história
+  }
+  status = DeviceActivity.getAuthorizationStatus();
+  if (status === 2) await AsyncStorage.setItem(AUTH_SEEN_KEY, '1');
+  return status;
+}
+
 /**
  * Traduz a política do servidor no estado do shield. Idempotente: rodar duas
  * vezes seguidas deixa o aparelho no mesmo lugar.
@@ -328,7 +388,7 @@ export async function syncShield(): Promise<SyncResult> {
     // por palavra, que é independente.
     const safariKeywords = writeSafariPolicy(policy, now);
 
-    const status = DeviceActivity.getAuthorizationStatus();
+    const status = await resolveAuthorization();
     if (status !== 2) {
       // `notDetermined` (0) NÃO é sabotagem: é app recém-instalado ou usuário
       // que ainda não autorizou — e o iOS revoga a autorização a cada
@@ -349,12 +409,15 @@ export async function syncShield(): Promise<SyncResult> {
     let armed = 0;
     let blocked = 0;
     let unlockedCount = 0;
+    // Fontes que falharam ao armar. Sem isto o card dizia "Ativo" enquanto o
+    // aparelho não bloqueava nada.
+    const failures: string[] = [];
     // Relato do vínculo app<->fonte para o painel web. Só este laço sabe: o
     // token da seleção vive no App Group e nunca sai do aparelho.
     const linkedMatchers: string[] = [];
     const unlinkedMatchers: string[] = [];
 
-    for (const source of shieldableSources(policy)) {
+    for (const source of monitoredSources(policy)) {
       const selectionId = selectionIdFor(source.matcher);
       const selection = DeviceActivity.getFamilyActivitySelectionId(selectionId);
       if (!selection) {
@@ -364,66 +427,93 @@ export async function syncShield(): Promise<SyncResult> {
       }
       linkedMatchers.push(source.matcher);
 
-      // Bolsa: quantas liberações o saldo REAL cobre. É isto que impede
-      // liberação sem lastro, já que a extension decide offline.
-      const cost = source.next_unlock_cost;
-      const grants = cost > 0 ? Math.floor(policy.gold / cost) : 1;
-      const cooldownUntil = source.unlock_available_at
-        ? new Date(source.unlock_available_at)
-        : null;
-      // um id por sync: reenvio da mesma compra é no-op no servidor
-      const clientId = randomUuid();
-      writeShieldFor(source, selectionId, token, grants, clientId, hasIcon, cooldownUntil);
+      // Uma fonte problemática (limite absurdo, seleção corrompida, excesso de
+      // atividades) fazia `startMonitoring` lançar e derrubava o sync INTEIRO —
+      // sem janelas, sem ingestão, sem heartbeat, e sem nada na tela dizendo
+      // isso. Cada fonte falha sozinha e o resto continua.
+      try {
+        const blocks = source.block_after_seconds != null;
 
-      // O botão de liberar arma a atividade de crédito; sem configurar o
-      // callback DELA, o limiar do crédito dispararia sem re-bloquear.
-      armCallback(unlockActivityFor(selectionId), relockEventFor(selectionId), selectionId);
-      liveActivities.add(unlockActivityFor(selectionId));
+        // Bolsa: quantas liberações o saldo REAL cobre. É isto que impede
+        // liberação sem lastro, já que a extension decide offline.
+        const cost = source.next_unlock_cost;
+        const grants = cost > 0 ? Math.floor(policy.gold / cost) : 1;
+        const cooldownUntil = source.unlock_available_at
+          ? new Date(source.unlock_available_at)
+          : null;
+        // um id por sync: reenvio da mesma compra é no-op no servidor
+        const clientId = randomUuid();
+        writeShieldFor(source, selectionId, token, grants, clientId, hasIcon, cooldownUntil);
 
-      // SEMPRE monitora, mesmo já bloqueado. Não é só medição: a extension só
-      // acha a configuração da fonte se o NOME DA ATIVIDADE contiver o id da
-      // seleção (ver getPossibleFamilyActivitySelectionIds na lib). Sem uma
-      // atividade viva com esse nome, a tela de bloqueio cai no texto genérico.
-      const activityName = activityFor(selectionId);
-      const events: DeviceActivity.DeviceActivityEvent[] = [
-        {
-          familyActivitySelection: selection,
-          // Limite CHEIO com `includesPastActivity`: o iOS conta o dia inteiro
-          // pela medição dele, que é completa — o `seconds_today` do servidor no
-          // iPhone só sabe o que os Atalhos reportaram e costuma estar defasado.
-          threshold: secondsToComponents(source.block_after_seconds ?? 0),
-          eventName: thresholdEventFor(selectionId),
-          includesPastActivity: true,
-        },
-      ];
+        // O botão de liberar arma a atividade de crédito; sem configurar o
+        // callback DELA, o limiar do crédito dispararia sem re-bloquear.
+        armCallback(unlockActivityFor(selectionId), relockEventFor(selectionId), selectionId);
+        liveActivities.add(unlockActivityFor(selectionId));
 
-      // Fase 4: escada de limiares na MESMA atividade (a Apple limita o número
-      // de atividades monitoradas, então não se gasta uma só para medir).
-      if (measuresByDeviceActivity(source)) {
-        events.push(...ladderEvents(source, selectionId, selection));
-        // o que já disparou virou uso: traduz em intervalos para a ingestão
-        measured.push(...pendingIntervals(source, selectionId, activityName));
-      }
+        // SEMPRE monitora, mesmo já bloqueado. Não é só medição: a extension só
+        // acha a configuração da fonte se o NOME DA ATIVIDADE contiver o id da
+        // seleção (ver getPossibleFamilyActivitySelectionIds na lib). Sem uma
+        // atividade viva com esse nome, a tela de bloqueio cai no texto genérico.
+        const activityName = activityFor(selectionId);
+        const events: DeviceActivity.DeviceActivityEvent[] = [];
 
-      await DeviceActivity.startMonitoring(activityName, DAILY_SCHEDULE, events);
-      armCallback(activityName, thresholdEventFor(selectionId), selectionId);
-      liveActivities.add(activityName);
-      armed++;
+        if (blocks) {
+          events.push({
+            familyActivitySelection: selection,
+            // Limite CHEIO com `includesPastActivity`: o iOS conta o dia inteiro
+            // pela medição dele, que é completa — o `seconds_today` do servidor no
+            // iPhone só sabe o que os Atalhos reportaram e costuma estar defasado.
+            threshold: secondsToComponents(source.block_after_seconds ?? 0),
+            eventName: thresholdEventFor(selectionId),
+            includesPastActivity: true,
+          });
+        }
 
-      if (isUnlocked(policy, `app:${source.matcher}`, now)) {
-        DeviceActivity.unblockSelection({ activitySelectionId: selectionId }, 'sync');
-        unlockedCount++;
-        continue;
-      }
+        // Fase 4: escada de limiares na MESMA atividade (a Apple limita o número
+        // de atividades monitoradas, então não se gasta uma só para medir).
+        if (measuresByDeviceActivity(source)) {
+          events.push(...ladderEvents(source, selectionId, selection));
+          // o que já disparou virou uso: traduz em intervalos para a ingestão
+          measured.push(...pendingIntervals(source, selectionId, activityName));
+        }
 
-      // Caminho rápido: o servidor já sabe que estourou, não espera o limiar.
-      // Os dois medem em paralelo — vale quem perceber primeiro.
-      const remaining = (source.block_after_seconds ?? 0) - source.seconds_today;
-      if (remaining <= 0) {
-        DeviceActivity.blockSelection({ activitySelectionId: selectionId }, 'sync');
-        blocked++;
-      } else {
-        DeviceActivity.unblockSelection({ activitySelectionId: selectionId }, 'sync');
+        // Ações ANTES de iniciar: com `includesPastActivity` o limiar pode
+        // disparar assim que a atividade sobe (o uso do dia já passou dele), e
+        // sem as ações gravadas esse disparo não levantaria o shield.
+        if (blocks) armCallback(activityName, thresholdEventFor(selectionId), selectionId);
+        await DeviceActivity.startMonitoring(activityName, DAILY_SCHEDULE, events);
+        liveActivities.add(activityName);
+        armed++;
+
+        // Fonte só medida (sem limite) não tem o que bloquear — e se o limite
+        // acabou de ser removido, é aqui que o shield antigo cai.
+        if (!blocks) {
+          DeviceActivity.unblockSelection({ activitySelectionId: selectionId }, 'sync');
+          continue;
+        }
+
+        if (isUnlocked(policy, `app:${source.matcher}`, now)) {
+          DeviceActivity.unblockSelection({ activitySelectionId: selectionId }, 'sync');
+          unlockedCount++;
+          continue;
+        }
+
+        // Caminho rápido: o servidor já sabe que estourou, não espera o limiar.
+        // Os dois medem em paralelo — vale quem perceber primeiro.
+        const remaining = (source.block_after_seconds ?? 0) - source.seconds_today;
+        if (remaining <= 0) {
+          DeviceActivity.blockSelection({ activitySelectionId: selectionId }, 'sync');
+          blocked++;
+        } else {
+          DeviceActivity.unblockSelection({ activitySelectionId: selectionId }, 'sync');
+        }
+      } catch (error) {
+        failures.push(
+          `${source.label}: ${error instanceof Error ? error.message : 'falha'}`,
+        );
+        // mantém viva: parar de monitorar uma fonte que já estava armada seria
+        // um jeito silencioso de destravar o bloqueio
+        liveActivities.add(activityFor(selectionId));
       }
     }
 
@@ -445,7 +535,18 @@ export async function syncShield(): Promise<SyncResult> {
       },
     );
     for (const activity of windowState.activities) liveActivities.add(activity);
+    for (const name of windowState.skipped) {
+      failures.push(`janela "${name}": nenhum app do conjunto vinculado aqui`);
+    }
     lastFocusSelectionId = applyFocus(policy.focus ?? null, appearance, lastFocusSelectionId);
+    // só acusa se a sessão está VIVA: expirada, o null é o fim normal dela
+    if (
+      policy.focus &&
+      new Date(policy.focus.ends_at).getTime() > now &&
+      lastFocusSelectionId === null
+    ) {
+      failures.push('sessão de foco: nenhum app do conjunto vinculado aqui');
+    }
 
     const filteredDomains = syncWebContentFilter(policy, now);
 
@@ -474,6 +575,7 @@ export async function syncShield(): Promise<SyncResult> {
       measuredIntervals: measured.length,
       windowsBlocked: windowState.blockedNow,
       focusActive: lastFocusSelectionId !== null,
+      failures,
     };
   } catch (error) {
     return {

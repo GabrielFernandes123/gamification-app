@@ -85,6 +85,12 @@ dano_recebido = ataque_boss × (1 − redução_Vitalidade)      # se não esqui
 - **Redução (Vitalidade):** `= min(0.75, Vitalidade × 0.01)`. 🆕 (Só aqui — não reduz
   dano de hábito perdido, ver [02 §7.3](./02-economia.md).)
 - **Esquiva (Agilidade):** chance `= min(0.50, Agilidade × 0.005)`; se esquiva, dano = 0. 🆕
+- **QUEM cobra o dia: só o boss de MENOR tier ativo** ✅ (decidido em 2026-07-28).
+  Antes cada tier resolvia o próprio dia e, numa cadeia até o anual, um único dia ruim
+  custava 10%+12%+15%+18% = **55% do HP máximo** — dois dias seguidos matavam. Isso
+  também alinha ataque e defesa: os tiers longos já **não** tomavam dano contínuo de XP
+  (só marcos, §2.1), então também **não** cobram por dia. Eles cobram por **marco**
+  (§3.2.1).
 - O contra-ataque pode **levar à morte** (HP→0) pelas regras de [02 §8](./02-economia.md).
 - **O boss se alimenta do tempo perdido (tracking, zona 3)** 🆕: segundos de uso acima
   do `boss_threshold_seconds` de cada fonte ([11-tracking](./11-tracking-tempo-de-tela.md))
@@ -93,6 +99,23 @@ dano_recebido = ataque_boss × (1 − redução_Vitalidade)      # se não esqui
   XP batida. Um beat narrativo (`meta.event: 'tracking_feed'`) registra o banquete.
   Tracking fica FORA dos objetivos de fase e da eleição de fraqueza (só gera ouro
   negativo; um objetivo "avance no módulo" seria incompletável).
+
+### 3.2.1 Marco — como o tier longo cobra ✅ 🆕
+O boss longo não olha o seu dia: olha o **mês**. Quando a fase daquele mês fecha (a fase
+seguinte destravou, ou a janela do boss acabou) ele cobra **uma vez**, proporcional ao
+que faltou:
+```
+dano_marco = ataque_boss × (HP_restante_da_fase / HP_da_fase) × (1 − redução_Vitalidade)
+```
+- Fase limpa (HP 0) → **não cobra nada**. Mês em branco → golpe cheio do tier.
+- Esquiva (Agilidade) e redução (Vitalidade) valem igual ao contra-ataque diário.
+- A fase passa a `expirada` (status novo). Sem isso ela ficava `ativa` para sempre e as
+  fases dos meses seguintes **nunca destravavam** — bug latente de todo tier longo.
+- **O HP que sobrou é redistribuído entre as fases restantes**, e o total do boss não
+  muda: ninguém ganha HP de graça e ninguém fica com um boss impossível por ter perdido
+  um mês — só ficou mais pesado daqui pra frente. Na última fase não há para onde
+  empurrar: o HP volta ao total e o boss termina a janela de pé (`perdido`).
+- Beat narrativo com `meta.event: 'phase_milestone'`.
 
 ### 3.3 Foco → sabedoria (explorar a fraqueza)
 Foco governa **como você luta**, não o que ganha:
