@@ -586,24 +586,72 @@ nada em jogo: a sequência zerou e os outros seis dias são eventos soltos —
 terminar com 1 ou com 5 recaídas dá no mesmo. Com teto de 2, o deslize de
 segunda deixa você em "1 de margem", e a semana continua tendo o que defender.
 
-**A assimetria — o dia pune, o período premia:**
+**A margem muda o PREÇO da recaída, não só o bônus do domingo.**
+
+Na primeira versão o teto só decidia um bônus no fechamento — e recair custava
+os mesmos 18 estando em 0, 1 ou 2. No momento da tentação, que é o único que
+importa num hábito de evitar, a margem era **inerte**. Agora ela escala o golpe
+do próprio dia:
+
+```
+dano = dano_do_dia × (1 + 0,5 × dias_além_do_teto)
+```
+
+| Recaída na semana (teto 2) | Dano |
+|---|---|
+| 1ª e 2ª | 18 — dentro da margem, inalterado |
+| 3ª | 27 (+50%) |
+| 4ª | 36 nominal → **cortado pelo teto do período** |
+| 5ª em diante | 0 — teto já atingido |
+
+**Isso não é punir duas vezes.** O golpe continua sendo UM SÓ, no dia do evento
+— só que calibrado pela posição no período. Punir duas vezes seria um segundo
+golpe no fechamento, e isso **segue proibido**.
+
+**Teto do período: 80% do HP máximo** (`PERIOD_DAMAGE_CAP_RATIO`, espelhando o
+teto que já existia por golpe). Sustenta uma regra que dá para dizer em voz
+alta: *um hábito sozinho não te mata num período*. Sem ele, a semana de 4
+recaídas somaria 99 num personagem de 100 de HP em hardcore — a semana ruim
+viraria espiral, o oposto do desenho.
 
 | Momento | O que acontece |
 |---|---|
-| Recaída no dia | Dano cheio **imediato** (R2), como sempre |
-| Período dentro do teto | Bônus de um dia de dificuldade × `1 + streakXpBonus(sequência)` |
-| Período estourado | Perde o bônus, zera a sequência. **Nunca dano extra** |
+| Recaída dentro da margem | Dano cheio imediato (R2) |
+| Recaída além da margem | Dano imediato **escalado**, respeitando o teto do período |
+| Período dentro do teto | Bônus de um dia × `1 + streakXpBonus(sequência)` |
+| Período estourado | Perde o bônus, zera a sequência. **Nunca um segundo golpe** |
 
-O "nunca dano extra" não é generosidade, é evitar punir o mesmo evento duas
-vezes. Numa semana de 4 recaídas o personagem já tomou 72 de dano; somar
-penalidade no domingo transforma semana ruim em espiral.
+> **A interface avisa ANTES do clique** — "Última da margem" e "Margem
+> esgotada — a próxima custa +50%". Um escalonamento que a pessoa só descobre
+> depois de recair não muda comportamento nenhum; vira surpresa desagradável.
 
-**A sequência passa a contar períodos.** Em 25 dias de uso real o streak diário
-nunca passou de 4 — zera a cada recaída, então mede algo que neste formato de
-hábito não cresce. O semanal mede **frequência**, que é onde a melhora aparece
-(2 → 2 → 4 → 0 recaídas por semana). Por isso `current_streak` troca de unidade
-em vez de ganhar uma coluna irmã: dois contadores de progresso no mesmo card
-competem, e o perdedor seria sempre o diário.
+**Bônus de ouro tem degrau próprio.** `streakGoldBonus` é `floor(dias/7) × 10%`
+— desenhada em dias. Aplicada a uma sequência semanal viraria "7 SEMANAS por
++10%", 7× mais dura que o pretendido. `periodStreakGoldBonus` usa
+`floor(períodos/4) × 10%`: o degrau vira o MÊS e o horizonte volta a bater com
+o do XP (ambos no teto por volta de 20 semanas).
+
+**Duas sequências, e elas convivem.** Cada uma mede o que sabe medir:
+
+| Coluna | Unidade | Zera quando | Responde |
+|---|---|---|---|
+| `current_streak` | DIAS limpos | qualquer recaída | "como foi hoje" |
+| `period_streak` | PERÍODOS no teto | estourar o teto | "como tem sido" |
+
+A de dias é imediata e quebra fácil — em 25 dias de uso real nunca passou de 4,
+porque zera a cada recaída. A de períodos é lenta e tolera um deslize: mede
+**frequência**, que é onde a melhora aparece (2 → 2 → 4 → 0 recaídas por
+semana).
+
+> Uma primeira versão TROCOU a unidade de `current_streak` em vez de criar
+> coluna nova, para não ter dois contadores competindo no mesmo card. Resolvia
+> o ruído e custava o feedback diário — "hoje eu resisti" é informação legítima
+> e ficou sem lugar. Revertido: colunas separadas, e **a recaída zera só a de
+> dias**.
+
+Cada uma tem seu bônus e sua curva: a diária paga no fechamento do dia com
+`streakGoldBonus` (degrau de 7 dias); a de períodos paga no fechamento do
+período com `periodStreakGoldBonus` (degrau de 4 períodos).
 
 Fonte da regra: `habits/period-negative.ts` · fechamento em
 `CloseService.closeNegativePeriod`.

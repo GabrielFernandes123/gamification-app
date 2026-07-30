@@ -54,9 +54,10 @@
   `last_streak`, `best_streak`, `is_active`. 🔄 `monthly_day` **removido** (não há fixo
   mensal; o enum `schedule` já codifica fixo=`weekdays` vs flexível=`weekly_count`/`monthly`).  - 🆕 2026-08-04 — `weekly_target`/`monthly_target` significam coisas OPOSTAS
     conforme `type`: no positivo são **dias que precisam bater a meta**; no
-    negativo são **teto de dias com recaída** no período. E `current_streak`
-    conta DIAS, exceto em negativo com agenda de período, onde conta
-    **PERÍODOS** dentro do teto ([02 §5.19](./02-economia.md)).
+    negativo são **teto de dias com recaída** no período. E as sequências são DUAS:
+    `current_streak` conta DIAS limpos (zera em qualquer recaída) e
+    `period_streak` conta PERÍODOS dentro do teto (zera só ao estourar) —
+    ver [02 §5.19](./02-economia.md).
 
 - **habit_logs** ✅ — `habit_id`, `user_id`, `occurred_on`, `success`, `is_auto`,
   `xp_gained`, `gold_gained`, `damage_taken`, `streak_at_log`. (Auditoria; o ledger

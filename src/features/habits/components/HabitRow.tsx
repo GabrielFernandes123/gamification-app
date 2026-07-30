@@ -1,5 +1,14 @@
 import { useRouter } from 'expo-router';
-import { Ban, Check, Flame, Pencil, RotateCcw, ShieldCheck, TriangleAlert } from 'lucide-react-native';
+import {
+  Ban,
+  Check,
+  Flame,
+  Pencil,
+  RotateCcw,
+  ShieldCheck,
+  TriangleAlert,
+  Trophy,
+} from 'lucide-react-native';
 import { useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -50,6 +59,9 @@ export function HabitRow({ habit, progress, periodProgress, weekday }: Props) {
   const settled = progress.settled; // dia já fechado (manual ou cron)
   // Progresso do dia é sempre contra a META DIÁRIA (modelo de dois níveis).
   const dTarget = dailyTarget(habit);
+  // Margem do período, calculada no servidor (02 §5.19). Só existe em negativo
+  // com agenda de período.
+  const margem = habit.periodMargin ?? null;
   const diff = DIFFICULTY_META[habit.difficulty];
   const isPositive = habit.type === 'positive';
   // Recompensa base vinda do servidor (GET /difficulties) — visível antes de agir.
@@ -294,11 +306,24 @@ export function HabitRow({ habit, progress, periodProgress, weekday }: Props) {
           <Text variant="label" color={theme.colors.text}>
             {isPositive
               ? `${doneToday}/${dTarget} hoje`
-              : `Recaídas: ${progress.fail}/${dTarget} hoje`}
+              : margem
+                ? `${margem.left} de margem · ${margem.daysLeft === 1 ? 'último dia' : `faltam ${margem.daysLeft} dias`}`
+                : `Recaídas: ${progress.fail}/${dTarget} hoje`}
           </Text>
-          <View style={styles.streak}>
-            <Flame color={theme.colors.primary} size={14} />
-            <Text variant="bodyMuted">{habit.current_streak}</Text>
+          {/* Duas sequências que medem coisas diferentes (02 §5.19): dias
+              limpos — imediata, quebra fácil — e períodos dentro do teto —
+              lenta, tolera um deslize. Nenhuma substitui a outra. */}
+          <View style={styles.streakGroup}>
+            <View style={styles.streak}>
+              <Flame color={theme.colors.primary} size={14} />
+              <Text variant="bodyMuted">{habit.current_streak}d</Text>
+            </View>
+            {margem ? (
+              <View style={styles.streak}>
+                <Trophy color={theme.colors.gold} size={14} />
+                <Text variant="bodyMuted">{habit.period_streak ?? 0}sem</Text>
+              </View>
+            ) : null}
           </View>
         </View>
         <ProgressBar
@@ -308,6 +333,18 @@ export function HabitRow({ habit, progress, periodProgress, weekday }: Props) {
         {rewardLabel ? (
           <Text variant="label" color={theme.colors.xp}>
             {rewardLabel}
+          </Text>
+        ) : null}
+        {/* O aviso vem ANTES do clique em "Recaí" — é o que faz a margem valer
+            alguma coisa no momento da tentação. Sem ele, o teto só decidiria um
+            bônus no fim da semana (02 §5.19). */}
+        {margem && margem.left === 0 ? (
+          <Text variant="label" color={theme.colors.hp}>
+            Margem esgotada — a próxima recaída custa +50% de dano.
+          </Text>
+        ) : margem && margem.left === 1 ? (
+          <Text variant="label" color={theme.colors.gold}>
+            Última da margem. Depois dela o dano escala.
           </Text>
         ) : null}
       </View>
@@ -715,6 +752,7 @@ const styles = StyleSheet.create({
   progressBlock: { marginTop: theme.spacing.md, gap: theme.spacing.xs },
   periodBlock: { marginTop: theme.spacing.sm, gap: theme.spacing.xs },
   progressLabelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  streakGroup: { alignItems: 'center', flexDirection: 'row', gap: theme.spacing.sm },
   streak: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   notToday: { marginTop: theme.spacing.md },
   actions: { flexDirection: 'row', gap: theme.spacing.sm, marginTop: theme.spacing.md, alignItems: 'center' },

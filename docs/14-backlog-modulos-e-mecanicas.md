@@ -102,8 +102,19 @@ margem via menos dias restantes do que existiam e concluía "não dá mais para
 cumprir" cedo demais. No dia 28/07 isso cobrou 66 de dano de quatro hábitos que
 ainda tinham quatro dias inteiros de margem, e zerou três sequências junto.
 
-O mesmo defeito estava em três serviços (`close.service`, `habit-suggestions`,
-`requirements`), e nos limites de mês também. Agora há `addDaysIso` e
+**Um irmão do mesmo bug: o fechamento de PERÍODO estava uma semana atrasado.**
+Os crons `weekly-close` (`5 3 * * 0`) e `monthly-close` rodavam em horário fixo
+de UTC, "espelhando 03:05 UTC ≈ 00:05 America/Sao_Paulo". Em UTC−4 isso é
+**23:05 de sábado** — a semana ainda não acabou, então `previousPeriod`
+devolvia a semana retrasada e a que tinha acabado de fechar só era avaliada no
+domingo seguinte. Confirmado no banco: `last_period_close = 18/07` num dia 30/07.
+
+Virou um cron horário (`period-close`), no mesmo padrão do `daily-close`: cada
+hábito fecha o SEU período assim que ele termina, no fuso do dono.
+`last_period_close` já dava a idempotência.
+
+O mesmo defeito de data estava em três serviços (`close.service`,
+`habit-suggestions`, `requirements`), e nos limites de mês também. Agora há `addDaysIso` e
 `monthBoundsIso` em `common/date.ts`, com aritmética de calendário do começo ao
 fim. **Em servidor UTC o bug não aparece — foi por isso que passou.**
 
