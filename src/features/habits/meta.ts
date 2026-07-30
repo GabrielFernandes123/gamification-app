@@ -37,12 +37,21 @@ export function scheduleDescription(habit: Habit): string {
   // rótulo da meta diária: sempre no negativo (é o limite); no positivo só se > 1
   const daily =
     habit.type === 'negative' ? `limite ${dt}/dia` : dt > 1 ? `${dt}×/dia` : null;
+  // O mesmo campo diz coisas OPOSTAS conforme o tipo (14 §5.3): no positivo é
+  // meta de dias a cumprir; no negativo é teto de recaídas toleradas. Escrever
+  // "4 dias/semana" num hábito de evitar sugeria três dias liberados.
+  const negativoDePeriodo =
+    habit.type === 'negative' && habit.schedule !== 'weekdays';
   const base =
     habit.schedule === 'weekdays'
       ? formatWeekdays(habit.weekdays)
       : habit.schedule === 'weekly_count'
-        ? `${habit.weekly_target ?? 1} dias/semana`
-        : `${habit.monthly_target ?? 1} dias/mês`;
+        ? negativoDePeriodo
+          ? `até ${habit.weekly_target ?? 0} recaídas/semana`
+          : `${habit.weekly_target ?? 1} dias/semana`
+        : negativoDePeriodo
+          ? `até ${habit.monthly_target ?? 0} recaídas/mês`
+          : `${habit.monthly_target ?? 1} dias/mês`;
   return daily ? `${base} · ${daily}` : base;
 }
 

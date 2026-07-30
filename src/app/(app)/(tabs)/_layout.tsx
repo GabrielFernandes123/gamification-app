@@ -1,6 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import { Tabs, useRouter } from 'expo-router';
-import { Backpack, Dumbbell, Home, Repeat2, Swords } from 'lucide-react-native';
+import { Dumbbell, Home, NotebookPen, Repeat2 } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { useEffect } from 'react';
 import { StyleSheet, View, type ColorValue } from 'react-native';
@@ -40,14 +40,16 @@ export default function TabsLayout() {
 
   useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-      const habitId = response.notification.request.content.data?.habitId;
-      if (typeof habitId === 'string') {
-        router.navigate({ pathname: '/(app)/habits/[id]', params: { id: habitId } });
+      // As telas de DETALHE saíram do app (doc 08: só registro em movimento),
+      // então o toque na notificação leva à aba onde se AGE, não a uma ficha de
+      // leitura. Notificação de hábito abre a lista com o botão de marcar.
+      const route = response.notification.request.content.data?.route;
+      if (typeof route === 'string' && route.includes('body')) {
+        router.navigate('/(app)/(tabs)/body');
         return;
       }
-      const route = response.notification.request.content.data?.route;
-      if (route === '/(app)/(tabs)/body') {
-        router.navigate('/(app)/(tabs)/body');
+      if (typeof route === 'string' && route.includes('diario')) {
+        router.navigate('/(app)/(tabs)/diario');
         return;
       }
       router.navigate('/(app)/(tabs)/habits');
@@ -100,23 +102,12 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="historia"
+        name="diario"
         options={{
-          title: 'Jornada',
+          title: 'Diário',
           tabBarIcon: ({ color, focused }) => (
             <TabIcon focused={focused} color={color}>
-              <Swords color={color} size={20} />
-            </TabIcon>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="store"
-        options={{
-          title: 'Bolsa',
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon focused={focused} color={color}>
-              <Backpack color={color} size={20} />
+              <NotebookPen color={color} size={20} />
             </TabIcon>
           ),
         }}

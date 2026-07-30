@@ -1,6 +1,7 @@
 import { Redirect, Stack } from 'expo-router';
 import { ActivityIndicator, View } from 'react-native';
 
+import { useHealthSyncRunner } from '@/features/health/useHealthSync';
 import { useShieldSyncRunner } from '@/features/tracking/ios/useShieldSync';
 import { useAuth } from '@/providers/AuthProvider';
 import { theme } from '@/theme/theme';
@@ -12,6 +13,10 @@ export default function AppLayout() {
   // política do Safari precisam ser reescritos sempre que o app abre — mesmo
   // que o usuário nunca visite Tempo de tela.
   useShieldSyncRunner(Boolean(session));
+
+  // Sono: o HealthKit é lido na abertura e a cada volta ao primeiro plano. Sem
+  // o módulo nativo (build anterior ao HealthKit) isto é um no-op silencioso.
+  useHealthSyncRunner(Boolean(session));
 
   if (loading) {
     return (
@@ -31,28 +36,13 @@ export default function AppLayout() {
         presentation: 'card',
       }}
     >
+      {/* App = REGISTRO EM MOVIMENTO (doc 08). Consulta, análise e gestão —
+          História, Loja, Personagem, Estatísticas, Conquistas, Skills, Side
+          quests, Histórico, builder de treino e config de tempo de tela — vivem
+          só no web; o caminho até elas passa pelo `openWeb()`. */}
       <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="character" />
-      <Stack.Screen name="history" />
-      <Stack.Screen name="skills/index" />
-      <Stack.Screen name="habits/new" options={{ presentation: 'modal' }} />
-      <Stack.Screen name="habits/[id]" options={{ presentation: 'modal' }} />
-      <Stack.Screen name="skills/new" options={{ presentation: 'modal' }} />
-      <Stack.Screen name="skills/[id]" options={{ presentation: 'modal' }} />
-      <Stack.Screen name="rewards/new" options={{ presentation: 'modal' }} />
-      <Stack.Screen name="rewards/[id]" options={{ presentation: 'modal' }} />
-      <Stack.Screen name="achievements" />
       <Stack.Screen name="settings" />
-      <Stack.Screen name="stats" />
-      <Stack.Screen name="tracking/index" />
       <Stack.Screen name="body/workouts/[id]" />
-      <Stack.Screen name="body/templates/index" />
-      <Stack.Screen name="body/settings/index" />
-      <Stack.Screen name="body/treinos/edit" />
-      <Stack.Screen name="body/treinos/[id]" />
-      <Stack.Screen name="sidequests/index" />
-      <Stack.Screen name="sidequests/new" options={{ presentation: 'modal' }} />
-      <Stack.Screen name="sidequests/[id]" options={{ presentation: 'modal' }} />
     </Stack>
   );
 }

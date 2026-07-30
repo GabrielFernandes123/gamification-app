@@ -3,7 +3,7 @@
 > **Dono de:** a premissa do projeto, os princípios invioláveis, o diagnóstico
 > fundador e o escopo (o que é e o que NÃO é o sistema).
 > Este é a "constituição" — qualquer decisão futura é avaliada contra ele.
-> Ver índice e regras anti-drift em [README](./README.md). Estado: 📋 projetado.
+> Ver índice e regras anti-drift em [README](./README.md). Estado: ✅ implementado (varredura 2026-08-04) — a visão descrita aqui está construída.
 
 ---
 

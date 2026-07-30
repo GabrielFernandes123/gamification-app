@@ -29,6 +29,9 @@ function syntheticLog(habitId: string, today: string, success: boolean, salt: nu
     gold_gained: 0,
     damage_taken: 0,
     streak_at_log: 0,
+    // Log otimista nunca matou ninguém: a morte é decidida no servidor, e este
+    // registro é substituído pela resposta real assim que ela chega.
+    caused_death: false,
     created_at: new Date().toISOString(),
   };
 }
@@ -39,7 +42,6 @@ function invalidateHabitActivity(qc: ReturnType<typeof useQueryClient>, today: s
   qc.invalidateQueries({ queryKey: qk.periodLogs(today) });
   qc.invalidateQueries({ queryKey: qk.habitLogsRoot });
   qc.invalidateQueries({ queryKey: qk.currentSeason, refetchType: 'inactive' });
-  qc.invalidateQueries({ queryKey: qk.notificationSnapshot });
 }
 
 function patchCharacter(

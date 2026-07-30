@@ -8,11 +8,102 @@
 
 ---
 
+## 0. A régua: **o app é registro em movimento** 🔄 (2026-07-30)
+> Antes de qualquer coisa nesta página: **o celular só carrega o que se faz longe do
+> computador.** Consulta, análise, configuração e gestão vivem no web.
+>
+> A razão é o uso real: o dono do sistema passa a maior parte do dia na frente do PC,
+> onde o web e os widgets do Electron já estão abertos. Duplicar cada tela no celular
+> custava manutenção em dois lugares e deixava o app pesado justamente para as três
+> coisas que só ele consegue fazer — academia, mesa e cama.
+>
+> **Fica no app:** marcar hábito · executar treino · registrar medida · registrar
+> refeição (voz) · diário (foto/áudio) · plano do dia · trégua · sono (HealthKit).
+> **Vai para o web:** História/Boss · Loja · Personagem · Stats · Conquistas · Skills ·
+> Missões · Histórico · Tempo de tela · builder de treino · catálogo de exercícios ·
+> metas · preferências de notificação.
+>
+> Consequência prática: o app encolheu de ~14.200 para ~5.500 linhas de rota, e o
+> `ModuleLauncher` passa a **abrir o web** (`EXPO_PUBLIC_WEB_URL`) para toda chave do
+> registry sem tela própria no celular.
+
+### 0.1 O corolário: **todo módulo do app precisa de par no web** 🆕 (2026-08-01)
+> A régua do §0 só é verdade se o outro lado existir. Se o celular apenas registra,
+> **consultar, configurar e corrigir têm de existir no web** — senão não existem em
+> lugar nenhum.
+>
+> Isto virou regra depois de a leva de 2026-08-01 quase fechar sem ela: Diário, Nutrição
+> e Plano nasceram com API e app, e sem tela de consulta no PC. O `ModuleLauncher` já
+> apontava para `/nutrition` e `/journal`, que **não existiam** — teria caído no
+> `NotFoundPage`.
+>
+> **Checklist para todo módulo novo:**
+> 1. tabelas + `_grant` + linha no `module_registry` ([04 §1](./04-modulos.md))
+> 2. superfície de REGISTRO onde o registro acontece (o app, se for longe do PC)
+> 3. superfície de CONSULTA e CONFIGURAÇÃO no web
+> 4. rota no `gamificacao-web/src/App.tsx` batendo com o destino do `ModuleLauncher`
+>
+> Pares atuais: Nutrição → `/nutrition` · Diário → `/journal` · Plano/trégua → `/plan` ·
+> Sonhos → `/bucket` · Pessoas → `/relationships` · Trabalho → `/work` ·
+> Cicatrizes e limite de WIP → `/character` (aba **Marcas**) · Régua de esforço →
+> `/store` · Reputação → `/stats` · Notificações e retrospectiva → Configurações e
+> História.
+
+### 0.2 A segunda metade da regra: **mecânica que muda número precisa aparecer** 🆕 (2026-08-04)
+> O §0.1 cobre módulo com tela. A varredura de 2026-08-04 achou o buraco vizinho:
+> **mecânica transversal**, que não é módulo e não tem rota própria, mas mexe no que
+> você ganha.
+>
+> A **ferrugem de skill** (⑨) era o caso: a maestria caía de 1,0 até 0 ao longo de
+> 56 dias parados, e **nenhuma tela dizia isso**. Do lado de dentro é uma curva
+> documentada; do lado de fora é o mesmo hábito rendendo menos sem explicação — que é
+> indistinguível de um bug, e corrói a confiança no sistema inteiro.
+>
+> **A regra:** se uma mecânica multiplica XP, ouro ou dano, ela precisa de um lugar
+> onde o usuário **veja o estado e entenda a saída**. Não precisa de tela própria — um
+> selo serve. Precisa existir.
+>
+> E o número mostrado tem de vir **calculado do servidor, da mesma fonte que aplica o
+> efeito**. `GET /skills` devolve `rust_state` e `mastery_factor` de `economy/rust.ts`,
+> o mesmo módulo que o `_grant` chama. A tela não recalcula curva nenhuma: duas
+> implementações da mesma fórmula divergem, e aí o número exibido vira mentira.
+>
+> Onde cada uma aparece hoje: ferrugem → selo em `/skills` · nêmese e bônus de retorno →
+> `/stats` · cicatrizes e WIP → `/character` (aba Marcas) · preço em esforço → `/store` ·
+> orçamento de trégua → `/plan`, **antes** de abrir (não na mensagem de erro).
+
+### 0.3 Fechar o passado antes de abrir o dia 🆕 (2026-08-04)
+> O fechamento automático é autônomo de propósito — se dependesse de você abrir
+> o app, o sistema pararia. Mas ele decide por você, e às vezes decide errado:
+> você fez o hábito e esqueceu de marcar.
+>
+> **Punir uma omissão de interface é o pior tipo de falso sinal.** Não ensina
+> disciplina; ensina que os números não são confiáveis, e a partir daí o resto
+> da gamificação perde efeito.
+>
+> O card **"Ontem fechou sozinho"** abre a Início (e o Dashboard do web), acima
+> do plano do dia. Três decisões de desenho:
+>
+> 1. **Card, não modal.** Um pop-up bloqueante listando o que você falhou é
+>    ritual de punição logo cedo. O card some sozinho quando não há nada a
+>    corrigir, que é a maioria dos dias.
+> 2. **Um ritual matinal, não dois.** Fica colado no `PlanCard`: o passado
+>    fecha e o dia abre no mesmo gesto, em vez de dois cards disputando o mesmo
+>    momento.
+> 3. **Aceita "eu recaí", não só "eu fiz".** Se só apagasse consequência, seria
+>    um botão de desfazer dano — e corroeria justamente a confiança que veio
+>    consertar.
+>
+> **O que separa esquecimento de decisão:** só entra o log que o CRON escreveu,
+> e ele se identifica sozinho — roda no dia seguinte, então `created_at` cai
+> depois de `occurred_on`. O que você fechou à mão não é corrigível.
+> Janela: até o fim do dia seguinte.
+
 ## 1. Princípios de UI/UX
 1. **Consistência > criatividade por tela.** A mesma ação se faz do mesmo jeito em todo
    módulo. Tela nova reusa arquétipo existente (§4), não inventa layout. **Exceção
    sancionada:** a tela-assinatura **História/Boss** (§8) pode quebrar os arquétipos por
-   imersão — desde que fique dentro dos design tokens (§2).
+   imersão — desde que fique dentro dos design tokens (§2). Ela agora mora **no web**.
 2. **Uma fronteira visual por tipo de conteúdo.** Lista, detalhe, formulário, painel e
    modal têm cada um seu arquétipo; não se misturam.
 3. **Hierarquia clara.** Título → conteúdo principal → ações. O HUD do personagem é a
@@ -70,29 +161,48 @@ A barra de abas e os filtros de histórico **enumeram o `module_registry`** ([04
 nada de lista hardcoded. Módulo `ativo` aparece; futuro (dieta/finanças/foco) aparece
 sozinho ao ser ligado.
 
-### 6.2 Estrutura de navegação 🔄 (retrabalhada)
-**Abas inferiores (5):**
-1. **Início** — home de verdade: **resumo de tudo** (não é mais a tela de hábitos). §6.2.1.
-2. **Hábitos**
-3. **Corpo**
-4. **Loja**
-5. **História/Boss** — a **tela-assinatura** do sistema (§8): posição de destaque (ex.:
-   central, com tratamento visual diferenciado).
+### 6.2 Estrutura de navegação 🔄 (2026-07-30 — de 5 abas para 4)
+**Abas inferiores (4):**
 
-- **Histórico deixa de ser aba** 🔄 — fica acessível por **botões nas próprias telas**
-  (cada módulo mostra seu histórico) + uma entrada para o histórico geral na Início.
-- **Acessadas pela Início (não-abas):** Personagem/Build, Skills, Side Quests,
-  Conquistas, Config, Histórico geral.
+| Aba | O que faz | Por que fica no celular |
+|---|---|---|
+| **Início** | HUD · o dia · snapshot do boss + oráculo · **plano do dia / trégua** · ação rápida de refeição | é o resumo que se olha no meio do dia |
+| **Hábitos** | lista + marcar/desfazer | o registro mais frequente |
+| **Corpo** | executar treino · medidas · **nutrição** | academia e mesa, longe do PC |
+| **Diário** | humor · foto do caderno · áudio · texto | registro do dia, feito onde você está |
 
-### 6.2.1 O que a Início mostra (resumo de tudo) 🆕
+Mais **Configurações** enxuta (perfil, fuso, escudo do iOS, sair) e as telas de execução
+em full-screen que já existem (`body/workouts/[id]`).
+
+- **História/Boss deixou de ser aba** 🔄 — a tela-assinatura mora no **web**. No celular
+  sobra o **snapshot** na Início (HP, dias restantes, oráculo). Ela era a maior rota do
+  app (3.209 linhas) e é de leitura/imersão, não de registro — exatamente o oposto da
+  régua do §0.
+- **Loja, Personagem, Stats, Conquistas, Skills, Missões, Histórico, Tempo de tela** —
+  todos no web, alcançáveis pelo `ModuleLauncher` (§6.1), que abre o navegador.
+- ⚠️ **Remover ROTAS, preservar FEATURES.** `features/store`, `features/season` e
+  `features/character` continuam no app porque coisas que ficaram dependem delas — o
+  `CharacterHud` usa `useActiveBuffs`, `HabitRow` usa a loja, o dashboard usa a
+  temporada. Podar por intuição aqui quebra o HUD; poda só o que o `tsc` provar órfão.
+
+### 6.2.1 O que a Início mostra (resumo de tudo) 🔄
 A Início é o painel-resumo, não um módulo:
 - **HUD do personagem** no topo (HP/XP/nível/ouro/Essência/streak global) → toque abre
-  **Personagem/Build**.
-- **Hoje, em todos os módulos:** hábitos pendentes, status do treino, alertas do corpo,
-  side quests do dia.
-- **Snapshot do boss atual** (HP/fase) → toque abre **História/Boss**.
+  **Personagem no web**.
+- **Plano do dia / trégua** 🆕 — quantos hábitos você declara para hoje, ou o cartão de
+  trégua ativa ([14 §5.2⑦](./14-backlog-modulos-e-mecanicas.md) e [§5.3⑩](./14-backlog-modulos-e-mecanicas.md)).
+- **Ação rápida de refeição por voz** 🆕 — é a ação mais frequente do dia depois de
+  hábitos; enterrá-la em Corpo › Comida custaria três toques para algo que se faz três
+  vezes por dia.
+- **Hoje, em todos os módulos:** hábitos pendentes, status do treino, alertas do corpo.
+- **Snapshot do boss atual** (HP/dias/oráculo) → toque abre **História no web**.
+- **Cicatriz pendente** 🆕 — quando uma morte deixou uma escolha em aberto. Vem antes
+  de tudo: é a única coisa da tela esperando uma decisão, e o momento em que ela
+  importa é logo depois de acontecer ([14 §5.4⑫](./14-backlog-modulos-e-mecanicas.md)).
+- **Quem está esfriando** 🆕 — até 3 pessoas e um botão de "falei". Ligar para alguém
+  acontece no carro, na fila, longe do PC; se exigisse abrir o computador viraria
+  "depois eu anoto", e o módulo é 90% lembrete.
 - **Metas diárias** (XP/ouro) e celebrações recentes.
-- **Atalhos:** Conquistas, Skills, Histórico geral, Config.
 
 ### 6.3 Correções dos problemas atuais 🔄
 - **Abas internas do Corpo:** hoje 7 "abas" onde umas trocam painel e outras navegam pra
@@ -116,8 +226,11 @@ A Início é o painel-resumo, não um módulo:
   acessada por ela. Mostra atributos (Força/Agi/Vit/Foco com origem) + equipamento (3
   slots) + classe. Valor próprio: ver a vida virar ficha ([03](./03-atributos-build.md),
   [07 Fase 4](./07-roadmap.md)).
-- **História / Boss — a tela-assinatura** 🆕⭐ — a tela **mais imersiva e diferenciada**
-  do app e a **única exceção sancionada** aos arquétipos (§1/§4). Pode usar layout
+- **História / Boss — a tela-assinatura** 🆕⭐ **(no web, desde 2026-07-30)** — a tela
+  **mais imersiva e diferenciada** e a **única exceção sancionada** aos arquétipos
+  (§1/§4). Saiu do celular porque é leitura e contemplação, não registro em movimento
+  (§0) — e porque a tela grande é onde arte, capítulos e árvore de bosses cabem de
+  verdade. No app fica só o snapshot na Início. Pode usar layout
   full-bleed, atmosfera, arte e animação para criar a sensação de **jornada/batalha**,
   **mantendo-se nos design tokens** (§2) para coesão de marca. Reúne tudo num só lugar:
   - o **arco/história** (capítulos, marcos de dano tecidos no texto, árvore de bosses
@@ -132,13 +245,20 @@ A Início é o painel-resumo, não um módulo:
   (`Screen` já cobre); textos escaláveis (sem tamanho fixo em px cru fora dos tokens).
 
 ## 10. Decisões fechadas
-1. ✔ **Abas inferiores (5):** Início (resumo de tudo) · Hábitos · Corpo · Loja ·
-   **História/Boss** (tela-assinatura, posição de destaque).
-2. ✔ **Histórico** não é mais aba — botões nas telas + entrada na Início.
-3. ✔ **Início** vira home-resumo real (§6.2.1); **Personagem/Build** = HUD na Início +
-   tela cheia por ela.
-4. ✔ **História/Boss** = a tela mais incrível/diferenciada (exceção sancionada, §8).
-5. ✔ **Vocabulário PT** fixado no glossário (§11).
+1. ✔ **O app é registro em movimento** (§0). Consulta, análise e gestão vão para o web.
+   *(2026-07-30 — substitui as decisões 1 e 4 anteriores.)*
+2. ✔ **Abas inferiores (4):** Início · Hábitos · Corpo · Diário.
+3. ✔ **Histórico** não é aba nem tela do app — vive no web.
+4. ✔ **História/Boss** = a tela mais incrível/diferenciada (exceção sancionada, §8),
+   **no web**; no celular só o snapshot na Início.
+5. ✔ **Início** é home-resumo real (§6.2.1), agora com plano do dia e refeição por voz.
+6. ✔ **Vocabulário PT** fixado no glossário (§11).
+
+### 10.1 Histórico da decisão
+Até 2026-07-30 o app tinha **5 abas** (Início · Hábitos · Corpo · Loja · História/Boss) e
+espelhava quase todo o web. A mudança não foi de gosto: era manutenção dupla de telas que
+o dono abria no PC de qualquer jeito. O que se ganhou foi espaço para o que só o celular
+faz — HealthKit, microfone e câmera —, tudo entrando na mesma build.
 
 ## 11. Glossário de vocabulário PT 🆕 (fonte única dos rótulos de UI)
 Um rótulo por conceito — usar **exatamente** estes na UI; não criar sinônimos por tela.

@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/Toast';
 import { formatErrorMessage } from '@/utils/errors';
 import { useDifficulties } from '@/features/habits/hooks/useDifficulties';
 import { DIFFICULTY_META } from '@/features/habits/meta';
+import { openWeb } from '@/lib/openWeb';
 import { theme } from '@/theme/theme';
 import { ACHIEVEMENT_BY_KEY } from '@/features/achievements/catalog';
 import { useToday } from '@/hooks/useToday';
@@ -70,7 +71,7 @@ export function SideQuestRow({ quest }: { quest: SideQuest }) {
         </View>
         {!quest.is_completed && (
           <Pressable
-            onPress={() => router.push({ pathname: '/(app)/sidequests/[id]', params: { id: quest.id } })}
+            onPress={() => void openWeb(`/sidequests?quest=${quest.id}`)}
             hitSlop={10}
             accessibilityLabel="Editar missão"
             style={styles.edit}

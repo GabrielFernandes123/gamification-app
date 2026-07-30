@@ -14,6 +14,7 @@ import { Text } from '@/components/ui/Text';
 import { useToast } from '@/components/ui/Toast';
 import { useBodyAlertSettings, useUpsertBodyAlertSettings } from '@/features/body/hooks/useBody';
 import { useCharacter, useProfile } from '@/features/character/hooks/useCharacter';
+import { ShieldPanel } from '@/features/tracking/ios/ShieldPanel';
 import {
   useInactiveHabits,
   useReactivateHabit,
@@ -225,6 +226,11 @@ function DangerZone() {
       <Text variant="h2" color={theme.colors.hp}>
         Zona de perigo
       </Text>
+      {/* Escudo do iPhone: a única parte de Tempo de tela que NÃO pode viver no
+          web — o seletor de apps do iOS devolve um token opaco e só funciona no
+          aparelho. */}
+      <ShieldPanel />
+
       <Card accent={theme.colors.hp} style={styles.dangerCard}>
         <View style={styles.alertHeader}>
           <View style={[styles.alertIcon, styles.dangerIcon]}>

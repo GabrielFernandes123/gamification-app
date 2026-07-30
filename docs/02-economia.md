@@ -5,7 +5,7 @@
 > Atributos/equipamento/classe e seus efeitos de combate → [03](./03-atributos-build.md).
 > Como cada módulo escolhe sua dificuldade → [04](./04-modulos.md).
 > Dano do boss (com Vitalidade) → [05](./05-temporadas-boss.md).
-> Núcleo `_grant` → [01 §4](./01-arquitetura.md). Estado: 📋 projetado.
+> Núcleo `_grant` → [01 §4](./01-arquitetura.md). Estado: ✅ implementado (varredura 2026-08-04) — §5.1 a §5.18 todas no código.
 > Legenda: ✅ herdado do sistema atual (testado) · 🆕 novo/proposto (ajustável).
 
 ---
@@ -108,6 +108,287 @@ skill_primária.xp   += xp_final
 skill_secundária.xp += floor(xp_final × 0.5)        # 50%
 # (treino também distribui para partes do corpo, mesma regra 100%/50% — ver 04)
 ```
+
+### 5.4 Sono ✅ 🆕 (2026-07-30)
+
+Três critérios independentes, cada um ligável/desligável (ver [04 §4.9](./04-modulos.md)).
+A recompensa é a **fração dos critérios ATIVOS cumpridos**, sobre a base da §4:
+
+```
+base       = difficulty_levels[config.difficulty]      # default 'easy'
+razão      = critérios_cumpridos / critérios_ativos    # 1 quando nenhum está ativo
+xp_final   = round(base.xp   × razão)
+ouro_final = round(base.gold × razão)
+```
+
+Zero critérios cumpridos grava o evento com XP/ouro 0 — o registro continua existindo,
+porque o histórico não pode ter buraco. **Nunca há dano** (§7 não se aplica ao sono).
+
+### 5.5 Encontros diários ✅ 🆕 (2026-07-30)
+
+A IA escreve o encontro; **os números são todos daqui** — o modelo devolve só o tipo de
+efeito. Sem essa fronteira, uma alucinação vira inflação.
+
+| Efeito | Valor | Teto |
+|---|---|---|
+| `gold` | sorteio determinístico por (evento, opção) | **5 a 40 de ouro** |
+| `buff` | `damage_reduction` em `active_buffs` | **20%, por 12h** |
+| `gamble` | 50% de chance de **2×** o `gold`, 50% de nada | mesmo teto do `gold` |
+
+O sorteio usa semente estável por (evento, opção): reenviar a escolha não muda o valor,
+e não dá para "rerolar" fechando e reabrindo a tela. `source_type: 'event'`, `kind: meta`.
+
+### 5.6 Cardio ✅ 🆕 (2026-07-31)
+
+Mesma sessão de treino, **modalidade** diferente ([04 §4.11](./04-modulos.md)). Só o
+score muda; daí para frente é idêntico ao treino de força:
+
+```
+score_forca  = séries × 8 + volume_normalizado / 600      # inalterado
+score_cardio = minutos × intensidade
+intensidade  = clamp(0,8 … 1,2) de (FC_da_sessão ÷ sua_FC_mediana)
+```
+
+`intensidade = 1` (neutro) quando não há FC **ou** quando ainda não há 3 sessões com FC
+para formar "o seu normal". Sem FC, conta só a duração.
+
+Os minutos são os **cronometrados nos blocos**, com fallback no tempo decorrido da sessão.
+A progressão vs. média recente do mesmo modelo continua valendo, comparando **duração**
+em vez de volume. PRs não se aplicam (são de peso/reps).
+
+> **Por que não usar zonas de FCmáx:** a fórmula clássica precisa da idade e erra por
+> 10-20 bpm em quem treina. Comparar com a sua própria mediana responde a pergunta certa
+> — "este foi mais forte que o seu normal?" — sem pedir dado que o sistema não tem.
+
+### 5.7 Leitura ✅ 🆕 (2026-07-31)
+
+Dois momentos, e **nenhum deles paga por unidade** — página não é moeda:
+
+```
+# sessão, obra COM total conhecido
+fração    = unidades_avançadas / total_da_obra        # com teto diário, abaixo
+xp_sessão = base(dificuldade) × FATOR_OBRA × fração   # FATOR_OBRA = 3
+
+# sessão, obra SEM total (artigo, curso sem ementa)
+xp_sessão = base('trivial')      # sem denominador não há proporção
+
+# conclusão, uma vez só
+xp_final += base(dificuldade)
+```
+
+`FATOR_OBRA = 3` faz a soma de todas as sessões valer ~3× a dificuldade da obra: ler um
+livro inteiro em pedaços foi mais trabalho que uma side quest equivalente — mas continua
+ancorado na tabela de dificuldade, não numa escala própria.
+
+**Teto diário:** acima de **20% da obra num dia**, o excedente entra com a **mesma curva
+de overshoot** do §5.1 (100/80/60/40, piso 20%). Maratonar continua valendo — só não vale
+como se fossem cinco dias de leitura. Avanço é sempre positivo; corrigir para baixo é
+edição da obra e não devolve XP.
+
+### 5.8 Diário ✅ 🆕 (2026-08-01)
+
+```
+xp = base('trivial')          # uma vez, na PRIMEIRA gravação do dia
+```
+
+Fixo e trivial de propósito. Não é proporcional ao tamanho do texto, nem ao número de
+mídias, nem ao humor registrado: pagar por volume premiaria escrever muito, e o que se
+quer premiar é o hábito de registrar. Editar o texto à noite não rende de novo — o grant
+só sai quando a linha do dia **nasce**.
+
+### 5.9 Nutrição ✅ 🆕 (2026-08-01)
+
+Duas recompensas, com unidades diferentes de propósito:
+
+```
+# 1. registrar uma refeição — na hora
+xp_refeição = base('trivial')                      # fixo, por refeição
+
+# 2. o DIA — no fechamento, mesma forma do Sono (§5.4)
+ativos      = quantos critérios estão LIGADOS      # proteína ≥ X · kcal ≤ Y · N refeições
+cumpridos   = quantos foram atendidos no dia
+xp_dia      = base(dificuldade) × (cumpridos / ativos)
+```
+
+**Por que o dia é uma unidade separada da refeição:** proteína somada, calorias somadas e
+número de refeições só existem no conjunto. Nenhuma refeição isolada significa alguma
+coisa — almoçar 60 g de proteína é ótimo ou insuficiente dependendo do resto do dia.
+
+Critério desligado sai do **denominador**, não conta como falha (idêntico ao Sono). Dia
+sem nenhuma refeição **não fecha**: é ausência de dado, e fechar com zero marcaria
+"kcal ≤ Y cumprido" para quem simplesmente não anotou.
+
+**Nunca dano.** Comer demais de um item específico pode ser um hábito negativo, que já
+tem dano próprio. O ato de comer, não.
+
+Os macros vêm sempre da linha da `foods` escolhida — **nunca do corpo da requisição nem
+do texto do modelo**. É a mesma disciplina dos encontros diários: a IA nomeia, o catálogo
+numera.
+
+### 5.10 Plano do dia ✅ 🆕 (2026-08-01)
+
+```
+erro = |previstos − realizados|
+
+erro = 0  → base('easy')       # acertou na mosca
+erro = 1  → base('trivial')    # chegou perto
+erro ≥ 2  → nada
+```
+
+**Só bônus. Não existe caminho que tire XP, ouro ou HP.** Errar a previsão não custa
+nada, e isso não é generosidade: punir imprecisão ensina a prever baixo para garantir o
+acerto, que destrói exatamente o dado que se queria coletar. O `accuracy` fica guardado
+como instrumento, não como julgamento.
+
+### 5.11 Modo trégua ✅ 🆕 (2026-08-01) — o que ele NÃO muda
+
+A trégua **não toca em recompensa nenhuma**: fazer as coisas durante ela rende igual. O
+que sai é só o castigo — dano de hábito, zeragem de streak e contra-ataque do boss.
+
+E **a janela do boss continua correndo**. Você descansa da punição, não do tempo:
+congelar o prazo transformaria a trégua num botão de pausar o jogo quando ele fica
+difícil, e um jogo que se pausa assim não cobra nada de ninguém.
+
+### 5.12 Trabalho ✅ 🆕 (2026-08-03)
+
+```
+minutos = min(tempo medido no techSpace, 4h)          # teto por tarefa
+minutos = min(minutos, 8h − já pago hoje)             # teto por dia
+unidades = (minutos / 90) × prioridade                # LOW .8 · MED 1 · HIGH 1.1 · URG 1.2
+xp = base('easy') × unidades
+
+# sem cronômetro — NUNCA zero
+unidades = 0,15 a 0,4 conforme a prioridade
+```
+
+**A unidade é TEMPO MEDIDO, não tarefa contada.** 30 tarefas de 20 min ≈ 3 de 3h:
+esforço parecido, recompensa parecida. Contar tarefas trataria essas duas semanas como se
+fossem 10× diferentes.
+
+**O anti-farm sai de graça:** tarefa falsa criada e fechada rende **zero minutos**, e não
+se falsifica cronômetro sem ficar sentado ali. É a defesa mais forte de qualquer módulo.
+
+> ⚠️ **A calibração é a parte que importa.** 90 min ≈ um `easy` deixa um dia cheio (teto
+> de 8h) valendo ~5 `easy` — mesma ordem de grandeza de um bom dia de hábitos + treino. Se
+> o trabalho pagasse na régua do treino, 8h/dia virariam ~320 de XP e o ledger seria 80%
+> trabalho; hábitos, corpo, leitura e sono virariam decoração.
+
+> **Pagar por tempo premia trabalhar devagar?** O caso real não é trapaça, é esquecer o
+> timer rodando. Três defesas: teto por tarefa, teto por dia, e XP só na **conclusão** —
+> devagar adia a recompensa em vez de aumentá-la.
+
+### 5.13 Bucket list ✅ 🆕 (2026-08-03)
+
+```
+realizar     → base('epic')          # a maior recompensa isolada do sistema
+desbloquear  → GASTA Essência        # não paga nada; compra o direito de ir atrás
+```
+
+Realizar é a maior recompensa isolada, e deve ser: o boss anual paga por vencer um ano;
+isto paga por **viver** uma coisa que você queria há anos.
+
+Desbloquear ≠ realizar. Cobrar de novo na realização seria cobrar duas vezes pela mesma
+coisa.
+
+### 5.14 Relacionamentos ✅ 🆕 (2026-08-03)
+
+```
+contato comum         → base('trivial')   # 1× por pessoa por DIA
+primeiro contato      → base('easy')      # a assimetria de valor
+subir de estágio      → base('medium')    # paga como conclusão de meta
+descer de estágio     → nada
+```
+
+**A assimetria é o que faz a construção acontecer:** o primeiro contato com alguém novo
+vale mais que o 50º com alguém antigo. Sem isso o sistema premia só quem você já vê.
+
+> ⚠️ **Subgamificar de propósito.** Nunca dano, nunca streak, sem objetivo de boss, sem
+> Codex — e `kind = 'meta'` no registry justamente para não virar objetivo. "Converse com
+> 5 pessoas para ferir o boss" é a corrupção que o módulo existe para evitar. A tela fala
+> em tempo e pessoas, nunca em pontos.
+
+### 5.15 Bônus do retorno (reputação ⑮) ✅ 🆕 (2026-08-03)
+
+```
+parado = dias desde o último evento do módulo − dias de trégua no período
+parado < 7   → sem bônus
+parado ≥ 7   → bônus = min(40%, 10% + (parado − 7) × 2%)
+```
+
+Aplicado a **XP e ouro**, no centro do `_grant`, junto da penalidade da nêmese — e pela
+mesma razão: os multiplicadores só valem no modo açúcar, e treino, sono, medida, cardio e
+encontro usam o modo raw.
+
+> ⚠️ **Reputação baixa NUNCA reduz recompensa.** O impulso natural é o contrário, e é
+> espiral de morte: abandonou cardio → cardio rende menos → abandona mais. Aqui a volta
+> vale mais. Vira convite em vez de castigo, e ataca justamente o que a métrica mede.
+
+**Sem tabela de controle:** por construção o bônus só acontece uma vez por silêncio — no
+dia seguinte a recência é 1 e ele é zero.
+
+### 5.16 Ferrugem de skill (⑨) ✅ 🆕 (2026-08-03)
+
+```
+parado = dias desde `last_xp_at` − dias de trégua no período
+0-21   → maestria cheia
+22-56  → fator = (56 − parado) / 35
+>56    → dormente (bônus zero)
+
+maestria = 1 + min(50%, nível × 1%) × fator
+```
+
+**O fator multiplica o BÔNUS, não o XP.** Skill dormente rende o valor base, nunca menos —
+ferrugem tira o prêmio da dedicação, não a recompensa do esforço de hoje.
+
+**Nível e XP nunca caem**, e a volta é **imediata e integral**: um evento restaura tudo. É
+interruptor, não penitência proporcional ao abandono.
+
+> ⚠️ `last_xp_at` existe porque `updated_at` **não serve** — o trigger dispara em qualquer
+> edição, então renomear uma skill parada há três meses a "reviveria" sem nenhum XP.
+> Verificado no banco: renomear mexe no `updated_at` e não no `last_xp_at`.
+
+### 5.17 Cicatrizes (⑫) ✅ 🆕 (2026-08-03)
+
+Quatro eixos, somados (não compostos) sobre as **ativas**:
+
+| eixo | onde é aplicado |
+|---|---|
+| `goldPct` | `_grant`, ao lado da nêmese |
+| `xpHabitPct` | `_grant`, só quando `sourceType = 'habit'` |
+| `damageTakenPct` | `DamageService.applyDamage`, depois do buff de escudo |
+| `bossDamagePct` | engine de boss, no dano **e** na cura de reversão |
+
+Intensidade por modo de morte: `soft` 0,4× · `seasonal` 0,7× · `hardcore` 1,0×.
+Teto de **3 ativas**; a 4ª empurra a mais antiga para inerte-mas-visível. Remover custa
+**3 de Essência**.
+
+> **Os eixos não são os do doc 14.** O spec pedia "−5% HP máximo", "−10% crítico" e
+> "−1 Vitalidade". `characters.max_hp` é **coluna gerada** (`50 + level × 10`), e crítico e
+> atributos têm **dois** pontos de cálculo (HUD e combate) que o próprio código avisa que
+> não podem divergir. Os quatro eixos acima têm ponto único cada um, e dizem a mesma
+> coisa: *mais frágil e mais ganancioso, ou mais lento e mais forte*.
+
+### 5.18 Preço que respira (⑬) ✅ 🆕 (2026-08-03)
+
+```
+preço_em_ouro = dias_de_esforço × régua
+régua = média diária de ouro GANHO nos últimos 30 dias
+      com clamp de ±15% contra o ciclo anterior, recalculada a cada 15 dias
+      piso de 5/dia
+```
+
+**Cadência ≠ janela**: recalcula a cada 15 dias, sempre sobre os últimos 30. Se a janela
+encolhesse junto, uma semana de viagem derrubaria a média pela metade.
+
+**Sem brecha para trapaça, por construção:** produzir menos barateia o item mas derruba
+sua renda na mesma proporção — o tempo até conseguir comprar não muda.
+
+**Escopo: só `category = 'recompensa'`.** Poção, buff e equipamento são balanceados contra
+o jogo, não contra a sua vida — se o preço deles respirasse, nada teria valor fixo.
+
+> ⚠️ **Armadilha de leitura:** preço em ouro subindo é notícia **boa** exibida como má.
+> Significa que você produziu mais. A manchete do card tem de ser os **dias** (constantes),
+> com o ouro como número derivado.
 
 ## 6. Streaks
 
@@ -237,6 +518,100 @@ marco do boss, e cura de item. O histórico devolve quatro tipos de linha:
 
 **Como se confere:** `saldo do personagem == soma dos gold_delta do ledger`. Se
 divergir, existe um caminho gravando fora do livro — é bug, não arredondamento.
+
+🆕 **2026-07-30:** entraram mais duas fontes sob a mesma regra — `sleep`
+(`kind: atividade`) e `event` (`kind: meta`, os encontros diários). O ouro dos
+encontros passa pelo `_grant` como qualquer outro, e não por um caminho próprio.
+
+## 9.3 Penalidade da nêmese ✅ 🆕 (2026-07-31)
+
+Enquanto houver **nêmese solta** (criatura com epíteto em `escapou`/`orfa` — só a 3ª fuga
+dá epíteto), todo **ouro ganho** rende **15% menos**. É o custo de não caçar, e o que
+transforma a nêmese de cosmético em dívida.
+
+Aplicada **dentro do `_grant`**, depois do ouro calculado:
+
+```
+se ouro > 0 e há nêmese solta:  ouro = round(ouro × 0,85)
+```
+
+Três decisões que precisam estar escritas:
+
+- **Não escala.** Duas nêmeses não dobram a perda — penalidade que cresce sozinha
+  empurra para o abandono, o contrário do que a caçada quer provocar.
+- **Só sobre ganho.** `gold > 0`. Em delta negativo daria desconto em compra e em morte.
+- **XP intocado.** Ouro é o recurso de curto prazo; mexer em XP atrasaria nível e
+  equipamento, punindo duas vezes pelo mesmo esquecimento.
+
+> ⚠️ **Armadilha de implementação:** os `goldMultipliers` do `_grant` só valem no **modo
+> açúcar**. Treino, sono, medidas e encontros usam o **modo raw** e os ignoram — passar a
+> penalidade pelos chamadores deixaria metade do sistema de fora sem erro nenhum. Por isso
+> ela é central, e vale para todo módulo presente e futuro.
+
+O `meta` do evento registra `nemesisPenalty`. Sem isso a conciliação fecha mas o valor de
+um evento isolado fica inexplicável — que foi exatamente como as três mortes silenciosas
+passaram meses despercebidas.
+
+## 9.2 Regularidade — métrica, ainda NÃO mecânica ✅ 🆕 (2026-07-30)
+
+O streak é binário (47 dias ou zero) e não distingue quem produz 30 XP todo dia de
+quem produz 210 num domingo — mesmo total, mesma leitura, embora a filosofia do
+sistema seja que **constância vence**.
+
+`/stats/overview` passou a devolver `regularity`: coeficiente de variação do XP
+diário **com os dias parados incluídos** (é o zero que separa o distribuído do
+concentrado), `score = round(100 × max(0, 1 − cv))`, mais `activeDays`,
+`totalDays` e `topDayShare`.
+
+> ⚠️ **Não entra em nenhuma fórmula de recompensa.** É leitura. Virar bônus muda a
+> curva de XP e exige calibração com dado real — quando acontecer, a fórmula
+> nasce aqui, no §5.
+
+### 5.19 Negativo com agenda de período — o teto de recaídas ✅ 🆕 (2026-08-04)
+
+Antes desta regra, `weekly_target`/`monthly_target` eram **gravados e nunca
+lidos** em hábito negativo. A tela prometia uma mecânica que não existia, e a
+promessa era invertida: "resistir 4 dias por semana" implica três dias
+liberados.
+
+**O novo significado:**
+
+```
+executions_per_day    = tolerância do DIA      (inalterado)
+weekly/monthly_target = teto de dias com recaída no PERÍODO
+```
+
+**O que o teto compra.** Hoje, depois da primeira recaída da semana, não sobra
+nada em jogo: a sequência zerou e os outros seis dias são eventos soltos —
+terminar com 1 ou com 5 recaídas dá no mesmo. Com teto de 2, o deslize de
+segunda deixa você em "1 de margem", e a semana continua tendo o que defender.
+
+**A assimetria — o dia pune, o período premia:**
+
+| Momento | O que acontece |
+|---|---|
+| Recaída no dia | Dano cheio **imediato** (R2), como sempre |
+| Período dentro do teto | Bônus de um dia de dificuldade × `1 + streakXpBonus(sequência)` |
+| Período estourado | Perde o bônus, zera a sequência. **Nunca dano extra** |
+
+O "nunca dano extra" não é generosidade, é evitar punir o mesmo evento duas
+vezes. Numa semana de 4 recaídas o personagem já tomou 72 de dano; somar
+penalidade no domingo transforma semana ruim em espiral.
+
+**A sequência passa a contar períodos.** Em 25 dias de uso real o streak diário
+nunca passou de 4 — zera a cada recaída, então mede algo que neste formato de
+hábito não cresce. O semanal mede **frequência**, que é onde a melhora aparece
+(2 → 2 → 4 → 0 recaídas por semana). Por isso `current_streak` troca de unidade
+em vez de ganhar uma coluna irmã: dois contadores de progresso no mesmo card
+competem, e o perdedor seria sempre o diário.
+
+Fonte da regra: `habits/period-negative.ts` · fechamento em
+`CloseService.closeNegativePeriod`.
+
+> Na interface o número é **margem que se gasta**, nunca cota a que se tem
+> direito: "2 recaídas de margem · faltam 3 dias", com a barra representando o
+> que SOBRA. A moldura importa — num hábito de evitar, "0 de 2 usadas" lê como
+> saldo disponível.
 
 ## 10. Decisões fechadas
 

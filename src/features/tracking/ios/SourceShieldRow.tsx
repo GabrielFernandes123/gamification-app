@@ -118,7 +118,7 @@ export function SourceShieldRow({
         // Sem as duas automações no Atalhos, o tempo desta fonte fica em zero.
         <Text variant="label" color={theme.colors.gold}>
           O tempo só é contado pelas 2 automações do Atalhos. Sem elas, toque em
-          "Medir pelo iOS".
+          &ldquo;Medir pelo iOS&rdquo;.
         </Text>
       )}
 

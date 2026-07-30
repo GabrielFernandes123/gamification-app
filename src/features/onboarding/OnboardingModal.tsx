@@ -7,6 +7,7 @@ import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Text } from '@/components/ui/Text';
+import { openWeb } from '@/lib/openWeb';
 import { theme } from '@/theme/theme';
 
 // Onboarding mínimo do primeiro login: 4 passos explicando o modelo do jogo.
@@ -77,7 +78,7 @@ export function OnboardingModal() {
   const finish = useCallback((goToHabitForm: boolean) => {
     AsyncStorage.setItem(ONBOARDING_STORAGE_KEY, new Date().toISOString()).catch(() => undefined);
     setVisible(false);
-    if (goToHabitForm) router.push('/(app)/habits/new');
+    if (goToHabitForm) void openWeb('/habits');
   }, [router]);
 
   if (!visible) return null;

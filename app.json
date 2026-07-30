@@ -14,7 +14,14 @@
       "bundleIdentifier": "com.gabriel.evolve",
       "appleTeamId": "DYT84KCFF7",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSHealthShareUsageDescription": "O Evolve lê seu sono e sua frequência cardíaca do app Saúde para transformar suas noites em progresso do personagem. Nada é escrito de volta e nada sai do seu aparelho sem a sua conta.",
+        "NSCameraUsageDescription": "O Evolve usa a câmera para fotografar a página do seu diário e o prato da refeição. As fotos ficam na sua conta.",
+        "NSPhotoLibraryUsageDescription": "O Evolve acessa suas fotos para você escolher uma imagem já tirada do diário ou da refeição, em vez de fotografar de novo.",
+        "NSMicrophoneUsageDescription": "O Evolve grava áudio para você ditar o diário e o que comeu, em vez de digitar. A gravação fica na sua conta e a transcrição é feita a seu pedido."
+      },
+      "entitlements": {
+        "com.apple.developer.healthkit": true
       }
     },
     "android": {
@@ -80,7 +87,15 @@
             }
           ]
         }
-      ]
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "O Evolve grava áudio para você ditar o diário e o que comeu, em vez de digitar. A gravação fica na sua conta e a transcrição é feita a seu pedido."
+        }
+      ],
+      "@kingstinct/react-native-healthkit",
+      "expo-image"
     ],
     "experiments": {
       "typedRoutes": true,

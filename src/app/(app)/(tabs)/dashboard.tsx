@@ -8,10 +8,12 @@ import {
   Dumbbell,
   Flame,
   Heart,
+  Moon,
   Package,
   ScrollText,
   Settings,
   ShieldAlert,
+  Skull,
   Sparkles,
   Swords,
   Target,
@@ -26,7 +28,10 @@ import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { useBodyMeasurements, useWorkoutSessions } from '@/features/body/hooks/useBody';
-import { useCharacter, useProfile } from '@/features/character/hooks/useCharacter';
+import { criteriaScore, formatDuration, useSleepLogs } from '@/features/health/hooks/useSleep';
+import { openWeb } from '@/lib/openWeb';
+import { addDaysIso } from '@/utils/date';
+import { useCharacter, useProfile, type Character } from '@/features/character/hooks/useCharacter';
 import { useHabits } from '@/features/habits/hooks/useHabits';
 import { habitProgress, useTodayLogs } from '@/features/habits/hooks/useTodayLogs';
 import { isDueToday } from '@/features/habits/meta';
@@ -35,6 +40,11 @@ import {
   type ObjectiveOverviewItem,
 } from '@/features/objectives/hooks/useObjectives';
 import { ModuleLauncher } from '@/features/modules/ModuleLauncher';
+import { MealVoiceButton } from '@/features/nutrition/MealVoiceButton';
+import { ScarOfferCard } from '@/features/character/ScarOfferCard';
+import { YesterdayCard } from '@/features/habits/components/YesterdayCard';
+import { PlanCard } from '@/features/plan/PlanCard';
+import { PeopleQuickCard } from '@/features/relationships/PeopleQuickCard';
 import { useCurrentSeason } from '@/features/season/hooks/useCurrentSeason';
 import { useSideQuests } from '@/features/sidequests/hooks/useSideQuests';
 import { OnboardingModal } from '@/features/onboarding/OnboardingModal';
@@ -66,6 +76,11 @@ export default function DashboardScreen() {
   const measurements = useBodyMeasurements();
   const season = useCurrentSeason('mensal');
   const objectives = useObjectivesOverview();
+  // Janela de 7 dias: o radar só mostra a última noite, mas quem dormiu fora ou
+  // ficou sem relógio ainda vê o registro mais recente em vez de "sem registro".
+  const sleep = useSleepLogs(addDaysIso(today, -7), today);
+  const lastNight = sleep.data?.[0] ?? null;
+  const nemesisPenalty = character.data?.nemesis_penalty ?? 0;
 
   const daily = useMemo(() => {
     const allHabits = habits.data ?? [];
@@ -365,7 +380,7 @@ export default function DashboardScreen() {
           <IconButton
             icon={<Trophy color={theme.colors.gold} size={20} />}
             label="Conquistas"
-            onPress={() => router.push('/(app)/achievements')}
+            onPress={() => void openWeb('/achievements')}
           />
           <IconButton
             icon={<Settings color={theme.colors.textMuted} size={20} />}
@@ -392,7 +407,7 @@ export default function DashboardScreen() {
       <View style={styles.heroPanel}>
         <View style={styles.heroHeader}>
           <Pressable
-            onPress={() => router.push('/(app)/character')}
+            onPress={() => void openWeb('/character')}
             accessibilityRole="button"
             style={styles.characterBlock}
           >
@@ -448,10 +463,25 @@ export default function DashboardScreen() {
           <ResourcePill icon={<Sparkles color={theme.colors.essencia} size={16} />} value={c?.essencia ?? 0} label="Essência" />
           <ResourcePill icon={<Flame color={theme.colors.primary} size={16} />} value={c?.character_streak ?? daily.topStreak} label="Sequência" />
         </View>
+
+        {/* Nêmese solta (14 §5.2⑤): a penalidade só funciona se for legível —
+            invisível, ela é apenas um número errado no fim do dia. */}
+        {nemesisPenalty > 0 ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => void openWeb('/history')}
+            style={styles.nemesisBanner}
+          >
+            <Skull color={theme.colors.danger} size={15} />
+            <Text variant="label" color={theme.colors.danger}>
+              {nemesisLabel(c?.nemeses)} · ouro −{Math.round(nemesisPenalty * 100)}%
+            </Text>
+          </Pressable>
+        ) : null}
       </View>
 
       <Pressable
-        onPress={() => router.push('/(app)/(tabs)/historia')}
+        onPress={() => void openWeb('/historia')}
         accessibilityRole="button"
         style={styles.bossPanel}
       >
@@ -602,7 +632,7 @@ export default function DashboardScreen() {
           value={`${(sideQuests.data ?? []).filter((q) => !q.is_completed).length} pendentes`}
           meta={`${objectives.data?.counts.activeChallenges ?? 0} desafios`}
           tone="quest"
-          onPress={() => router.push('/(app)/sidequests')}
+          onPress={() => void openWeb('/sidequests')}
         />
         <ActionTile
           icon={<Package color={theme.colors.gold} size={21} />}
@@ -610,7 +640,7 @@ export default function DashboardScreen() {
           value="Itens e recompensas"
           meta={`${c?.gold ?? 0} ouro`}
           tone="store"
-          onPress={() => router.push('/(app)/(tabs)/store')}
+          onPress={() => void openWeb('/store')}
         />
       </View>
 
@@ -639,6 +669,22 @@ export default function DashboardScreen() {
           onPress={() => router.push('/(app)/(tabs)/body')}
         />
         <StatusLine
+          icon={<Moon color={theme.colors.skill} size={17} />}
+          label="Sono"
+          value={lastNight ? formatDuration(lastNight.durationMinutes) : 'sem registro'}
+          detail={
+            lastNight
+              ? `${criteriaScore(lastNight.criteriaMet).met}/${criteriaScore(lastNight.criteriaMet).active} metas · ${lastNight.nightOn}`
+              : 'sincroniza sozinho ao abrir'
+          }
+          color={
+            lastNight && criteriaScore(lastNight.criteriaMet).met === criteriaScore(lastNight.criteriaMet).active
+              ? theme.colors.success
+              : theme.colors.skill
+          }
+          onPress={() => void openWeb('/history')}
+        />
+        <StatusLine
           icon={<CheckCircle2 color={theme.colors.success} size={17} />}
           label="Hábitos pendentes"
           value={String(Math.max(0, daily.dueHabits.length - daily.completedHabits.length))}
@@ -647,6 +693,25 @@ export default function DashboardScreen() {
           onPress={() => router.push('/(app)/(tabs)/habits')}
         />
       </View>
+
+      {/* Plano do dia e trégua (doc 14 §5.2⑦ e §5.3⑩): ~15 segundos, e é a
+          pergunta que organiza o resto da tela. */}
+      {/* A oferta de cicatriz vem ANTES do plano: é a única coisa da tela
+          esperando uma decisão, e ela aparece logo depois de uma morte. */}
+      <ScarOfferCard />
+
+      {/* Fecha o passado antes de abrir o presente: some sozinho quando
+          não há nada a corrigir. */}
+      <YesterdayCard />
+      <PlanCard />
+
+      {/* Quem está esfriando — ligar para alguém é registro em movimento. */}
+      <PeopleQuickCard />
+
+      {/* Registrar refeição é a ação mais frequente do dia depois de marcar
+          hábito. Enterrá-la em Corpo › Comida custaria três toques para algo
+          que se faz três vezes por dia — por isso ela também mora aqui. */}
+      <MealVoiceButton compact />
 
       {/* Atalhos dos módulos do registry (08 §6.1) — é o único caminho do app
           para telas sem aba própria, como Tempo de tela. */}
@@ -701,6 +766,13 @@ function VitalBar({
       <ProgressBar progress={progress} color={color} trackColor={theme.colors.bg} height={9} />
     </View>
   );
+}
+
+/** Nomeia a dívida em vez de só mostrar o percentual. */
+function nemesisLabel(nemeses: Character['nemeses']): string {
+  const first = nemeses?.[0];
+  if (!first) return 'Nêmese solta';
+  return first.epithet ? `${first.name}, ${first.epithet}` : first.name;
 }
 
 function ResourcePill({
@@ -1064,6 +1136,18 @@ const styles = StyleSheet.create({
   resourceStrip: {
     flexDirection: 'row',
     gap: theme.spacing.sm,
+  },
+  nemesisBanner: {
+    alignItems: 'center',
+    backgroundColor: withAlpha(theme.colors.danger, 0.12),
+    borderColor: withAlpha(theme.colors.danger, 0.4),
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: theme.spacing.xs,
+    marginTop: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xs,
   },
   resourcePill: {
     flex: 1,

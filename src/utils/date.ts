@@ -41,6 +41,19 @@ export function dateOnly(s: string): string {
   return s.slice(0, 10);
 }
 
+/**
+ * 'YYYY-MM-DD' deslocado em `days`, com aritmética UTC PURA.
+ *
+ * Ancorar em meia-noite UTC e formatar de volta por `toISOString` evita o viés
+ * que já mordeu o backend (ver a nota do Codex sobre `toDateOnly` formatar por
+ * componentes locais e a janela escorregar um dia).
+ */
+export function addDaysIso(date: string, days: number): string {
+  return new Date(Date.parse(`${dateOnly(date)}T00:00:00Z`) + days * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+}
+
 export function normalizeDateOnly(value: string | null | undefined): string | null {
   const match = value?.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (!match) return null;

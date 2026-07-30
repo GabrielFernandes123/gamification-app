@@ -11,6 +11,7 @@ import { ACHIEVEMENT_BY_KEY } from '@/features/achievements/catalog';
 import { useCharacter } from '@/features/character/hooks/useCharacter';
 import { useDifficulties } from '../hooks/useDifficulties';
 import { useLevelUp } from '@/providers/LevelUpProvider';
+import { openWeb } from '@/lib/openWeb';
 import { theme } from '@/theme/theme';
 import { formatErrorMessage } from '@/utils/errors';
 import type { Habit } from '../hooks/useHabits';
@@ -211,7 +212,7 @@ export function HabitRow({ habit, progress, periodProgress, weekday }: Props) {
               <ExtraIcon color={extraColor} size={17} />
             </Pressable>
             <Pressable
-              onPress={() => router.push({ pathname: '/(app)/habits/[id]', params: { id: habit.id } })}
+              onPress={() => void openWeb(`/habits?habit=${habit.id}`)}
               hitSlop={10}
               accessibilityLabel="Editar hábito"
               style={styles.edit}
@@ -266,7 +267,7 @@ export function HabitRow({ habit, progress, periodProgress, weekday }: Props) {
           </Text>
         </View>
         <Pressable
-          onPress={() => router.push({ pathname: '/(app)/habits/[id]', params: { id: habit.id } })}
+          onPress={() => void openWeb(`/habits?habit=${habit.id}`)}
           hitSlop={10}
           accessibilityLabel="Detalhes do hábito"
           style={styles.edit}

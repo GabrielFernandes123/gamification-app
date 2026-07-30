@@ -237,17 +237,24 @@ introspect em §2), então isto só adiciona a variante `.development`.
 
 ## 7. O que vem depois da build
 
-A build de agora entrega o **módulo nativo disponível**, mas o app ainda não usa.
-A sequência de código é a da Fase 2 do plano:
+> **✅ Atualizado em 2026-08-04.** Esta seção dizia que "o app ainda não usa" o
+> módulo nativo e listava a Fase 2 como pendente. **A Fase 2 está construída** — o
+> que segue é o mapa do que existe, não do que falta.
 
-1. tela de seleção de apps (`FamilyActivityPicker`) casando token ↔ `matcher` de
-   `tracked_sources`;
-2. sync: `GET /tracking/policy` → armar threshold + escrever a bolsa
-   (`grants = floor(gold / cost)`) no App Group;
+Os cinco passos da Fase 2 do plano, e onde cada um vive:
+
+1. seleção de apps (`FamilyActivityPicker`) casando token ↔ `matcher` de
+   `tracked_sources` — `src/features/tracking/ios/ShieldPanel.tsx`;
+2. sync `GET /tracking/policy` → threshold + bolsa no App Group —
+   `src/features/tracking/ios/{policy,shieldSync,windows}.ts`, disparado no boot
+   por `src/app/(app)/_layout.tsx`;
 3. shield no callback de limiar, `ShieldConfiguration` com preço, `ShieldAction`
-   consumindo grant;
-4. `POST /tracking/unlock` com `client_id` (idempotência já pronta na Fase 0);
-5. heartbeat em cada sync (`POST /tracking/heartbeat`).
+   consumindo grant — `shieldTheme.ts` + `SourceShieldRow.tsx`;
+4. `POST /tracking/unlock` com `client_id` — armado em `shieldSync.ts`;
+5. heartbeat em cada sync — `measure.ts` / `deviceToken.ts`.
+
+**O que realmente falta da build** é só a etapa manual no portal da Apple
+(habilitar HealthKit no App ID, regerar provisioning) — ver §5.
 
 **Revisão do plano**: a v0.6.0 da lib trouxe `setWebContentFilterPolicy()` —
 filtro de conteúdo web pelo próprio Screen Time, com modos `auto`/`specific`/`all`

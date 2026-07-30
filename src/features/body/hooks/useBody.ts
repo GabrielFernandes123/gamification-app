@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/components/ui/Toast';
 import type { UnlockedMap } from '@/features/achievements/useAchievements';
 import type { Character } from '@/features/character/hooks/useCharacter';
+import { averageHeartRate } from '@/features/health/ios/healthkit';
 import { showBossProgressToast } from '@/features/season/bossFeedback';
 import { apiFetch } from '@/lib/api';
 import { qk } from '@/lib/queryKeys';
@@ -87,7 +88,6 @@ export function useCreateBodyPart() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: qk.bodyParts });
-      qc.invalidateQueries({ queryKey: qk.notificationSnapshot });
     },
   });
 }
@@ -100,7 +100,6 @@ export function useUpdateBodyPart() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: qk.bodyParts });
-      qc.invalidateQueries({ queryKey: qk.notificationSnapshot });
     },
   });
 }
@@ -114,7 +113,6 @@ export function useDeleteBodyPart() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: qk.bodyParts });
       qc.invalidateQueries({ queryKey: qk.fitnessExercises });
-      qc.invalidateQueries({ queryKey: qk.notificationSnapshot });
     },
   });
 }
@@ -381,12 +379,40 @@ export function useDeleteWorkoutSet(sessionId: string | null | undefined) {
   });
 }
 
+/**
+ * FC média da sessão, lida do HealthKit para o intervalo em que ela correu.
+ *
+ * Só faz sentido no cardio — no treino de peso o backend ignora a FC — então
+ * nem chega a consultar nas sessões de força. Retorna `null` em qualquer
+ * tropeço: build sem HealthKit, permissão negada, sessão sem hora de início.
+ */
+async function sessionHeartRate(
+  qc: ReturnType<typeof useQueryClient>,
+  sessionId: string,
+): Promise<number | null> {
+  const sessions = qc.getQueryData<WorkoutSession[]>(qk.workoutSessions);
+  const session = sessions?.find((item) => item.id === sessionId);
+  if (!session || session.modality !== 'cardio' || !session.started_at) {
+    return null;
+  }
+  return averageHeartRate(session.started_at, new Date().toISOString());
+}
+
 export function useCompleteWorkoutSession() {
   const qc = useQueryClient();
   const toast = useToast();
   return useMutation({
     mutationFn: async (sessionId: string) => {
-      return apiFetch<CompleteWorkoutResult>(`/workout-sessions/${sessionId}/complete`, { method: 'POST' });
+      // Cardio (14 §4.5): a FC média do intervalo modula a dificuldade em ±20%.
+      // É a primeira consumidora do `averageHeartRate` que entrou com o
+      // HealthKit. Best-effort de propósito — sem FC (ou sem HealthKit) o
+      // backend conta só a duração, e finalizar o treino nunca pode falhar por
+      // causa de um dado opcional.
+      const avgHeartRate = await sessionHeartRate(qc, sessionId);
+      return apiFetch<CompleteWorkoutResult>(`/workout-sessions/${sessionId}/complete`, {
+        method: 'POST',
+        body: avgHeartRate ? { avgHeartRate } : {},
+      });
     },
     onSuccess: (data, sessionId) => {
       showBossProgressToast(toast, data.bossProgress);
@@ -421,7 +447,6 @@ export function useCompleteWorkoutSession() {
       qc.invalidateQueries({ queryKey: qk.skills, refetchType: 'inactive' });
       qc.invalidateQueries({ queryKey: qk.habitLogsRoot, refetchType: 'inactive' });
       qc.invalidateQueries({ queryKey: qk.currentSeason, refetchType: 'inactive' });
-      qc.invalidateQueries({ queryKey: qk.notificationSnapshot });
     },
   });
 }
@@ -471,7 +496,6 @@ export function useUpsertBodyMeasurement() {
       qc.invalidateQueries({ queryKey: qk.bodyGoals });
       qc.invalidateQueries({ queryKey: qk.bodyParts, refetchType: 'inactive' });
       qc.invalidateQueries({ queryKey: qk.currentSeason, refetchType: 'inactive' });
-      qc.invalidateQueries({ queryKey: qk.notificationSnapshot });
     },
   });
 }
@@ -602,7 +626,6 @@ export function useUpsertBodyAlertSettings() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: qk.bodyAlertSettings });
-      qc.invalidateQueries({ queryKey: qk.notificationSnapshot });
     },
   });
 }

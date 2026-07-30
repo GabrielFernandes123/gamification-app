@@ -49,9 +49,17 @@ export const qk = {
   habitSuggestions: (habitId: string) => ['habitSuggestions', habitId] as const,
   requirementsEvaluation: (ownerType: string, ownerId: string) =>
     ['requirementsEvaluation', ownerType, ownerId] as const,
-  notificationSnapshot: ['notificationSnapshot'] as const,
   trackingSources: ['trackingSources'] as const,
   trackingSummary: (date: string) => ['trackingSummary', date] as const,
   trackingDevices: ['trackingDevices'] as const,
   trackingDayMarks: ['trackingDayMarks'] as const,
+  sleepLogs: (start: string, end: string) => ['sleepLogs', start, end] as const,
+  sleepSettings: ['sleepSettings'] as const,
+  journal: (start: string, end: string) => ['journal', start, end] as const,
+  nutritionDay: (date: string) => ['nutritionDay', date] as const,
+  nutritionFoods: (query: string) => ['nutritionFoods', query] as const,
+  nutritionPending: ['nutritionPending'] as const,
+  planToday: ['planToday'] as const,
+  relationships: ['relationships'] as const,
+  scars: ['scars'] as const,
 };

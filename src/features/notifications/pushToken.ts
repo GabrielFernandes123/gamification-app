@@ -41,3 +41,33 @@ export async function registerPushToken(): Promise<string | null> {
     return null;
   }
 }
+
+/**
+ * Revoga o token no servidor. Chamado no logout.
+ *
+ * Sem isto o token ficava registrado para sempre: trocar de conta no mesmo
+ * aparelho fazia as notificações do usuário ANTERIOR continuarem chegando, e
+ * cada reinstalação deixava mais uma linha morta acumulando na tabela.
+ *
+ * Best-effort e ANTES de limpar o JWT — a rota é autenticada, então revogar
+ * depois do `signOut` receberia 401 em silêncio.
+ */
+export async function revokePushToken(): Promise<void> {
+  try {
+    if (!Device.isDevice) return;
+
+    const projectId =
+      Constants.expoConfig?.extra?.eas?.projectId ??
+      (Constants as { easConfig?: { projectId?: string } }).easConfig?.projectId;
+    if (!projectId) return;
+
+    const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
+    if (!token) return;
+
+    await apiFetch(`/tracking/push-token/${encodeURIComponent(token)}`, {
+      method: 'DELETE',
+    });
+  } catch {
+    // Falhar aqui não pode impedir o logout.
+  }
+}

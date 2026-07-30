@@ -6,6 +6,7 @@ import { clearCachedToken } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 import { queryClient } from '@/lib/queryClient';
 import { clearTodayJourneyWidgetSnapshot } from '@/features/widgets/useTodayJourneyWidget';
+import { revokePushToken } from '@/features/notifications/pushToken';
 
 type AuthResult = { error?: string };
 
@@ -75,6 +76,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: error?.message };
       },
       signOut: async () => {
+        // ANTES do signOut: a rota é autenticada, e revogar depois receberia
+        // 401 em silêncio. Sem isto o token do aparelho ficava vivo e o
+        // próximo usuário desta conta recebia as notificações do anterior.
+        await revokePushToken();
         await supabase.auth.signOut();
         clearCachedToken(); // zera Bearer em cache p/ não vazar entre usuários
         queryClient.clear(); // limpa cache p/ não vazar dados entre sessões

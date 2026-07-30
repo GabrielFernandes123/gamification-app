@@ -5,7 +5,7 @@
 > Atributos (valores) → [03](./03-atributos-build.md). Economia base (XP/dano/morte/
 > meta diária) → [02](./02-economia.md). Módulos/registry → [04](./04-modulos.md).
 > `_grant`/`_sync_season`/OpenRouter → [01](./01-arquitetura.md). Dados → [06](./06-dados.md).
-> Estado: 📋 projetado. Legenda: 🆕 número/regra ajustável após playtest.
+> Estado: ✅ implementado (varredura 2026-08-04) — engine, tiers e combate em `src/boss/`. Legenda: 🆕 número/regra ajustável após playtest.
 >
 > **Filosofia de calibração (norteia todos os números):** boss **mensal** deve ser
 > vencível se você foi **consistente** (premia constância, não grind extra); tiers
@@ -151,6 +151,34 @@ Para você não matar o boss cedo demais acelerando no início, há um **checkpo
   [09-narrativa-e-ia](./09-narrativa-e-ia.md), que a faz parecer trama, não truque).
 - Efeito: praticamente impossível vencer antes do ~dia 20, pois acelerar dispara o enrave.
 
+### 3.7 O oráculo — a projeção ✅ 🆕 (2026-07-30)
+
+O HP já é calibrado mirando o fim da janela (§3.6): o sistema **sempre soube** se você
+vai chegar lá — só nunca contava. O oráculo conta.
+
+Vai no snapshot da temporada (`forecast`), calculado sobre `boss_damage_events`:
+
+```
+ritmo        = dano dos últimos 7 dias ÷ 7        # os dias contam mesmo zerados
+ritmo_janela = dano desde window_start ÷ dias decorridos
+necessário   = current_hp ÷ dias restantes (inclusive hoje)
+projeção     = hoje + teto(current_hp ÷ ritmo)    # null quando ritmo = 0
+```
+
+| Veredito | Quando |
+|---|---|
+| `adiantado` | projeção ≤ `window_end` − 3 dias |
+| `no-prazo` | projeção ≤ `window_end` |
+| `apertado` | passa da janela, mas `ritmo ≥ necessário × 0,8` |
+| `nao-cai` | o resto (inclui ritmo zero) |
+
+> **Por que 7 dias e não a janela inteira:** a projeção precisa **reagir**. A média da
+> janela dilui a semana em que você parou, e é exatamente essa semana que o número
+> deveria denunciar. Os dois ritmos vão no payload para a UI poder dizer "seu ritmo caiu".
+
+Devolve `null` quando não há o que projetar (boss caído ou janela encerrada) — a UI
+simplesmente não mostra nada. **É leitura pura: não alterou nenhum estado.**
+
 ## 4. Estados da temporada
 
 `ativa` → `vencida` (HP do boss zerado no prazo) | `perdida` (prazo acabou com boss
@@ -194,7 +222,10 @@ possível** (§4).
 2. **Cosmético / bestiário** — títulos, molduras, e um **hall de boss** que você
    preenche ao derrotar cada um (coleção + status).
 3. **Essência** — moeda rara, **só de boss** ([02 §1](./02-economia.md)).
-4. **Recompensa da vida real** *(gancho central)* — dois caminhos que coexistem:
+4. **Recompensa da vida real** *(gancho central)* — ✅ **existe desde 2026-08-03**:
+   o catálogo é a **bucket list** ([04 §4.17](./04-modulos.md)). Antes disso esta
+   camada era promessa: vencer dava pontos, item e lore, nada que se sentisse fora
+   do app. Dois caminhos, e os dois já funcionam:
    - **desbloqueio direto:** vencer o boss anual libera *aquela* recompensa real que
      você amarrou à temporada;
    - **Essência acumulada:** junta de vários bosses e gasta num catálogo de recompensas
@@ -218,6 +249,16 @@ A qualidade do drop escala com **como** você venceu: margem de tempo, **sem mor
 | Trimestral | +3 | média | título | média | ✔ |
 | Semestral | +4 | alta | título raro | grande | ✔ |
 | Anual | +5 e slot de build | muita | troféu lendário | **a grande** (desbloqueio direto) | — |
+
+> ✅ **Slot de WIP** (14 §5.3⑧): vencer boss **trimestral ou maior** concede 1 slot
+> alocável, que sobe o teto de compromissos ativos do tipo que você escolher. É o que
+> transforma o teto de restrição em eixo de progressão — você não está limitado, está
+> *ainda* limitado. Só do trimestral para cima: um por mensal inflaria o teto em 12 por
+> ano e a mecânica perderia o sentido em oito meses.
+>
+> ✅ **Desbloqueio de sonho**: a vitória do **anual** libera o item mais antigo em aberto
+> da bucket list. Só o anual — se o trimestral também liberasse, a lista esvaziaria em
+> dois anos e o maior prêmio do sistema viraria rotina.
 
 > ✅ Implementado: pontos de atributo/Essência por tier = **1 / 3 / 4 / 5**. As **cargas**
 > ganhas ao vencer um boss vão para a temporada do **boss-pai** (tier acima) — o anual

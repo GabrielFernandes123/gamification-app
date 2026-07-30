@@ -4,7 +4,7 @@
 > de boss compõem o atributo total, equipamento (slots, `required_level`), e a classe
 > leve. Os **efeitos numéricos no combate** (quanto cada atributo causa/reduz) →
 > [05-temporadas-boss](./05-temporadas-boss.md). Economia base → [02](./02-economia.md).
-> Estado: 📋 projetado. Legenda: 🆕 novo/proposto (ajustável).
+> Estado: ✅ implementado (varredura 2026-08-04) — atributos, equipamento, classe e cicatrizes em `build.controller.ts`. Legenda: 🆕 novo/proposto (ajustável).
 
 ---
 

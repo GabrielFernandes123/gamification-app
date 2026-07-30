@@ -5,7 +5,7 @@
 > personalização/configuração da temporada.
 > Combate e números → [05-temporadas-boss](./05-temporadas-boss.md). Atributos (Foco/
 > fraqueza) → [03](./03-atributos-build.md). OpenRouter/jobs → [01](./01-arquitetura.md).
-> Dados → [06](./06-dados.md). Estado: 📋 projetado. Legenda: 🆕 ajustável · 📋 futuro.
+> Dados → [06](./06-dados.md). Estado: ✅ implementado (varredura 2026-08-04) — arco, saga, recalibração e retrospectiva em `narrative.controller.ts`. Legenda: 🆕 ajustável · 📋 futuro.
 
 ---
 

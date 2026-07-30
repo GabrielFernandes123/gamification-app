@@ -2,6 +2,7 @@ import {
   Dumbbell,
   Footprints,
   Monitor,
+  Moon,
   Repeat,
   Ruler,
   ScrollText,
@@ -22,6 +23,7 @@ const ICONS: Record<string, LucideIcon> = {
   ruler: Ruler,
   swords: Swords,
   monitor: Monitor, // módulo 'tracking' (Tempo de tela)
+  moon: Moon, // módulo 'sleep' (Sono)
 };
 
 export function moduleIcon(name: string): LucideIcon {

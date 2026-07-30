@@ -1,4 +1,4 @@
-import { Activity, ChevronRight, Dumbbell, Image as ImageIcon, Play, Plus, Ruler, Search, Settings2, Timer, Trophy, X, Zap } from 'lucide-react-native';
+import { Activity, ChevronRight, Dumbbell, Image as ImageIcon, Play, Plus, Ruler, Search, Settings2, Timer, Trophy, Utensils, X, Zap } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
@@ -37,12 +37,14 @@ import {
   useWorkoutTemplates,
 } from '@/features/body/hooks/useBody';
 import { MediaThumb } from '@/components/ui/MediaThumb';
+import { NutritionPanel } from '@/features/nutrition/NutritionPanel';
 import { useToday } from '@/hooks/useToday';
+import { openWeb } from '@/lib/openWeb';
 import { theme } from '@/theme/theme';
 import type { BodyAlertSettings, BodyGoal, BodyGoalDifficulty, BodyGoalType, BodyMeasurement, BodyPart, FitnessExercise, WorkoutSession, WorkoutSet, WorkoutTemplate } from '@/types/body';
 import { formatErrorMessage } from '@/utils/errors';
 
-type Mode = 'summary' | 'workouts' | 'measurements' | 'goals';
+type Mode = 'summary' | 'workouts' | 'measurements' | 'nutrition' | 'goals';
 type SelectOption = { value: string; label: string; color?: string; description?: string | null; mediaUrl?: string | null };
 
 const MEASUREMENT_SCALE_WIDTH = 10;
@@ -94,7 +96,7 @@ export default function BodyScreen() {
         </View>
         <View style={styles.headerActions}>
           <Pressable
-            onPress={() => router.push('/(app)/body/exercises' as never)}
+            onPress={() => void openWeb('/body/exercises')}
             hitSlop={10}
             accessibilityLabel="Exercícios"
             style={styles.headerIconBtn}
@@ -102,7 +104,7 @@ export default function BodyScreen() {
             <Dumbbell color={theme.colors.skill} size={22} />
           </Pressable>
           <Pressable
-            onPress={() => router.push('/(app)/body/parts' as never)}
+            onPress={() => void openWeb('/body/parts')}
             hitSlop={10}
             accessibilityLabel="Divisões"
             style={styles.headerIconBtn}
@@ -110,7 +112,7 @@ export default function BodyScreen() {
             <Activity color={theme.colors.primary} size={22} />
           </Pressable>
           <Pressable
-            onPress={() => router.push('/(app)/body/settings')}
+            onPress={() => void openWeb('/body/settings')}
             hitSlop={10}
             accessibilityLabel="Configurações de avisos"
             style={styles.headerIconBtn}
@@ -128,6 +130,7 @@ export default function BodyScreen() {
             { value: 'summary', label: 'Resumo', icon: Activity, color: theme.colors.primary },
             { value: 'workouts', label: 'Treinos', icon: Dumbbell, color: theme.colors.skill },
             { value: 'measurements', label: 'Medidas', icon: Ruler, color: theme.colors.success },
+            { value: 'nutrition', label: 'Comida', icon: Utensils, color: theme.colors.poison },
             { value: 'goals', label: 'Metas', icon: Trophy, color: theme.colors.gold },
           ]}
         />
@@ -137,6 +140,7 @@ export default function BodyScreen() {
       {!selectedPart && mode === 'summary' ? <SummaryPanel onSelectPart={setSelectedPart} /> : null}
       {!selectedPart && mode === 'workouts' ? <WorkoutsPanel /> : null}
       {!selectedPart && mode === 'measurements' ? <MeasurementsPanel /> : null}
+      {!selectedPart && mode === 'nutrition' ? <NutritionPanel /> : null}
       {!selectedPart && mode === 'goals' ? <GoalsPanel /> : null}
     </Screen>
   );
@@ -271,7 +275,7 @@ function WorkoutsPanel() {
 
   function openCreate() {
     setStartPickerOpen(false);
-    router.push('/(app)/body/treinos/edit');
+    void openWeb('/body/treinos/edit');
   }
 
   const completedSessions = useMemo(
@@ -360,11 +364,11 @@ function WorkoutsPanel() {
             key={template.id}
             template={template}
             daysAgo={daysAgoOrNull(lastDoneByTemplate.get(template.id))}
-            onPress={() => router.push({ pathname: '/(app)/body/treinos/[id]', params: { id: template.id } })}
+            onPress={() => setStartPickerOpen(true)}
           />
         ))}
         {list.length > 0 ? (
-          <Pressable style={styles.outlineBtn} onPress={() => router.navigate('/(app)/body/templates')}>
+          <Pressable style={styles.outlineBtn} onPress={() => void openWeb('/body/templates')}>
             <Text variant="title">Ver todos (incl. arquivados)</Text>
           </Pressable>
         ) : null}
@@ -377,7 +381,7 @@ function WorkoutsPanel() {
           <WorkoutRow key={session.id} session={session} />
         ))}
         {!sessions.isLoading && completedSessions.length === 0 ? <Text variant="bodyMuted">Nenhum treino finalizado ainda.</Text> : null}
-        <Pressable style={styles.outlineBtn} onPress={() => router.push('/(app)/history')}>
+        <Pressable style={styles.outlineBtn} onPress={() => void openWeb('/history')}>
           <Text variant="title">Ver histórico completo</Text>
         </Pressable>
       </Card>

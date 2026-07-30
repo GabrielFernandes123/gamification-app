@@ -21,6 +21,7 @@ import { SideQuestRow } from '@/features/sidequests/components/SideQuestRow';
 import { useSideQuests, type SideQuest } from '@/features/sidequests/hooks/useSideQuests';
 import { useToday } from '@/hooks/useToday';
 import { qk } from '@/lib/queryKeys';
+import { openWeb } from '@/lib/openWeb';
 import { theme } from '@/theme/theme';
 
 type Mode = 'habits' | 'sidequests';
@@ -138,7 +139,7 @@ export default function HabitsScreen() {
         </View>
         <View style={styles.headerActions}>
           <Pressable
-            onPress={() => router.push('/(app)/skills')}
+            onPress={() => void openWeb('/skills')}
             hitSlop={10}
             accessibilityLabel="Skills"
             style={styles.iconBtn}
@@ -147,7 +148,7 @@ export default function HabitsScreen() {
           </Pressable>
           <Pressable
             onPress={() =>
-              router.push(mode === 'habits' ? '/(app)/habits/new' : '/(app)/sidequests/new')
+              void openWeb(mode === 'habits' ? '/habits' : '/sidequests')
             }
             style={styles.addBtn}
             accessibilityLabel={mode === 'habits' ? 'Novo hábito' : 'Nova missão'}

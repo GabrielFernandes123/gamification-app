@@ -3,7 +3,7 @@
 > **Dono de:** as tabelas e relacionamentos. Semântica/fórmulas moram nos docs de
 > domínio ([02](./02-economia.md) economia, [03](./03-atributos-build.md) atributos,
 > [04](./04-modulos.md) módulos, [05](./05-temporadas-boss.md)/[09](./09-narrativa-e-ia.md)
-> boss/narrativa). Aqui só estrutura. Estado: 📋 projetado.
+> boss/narrativa). Aqui só estrutura. Estado: ✅ implementado (varredura 2026-08-04) — todas as tabelas descritas existem nas migrations.
 > Legenda: ✅ existe hoje · 🆕 nova · 🔄 coluna(s) a adicionar/alterar.
 > Mantemos os nomes de tabela atuais (sem rename) para evitar churn.
 
@@ -28,7 +28,8 @@
 
 ## 2. Ledger e Registry 🆕
 - **economy_events** 🆕 — `id`, `user_id`, `source_type`(enum: habit|workout|sidequest|
-  body_goal|body_measurement|boss|…), `source_id`, `xp_delta`, `gold_delta`,
+  body_goal|body_measurement|boss|achievement|tracking|store|death|build|event|
+  sleep|**cardio**|**reading**), `source_id`, `xp_delta`, `gold_delta`,
   `essencia_delta`, `occurred_on`(date), `meta`(jsonb), `created_at`. **Append-only**.
   Espinha de histórico/conquistas/streak/dano-de-boss ([01 §3](./01-arquitetura.md)).
 - **module_registry** 🆕 — `key`(=source_type, PK), `nome`, `icone`, `cor`, `ordem`,
@@ -51,7 +52,12 @@
   fechamento de período; o streak flexível é diário), `primary_skill_id`,
   `secondary_skill_id`, `current_streak`,
   `last_streak`, `best_streak`, `is_active`. 🔄 `monthly_day` **removido** (não há fixo
-  mensal; o enum `schedule` já codifica fixo=`weekdays` vs flexível=`weekly_count`/`monthly`).
+  mensal; o enum `schedule` já codifica fixo=`weekdays` vs flexível=`weekly_count`/`monthly`).  - 🆕 2026-08-04 — `weekly_target`/`monthly_target` significam coisas OPOSTAS
+    conforme `type`: no positivo são **dias que precisam bater a meta**; no
+    negativo são **teto de dias com recaída** no período. E `current_streak`
+    conta DIAS, exceto em negativo com agenda de período, onde conta
+    **PERÍODOS** dentro do teto ([02 §5.19](./02-economia.md)).
+
 - **habit_logs** ✅ — `habit_id`, `user_id`, `occurred_on`, `success`, `is_auto`,
   `xp_gained`, `gold_gained`, `damage_taken`, `streak_at_log`. (Auditoria; o ledger
   passa a ser a fonte canônica de XP/ouro — ver §12.)
@@ -108,6 +114,10 @@
 - **user_achievements** ✅ — `user_id`, `achievement_key`, `unlocked_at`. Avaliadas
   genericamente sobre o ledger ([04 §4.8](./04-modulos.md)).
 
+> **Codex — `origin_type` é `text`, não enum.** Ganhou o valor `tracking_source` em
+> 2026-07-30 (a fonte de tempo de tela que vira lacaio do boss) **sem migration**;
+> `origin_id` aponta para `tracked_sources.id`. Ver [14 §5.2⑥](./14-backlog-modulos-e-mecanicas.md).
+
 ## 9. Temporadas e Boss 🆕
 - **seasons** 🆕 — `id`, `user_id`, `name`, `lore`, `theme_seed`(input do usuário),
   `preset`(trimestral|semestral|anual|custom), `starts_on`, `ends_on`, `status`(ativa|
@@ -127,6 +137,196 @@
   da história e a recalibração [05 §3.6](./05-temporadas-boss.md)).
 - **boss_charges** 🆕 — `user_id`, `season_id`, `amount`. "Cargas" de minibosses, munição
   nos tiers maiores ([05 §7.3](./05-temporadas-boss.md)).
+
+## 9.1 Sono ✅ (2026-07-30)
+- **sleep_settings** ✅ — `user_id`(PK), `bedtime_max`(time), `bedtime_enabled`,
+  `wake_max`(time), `wake_enabled`, `min_minutes`(int), `min_duration_enabled`,
+  `difficulty`(enum), `updated_at`. Os `*_enabled` existem porque nem todo mundo
+  quer os três critérios — desligar um muda o divisor da fração ([02 §5.4](./02-economia.md)).
+- **sleep_logs** ✅ — `id`, `user_id`, `night_on`(date), `bedtime`, `wake_time`,
+  `duration_minutes`, `source`(healthkit|manual), `external_id`, `criteria_met`(jsonb),
+  `created_at`.
+  **Dois uniques, e os dois importam:** `(user_id, night_on)` — uma noite, um registro
+  (o relógio devolve a noite em pedaços) — e o índice parcial
+  `(user_id, external_id) where external_id is not null` — dedupe da importação, sem o
+  qual cada abertura do app pagaria de novo pela mesma noite.
+
+## 9.2 Encontros diários ✅ (2026-07-30)
+- **daily_events** ✅ — `id`, `user_id`, `day`(date), `title`, `description`,
+  `options`(jsonb: `[{key,label,effect}]` — **sem números**), `chosen_key`,
+  `outcome`(jsonb), `resolved_at`, `source`(ai|catalog), `model`, `created_at`.
+  `unique (user_id, day)` é o que torna a geração preguiçosa idempotente: duas
+  leituras simultâneas não produzem dois encontros. Valores e tetos em
+  [02 §5.5](./02-economia.md).
+
+## 9.3 Leitura ✅ (2026-07-31)
+- **readings** ✅ — `id`, `user_id`, `title`, `author`, `kind`(livro|curso|artigo|outro),
+  `unit`(pagina|capitulo|aula|modulo), `total_units`(**nullable — caso de primeira
+  classe**, não buraco: sem total não há proporção e a sessão paga trivial),
+  `current_units`, `status`(fila|lendo|concluida|abandonada), `difficulty`,
+  `primary_skill_id`, `started_on`, `finished_on`, `cover_url`, `notes`.
+- **reading_logs** ✅ — `id`, `user_id`, `reading_id`, `occurred_on`,
+  `units_delta`(**check > 0**: corrigir para baixo é edição da obra, não sessão),
+  `minutes`, `note`, `xp_gained`, `gold_gained`.
+
+## 9.4 Cardio ✅ (2026-07-31) — sem tabela nova
+- **workout_sessions.modality** ✅ e **workout_templates.modality** ✅ —
+  `text` com check `('forca','cardio')`, default `'forca'` (preserva o histórico:
+  tudo que existe é musculação). A modalidade decide a fórmula de pontuação **e** o
+  `source_type` do ledger.
+- `workout_sets.duration_seconds` e `distance_meters` **já existiam** desde o workout
+  v2 — nunca tinham sido lidos. Cardio pontua pelo primeiro.
+
+## 9.5 Troféu e forja ✅ (2026-07-31) — sem tabela nova
+- Troféu = linha em **user_items** com `category = 'trofeu'` e
+  `metadata->>'codexEntryId'` (que é o que torna a concessão idempotente), mais a
+  quantidade em `user_inventory_items` e a linha em `inventory_transactions`.
+- Forja escreve em **character_equipment.attribute_bonuses** (jsonb por instância) e
+  conta o total já forjado pelas linhas de `inventory_transactions` com
+  `reason = 'forge_equipment'` — sem coluna de contador.
+
+## 9.6 Diário ✅ (2026-08-01)
+- **journal_entries** ✅ — `id`, `user_id`, `occurred_on`, **`unique (user_id,
+  occurred_on)`** (o diário é do DIA, não um mural — e é isso que impede pagar
+  duas vezes), `mood`(1-5), `text`, `photo_url`, `audio_url`, `transcription`,
+  `transcription_model`, `needs_transcription`,
+  **`transcription_attempts`** e `transcription_failed_reason` 🆕 (2026-08-04).
+  - `transcription` em **coluna separada** de `text`: a mídia é a fonte da
+    verdade e a transcrição é conveniência. `DELETE /journal/:id/transcription`
+    limpa só as duas colunas da IA e deixa a mídia intacta.
+  - `transcription_attempts` existe porque o cron de varredura **desligava
+    `needs_transcription` no primeiro erro** — uma queda de rede apagava a
+    transcrição para sempre, calada. Agora conta e só desiste em 5; o pedido
+    manual zera o contador. É o único lugar do sistema onde um erro transitório
+    chegou a custar dado do usuário.
+  - `photo_url`/`audio_url` guardam o **caminho** no bucket **privado**
+    `journal-media` — não uma URL. A URL de leitura é assinada a cada consulta
+    (validade curta), então nenhuma URL permanente fica gravada em lugar nenhum.
+
+## 9.7 Nutrição ✅ (2026-08-01)
+- **foods** ✅ — catálogo global **sem `user_id`** (mesmo molde do
+  `exercise_catalog`): `source`(`taco`), `external_id`, `unique (source,
+  external_id)`, `name`, `search_name` (minúsculo e sem acento — é como o match
+  da IA e a busca do usuário chegam), `category`, `kcal`, `protein_g`, `carb_g`,
+  `fat_g`, `fiber_g`, `sodium_mg`, **por 100 g**. 582 linhas da TACO 4ª edição.
+  `numeric` e não `float`: são somados o dia inteiro e comparados com metas.
+- **nutrition_entries** ✅ — `user_id`, `occurred_on`, `meal`(check
+  cafe|almoco|jantar|lanche|ceia), `logged_at`, `note`, `source`(manual|voice) e
+  os totais materializados (`kcal`, `protein_g`, `carb_g`, `fat_g`).
+- **nutrition_items** ✅ — `entry_id` (cascade), `food_id` (**`set null`**:
+  procedência, não fonte do número), `name`, `quantity_g`(check > 0) e os macros
+  **congelados no momento do registro**. Uma correção futura no dataset não pode
+  reescrever o que você comeu em março.
+- **nutrition_targets** ✅ — mesma forma do `sleep_settings`: `protein_min_g`,
+  `kcal_max`, `meals_min`, cada um com seu `*_enabled`, mais `difficulty`.
+- **nutrition_pending** ✅ — a fila de aprovação. `transcript` (o que a IA
+  ouviu, guardado mesmo depois de aprovado), `model`, `payload` jsonb (itens já
+  resolvidos contra a `foods`), `status`(pending|approved|rejected|expired),
+  `expires_at` (**36 h**), `resolved_at`, `entry_id`.
+  - **Tabela própria, e não `assistant_pending_actions`**, apesar de o padrão ser
+    o mesmo: aquela exige `thread_id` de uma conversa do assistente e expira em
+    **1 hora**, enquanto o caso de uso é gravar no almoço e conferir à noite. O
+    que é reusado é o mecanismo: a transição só acontece com
+    `where status = 'pending'` na própria UPDATE.
+- **nutrition_days** ✅ — o fechamento. `unique (user_id, occurred_on)` é o que
+  torna o cron idempotente. Guarda `criteria_met` jsonb (com `null` para critério
+  desligado **na hora do fechamento**), para o histórico continuar legível depois
+  de o usuário mudar as metas.
+
+## 9.8 Plano do dia e trégua ✅ (2026-08-01)
+- **daily_plans** ✅ — `user_id`, `plan_on`, `unique (user_id, plan_on)`,
+  `planned_habits` (o que você DISSE de manhã), `note`, e `actual_habits`,
+  `accuracy`, `closed_at` preenchidos no fechamento. **Não há coluna de
+  "falhou"**, nem dano, nem streak: errar a previsão não custa nada.
+- **truce_periods** ✅ — `user_id`, `started_on`, `ends_on` (**inclusivo**;
+  `null` = em aberto), `reason`, `ended_at`. Período fechado em vez de um
+  booleano em `characters`, para o histórico continuar explicando meses depois
+  por que aquela semana não teve dano.
+
+## 9.9 Notificações ✅ (2026-08-01)
+- **notification_settings** ✅ — `user_id` (pk), `push_enabled` (a chave GERAL do
+  sistema — o `PushService` lê daqui, não mais de `tracking_settings`),
+  `quiet_start`/`quiet_end` (a janela atravessa a meia-noite de propósito) e
+  `daily_cap` (teto somando TODOS os tipos).
+- **notification_rules** ✅ — `(user_id, kind)` pk, `kind` check
+  (habits|body|nutrition|journal|**bucket** 🆕 2026-08-04), `enabled`,
+  `times` `time[]`.
+  - `'bucket'` entrou na varredura: o cron `bucket-nudge` carimbava
+    `nudged_at` e **não havia `kind` que o entregasse**, então o cutucão
+    trimestral só era visto por quem abrisse `/bucket` sozinho — exatamente
+    quem não precisa ser cutucado. A mecânica existia inteira e desligada.
+  - **O horário é do TIPO, não de cada hábito.** É o que permite uma mensagem
+    "3 hábitos pendentes" no lugar de três avisos simultâneos.
+- **push_gates** ✅ (2026-08-01, leva anterior) — `(user_id, gate_key)` com
+  `last_at`, `sent_today`, `day`. O gate e o carimbo na MESMA instrução, para
+  duas requisições simultâneas não passarem as duas. `sum(sent_today)` do dia é
+  o que implementa o teto diário sem uma tabela de log só para contar.
+
+## 9.10 Mecânicas de personagem ✅ (2026-08-02)
+
+- **skills.last_xp_at** ✅ — timestamptz, escrita **só no caminho do `_grant`**.
+  Existe porque `updated_at` tem trigger e dispara em qualquer edição: renomear
+  uma skill parada há três meses a "reviveria" sem nenhum XP. Semente = o
+  `updated_at` do momento da migration (aproximação, e o erro se corrige no
+  primeiro uso de cada skill).
+- **character_scar_offers** ✅ — a oferta aberta pela morte:
+  `death_number` + `unique (user_id, death_number)` (idempotência),
+  `death_mode`, `options` jsonb com as opções **já escaladas pelo modo e
+  congeladas** (se a escala mudar, a oferta aberta continua valendo o que
+  prometeu), `status` (pending|chosen|declined).
+  - Mesmo padrão de `character_attribute_point_grants`: a morte roda dentro da
+    transação do dano e não tem onde parar para perguntar. Ela concede; você
+    escolhe depois, de onde estiver.
+- **character_scars** ✅ — `scar_key`, `label`, `effects` jsonb (`goldPct`,
+  `xpHabitPct`, `damageTakenPct`, `bossDamagePct`), `is_active` (a 4ª empurra a
+  mais antiga para inerte, **sem apagar**), `removed_at`, + campos de batismo.
+- **wip_limits** ✅ — `(user_id, kind)` com `base_limit`. **A migration CONTA o
+  que já existe** e usa como base: um teto que nasce abaixo do uso atual abriria
+  o app dizendo que 5 hábitos precisam morrer.
+- **wip_slot_grants** ✅ — cópia fiel de `character_attribute_point_grants`
+  (`points`/`allocated_points`/`source`), com o mesmo `allocate` FIFO sob
+  `for update`. Concedido só por boss **trimestral ou maior**.
+- **wip_slots** ✅ — `(user_id, kind)` com os slots alocados. Teto efetivo =
+  `base_limit + slots`.
+
+## 9.11 Preço que respira ✅ (2026-08-02)
+- **user_items.cost_effort_days** ✅ — `numeric`, terceira régua de preço. As
+  constraints `user_items_purchasable_price` e `user_items_cost_positive` foram
+  **relaxadas** para aceitá-la: como estavam, um item precificado só em dias
+  seria rejeitado.
+- **effort_price_cycles** ✅ — um ciclo por recalibração:
+  `gold_per_day` (com clamp), `raw_gold_per_day` (sem — é o que **explica** por
+  que o efetivo ficou onde ficou) e `window_days`.
+
+## 9.12 Bucket list, Relacionamentos e Trabalho ✅ (2026-08-03)
+- **bucket_items** ✅ — `state` (sonho|planejando|agendado|realizado),
+  **`target_on` NULLABLE como caso de primeira classe** (é o único módulo onde
+  não ter data é o normal), `cost_essencia`, `unlocked_by_boss_id`,
+  `unlocked_at`, `nudged_at` (o cutucão trimestral) + campos de arte e história.
+- **people** ✅ — `cadence_days` (nullable: nem toda relação precisa de
+  relógio), `stage` (novo|conhecido|proximo), `stage_changed_at`, `met_on`.
+- **people_contacts** ✅ — `occurred_on`, `kind`, `is_first` (guardado e não
+  derivado: é o que justifica um XP diferente, e precisa sobreviver a apagar e
+  recriar a pessoa). **Sem unique por dia** — falar duas vezes é normal; o teto
+  de recompensa está no serviço.
+- **work_tasks** ✅ — espelho fino com **`unique (user_id, external_id)`**, que
+  é o dedupe do módulo inteiro. `measured_minutes` (zero é legítimo: feita sem
+  cronômetro, paga o mínimo por prioridade).
+- **work_project_skills** ✅ — mapa projeto → skill, que faz o trabalho
+  alimentar **Foco**. Sem linha, o módulo funciona e o XP vai só ao personagem.
+
+## 9.13 Trégua completa ✅ (2026-08-03)
+- **truce_periods** ganhou `essencia_paid` e `is_retroactive`. O orçamento
+  (~21 dias/ano) é **derivado** por janela deslizante de 365 dias — nada de
+  contador em coluna, que ficaria errado no primeiro `delete`.
+- **season_story_settings** ganhou `retrospective_enabled` e
+  `retrospective_uses_journal` (§9.6 do diário; default **false** por
+  privacidade).
+
+> **Os relógios pausam por SUBTRAÇÃO, não por congelamento de coluna.** Ferrugem
+> e reputação medem "dias parado"; a trégua desconta os dias que caíram dentro
+> dela. Nada precisa ser reescrito quando a trégua acaba, e `last_xp_at`
+> continua contando a verdade sobre quando a skill foi exercitada.
 
 ## 10. Narrativa 🆕
 - **narrative_beats** 🆕 — `id`, `user_id`, `season_id`, `boss_id`(nullable),
