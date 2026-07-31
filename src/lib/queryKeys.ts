@@ -1,6 +1,7 @@
 export const qk = {
   character: ['character'] as const,
   profile: ['profile'] as const,
+  today: ['today'] as const,
   modules: ['modules'] as const,
   skills: ['skills'] as const,
   habits: ['habits'] as const,
@@ -59,6 +60,7 @@ export const qk = {
   nutritionDay: (date: string) => ['nutritionDay', date] as const,
   nutritionFoods: (query: string) => ['nutritionFoods', query] as const,
   nutritionPending: ['nutritionPending'] as const,
+  nutritionMealSlots: ['nutritionMealSlots'] as const,
   planToday: ['planToday'] as const,
   relationships: ['relationships'] as const,
   scars: ['scars'] as const,
