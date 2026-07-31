@@ -11,10 +11,9 @@ import { useToast } from '@/components/ui/Toast';
 import { theme } from '@/theme/theme';
 import { formatErrorMessage } from '@/utils/errors';
 import {
-  MEAL_LABEL,
   useApproveProposal,
+  useMealSlots,
   useRejectProposal,
-  type Meal,
   type PendingProposal,
   type ProposedItem,
 } from './hooks/useNutrition';
@@ -30,21 +29,26 @@ import {
  * Item que a IA não achou na TACO aparece marcado e **não pode ser aprovado**:
  * gravar item sem macro contaria uma refeição como se ela não valesse nada.
  * A saída é removê-lo — nada obriga a aceitar a proposta inteira.
+ *
+ * A refeição também pode vir em branco: quando a fala não disse qual era e
+ * nenhum horário desempatou, quem escolhe é você. Chutar "café da manhã" para
+ * um jantar gravaria errado em silêncio.
  */
-
-const MEAL_OPTIONS = (Object.keys(MEAL_LABEL) as Meal[]).map((value) => ({
-  value,
-  label: MEAL_LABEL[value],
-}));
 
 export function ProposalCard({ proposal }: { proposal: PendingProposal }) {
   const toast = useToast();
   const approve = useApproveProposal();
   const reject = useRejectProposal();
+  const slots = useMealSlots();
 
-  const [meal, setMeal] = useState<Meal>(proposal.payload.meal);
+  const [slotId, setSlotId] = useState<string>(proposal.payload.slotId ?? '');
   const [items, setItems] = useState<ProposedItem[]>(proposal.payload.items ?? []);
   const [weight, setWeight] = useState<number | null>(proposal.payload.weightKg);
+
+  const slotOptions = (slots.data ?? []).map((slot) => ({
+    value: slot.id,
+    label: slot.name,
+  }));
 
   const unmatched = items.filter((item) => !item.foodId).length;
   const totals = items.reduce(
@@ -70,6 +74,7 @@ export function ProposalCard({ proposal }: { proposal: PendingProposal }) {
           protein_g: round(item.protein_g * factor),
           carb_g: round(item.carb_g * factor),
           fat_g: round(item.fat_g * factor),
+          fiber_g: item.fiber_g === null ? null : round(item.fiber_g * factor),
         };
       }),
     );
@@ -83,10 +88,14 @@ export function ProposalCard({ proposal }: { proposal: PendingProposal }) {
       );
       return;
     }
+    if (items.length > 0 && !slotId) {
+      toast.warning('Falta a refeição', 'Escolha em qual refeição isto entra.');
+      return;
+    }
     try {
       await approve.mutateAsync({
         id: proposal.id,
-        meal,
+        slotId: slotId || undefined,
         occurredOn: proposal.payload.occurredOn,
         items: items.map((item) => ({
           foodId: item.foodId as string,
@@ -113,7 +122,12 @@ export function ProposalCard({ proposal }: { proposal: PendingProposal }) {
         ) : null}
       </View>
 
-      <Segmented options={MEAL_OPTIONS} value={meal} onChange={setMeal} wrap />
+      <Segmented options={slotOptions} value={slotId} onChange={setSlotId} wrap />
+      {items.length > 0 && !slotId ? (
+        <Text variant="label" color={theme.colors.hp}>
+          Escolha a refeição para poder aprovar
+        </Text>
+      ) : null}
 
       {items.map((item, index) => (
         <View
@@ -192,7 +206,11 @@ export function ProposalCard({ proposal }: { proposal: PendingProposal }) {
           label="Aprovar"
           variant="success"
           loading={approve.isPending}
-          disabled={unmatched > 0 || (items.length === 0 && weight == null)}
+          disabled={
+            unmatched > 0 ||
+            (items.length === 0 && weight == null) ||
+            (items.length > 0 && !slotId)
+          }
           onPress={() => void onApprove()}
           style={styles.flex}
         />

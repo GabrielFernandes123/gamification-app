@@ -5,7 +5,75 @@ import { qk } from '@/lib/queryKeys';
 
 /** Espelha `gamificacao-api/src/nutrition/`. */
 
-export type Meal = 'cafe' | 'almoco' | 'jantar' | 'lanche' | 'ceia';
+/** Os cinco nutrientes com meta, na ordem em que aparecem nas telas. */
+export const NUTRIENTS = ['kcal', 'protein', 'carb', 'fat', 'fiber'] as const;
+
+export type Nutrient = (typeof NUTRIENTS)[number];
+
+export const NUTRIENT_LABEL: Record<Nutrient, string> = {
+  kcal: 'kcal',
+  protein: 'proteína',
+  carb: 'carbo',
+  fat: 'gordura',
+  fiber: 'fibra',
+};
+
+/** A unidade — as calorias são as únicas que não são gramas. */
+export const NUTRIENT_UNIT: Record<Nutrient, string> = {
+  kcal: '',
+  protein: 'g',
+  carb: 'g',
+  fat: 'g',
+  fiber: 'g',
+};
+
+export const NUTRIENT_FIELDS: Record<
+  Nutrient,
+  {
+    min: keyof NutritionTargets;
+    max: keyof NutritionTargets;
+    enabled: keyof NutritionTargets;
+  }
+> = {
+  kcal: { min: 'kcal_min', max: 'kcal_max', enabled: 'kcal_enabled' },
+  protein: { min: 'protein_min_g', max: 'protein_max_g', enabled: 'protein_enabled' },
+  carb: { min: 'carb_min_g', max: 'carb_max_g', enabled: 'carb_enabled' },
+  fat: { min: 'fat_min_g', max: 'fat_max_g', enabled: 'fat_enabled' },
+  fiber: { min: 'fiber_min_g', max: 'fiber_max_g', enabled: 'fiber_enabled' },
+};
+
+export const NUTRIENT_TOTAL: Record<Nutrient, keyof Totals> = {
+  kcal: 'kcal',
+  protein: 'proteinG',
+  carb: 'carbG',
+  fat: 'fatG',
+  fiber: 'fiberG',
+};
+
+export type Totals = {
+  kcal: number;
+  proteinG: number;
+  carbG: number;
+  fatG: number;
+  fiberG: number;
+};
+
+export type Bounds = { min: number | null; max: number | null; enabled: boolean };
+
+export type MealSlot = {
+  id: string;
+  name: string;
+  position: number;
+  targetAt: string | null;
+  sharePct: number;
+  active: boolean;
+};
+
+/** Um slot com o alvo já derivado e o que foi consumido nele. */
+export type DaySlot = MealSlot & {
+  target: Record<Nutrient, Bounds>;
+  consumed: Totals;
+};
 
 export type Food = {
   id: string;
@@ -27,11 +95,14 @@ export type NutritionItem = {
   proteinG: number;
   carbG: number;
   fatG: number;
+  fiberG: number | null;
 };
 
 export type NutritionEntry = {
   id: string;
-  meal: Meal;
+  /** `null` quando o slot foi apagado depois — o nome sobrevive mesmo assim. */
+  slotId: string | null;
+  mealName: string;
   loggedAt: string;
   note: string | null;
   source: 'manual' | 'voice';
@@ -39,30 +110,49 @@ export type NutritionEntry = {
   proteinG: number;
   carbG: number;
   fatG: number;
+  fiberG: number;
   items: NutritionItem[];
 };
 
+/**
+ * As metas. Cada nutriente tem piso, teto e liga/desliga, e `null` em qualquer
+ * dos lados significa "sem limite deste lado" — não "zero".
+ */
 export type NutritionTargets = {
-  protein_min_g: number;
+  kcal_min: number | null;
+  kcal_max: number | null;
+  kcal_enabled: boolean;
+
+  protein_min_g: number | null;
+  protein_max_g: number | null;
   protein_enabled: boolean;
-  kcal_max: number;
-  kcal_max_enabled: boolean;
+
+  carb_min_g: number | null;
+  carb_max_g: number | null;
+  carb_enabled: boolean;
+
+  fat_min_g: number | null;
+  fat_max_g: number | null;
+  fat_enabled: boolean;
+
+  fiber_min_g: number | null;
+  fiber_max_g: number | null;
+  fiber_enabled: boolean;
+
   meals_min: number;
   meals_enabled: boolean;
   difficulty: string;
 };
 
 /** `null` = critério desligado. Não é o mesmo que não cumprido. */
-export type NutritionCriteria = {
-  protein: boolean | null;
-  kcal: boolean | null;
-  meals: boolean | null;
-};
+export type NutritionCriteria = Record<Nutrient | 'meals', boolean | null>;
 
 export type NutritionDay = {
   day: string;
   entries: NutritionEntry[];
-  totals: { kcal: number; proteinG: number; carbG: number; fatG: number };
+  slots: DaySlot[];
+  unassigned: Totals;
+  totals: Totals;
   targets: NutritionTargets;
   criteria: NutritionCriteria;
 };
@@ -77,6 +167,7 @@ export type ProposedItem = {
   protein_g: number;
   carb_g: number;
   fat_g: number;
+  fiber_g: number | null;
 };
 
 export type PendingProposal = {
@@ -84,7 +175,9 @@ export type PendingProposal = {
   transcript: string | null;
   model: string | null;
   payload: {
-    meal: Meal;
+    /** `null` quando a fala não disse a refeição e nenhum horário desempatou. */
+    slotId: string | null;
+    slotName: string | null;
     occurredOn: string;
     items: ProposedItem[];
     weightKg: number | null;
@@ -93,13 +186,13 @@ export type PendingProposal = {
   expiresAt: string;
 };
 
-export const MEAL_LABEL: Record<Meal, string> = {
-  cafe: 'Café',
-  almoco: 'Almoço',
-  jantar: 'Jantar',
-  lanche: 'Lanche',
-  ceia: 'Ceia',
-};
+/** As refeições configuradas. O backend cria as padrão na primeira leitura. */
+export function useMealSlots() {
+  return useQuery({
+    queryKey: qk.nutritionMealSlots,
+    queryFn: () => apiFetch<MealSlot[]>('/nutrition/meal-slots'),
+  });
+}
 
 export function useNutritionDay(date?: string) {
   return useQuery({
@@ -132,7 +225,7 @@ export function useCreateMeal() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: {
-      meal: Meal;
+      slotId: string;
       occurredOn?: string;
       note?: string;
       items: { foodId: string; quantityG: number }[];
@@ -180,7 +273,7 @@ export function useApproveProposal() {
   return useMutation({
     mutationFn: (input: {
       id: string;
-      meal?: Meal;
+      slotId?: string;
       occurredOn?: string;
       items: { foodId: string; quantityG: number }[];
       weightKg?: number;
@@ -188,7 +281,7 @@ export function useApproveProposal() {
       apiFetch(`/nutrition/pending/${input.id}/approve`, {
         method: 'POST',
         body: {
-          meal: input.meal,
+          slotId: input.slotId,
           occurredOn: input.occurredOn,
           items: input.items,
           weightKg: input.weightKg,
