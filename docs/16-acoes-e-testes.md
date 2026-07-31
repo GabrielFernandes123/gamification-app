@@ -102,6 +102,42 @@ prematura. O gatilho é o volume.
 
 ---
 
+## 2.3 ⚪ A conta DEMO
+
+Existe uma segunda conta com histórico de **todos** os módulos — inclusive os que
+você ainda não usou. Serve para ver painel cheio e testar sem sujar a sua.
+
+```bash
+cd gamificacao-api
+npx ts-node -r tsconfig-paths/register scripts/seed-demo.ts   --apply --reset --email mouragabriel205@gmail.com
+```
+
+**Como usar:** faça login no app/web com o e-mail da demo. As contas são
+independentes — o schema todo é `user_id` + RLS, então não há vazamento entre
+elas.
+
+### As quatro travas, e por que existem
+
+| Trava | O que impede |
+|---|---|
+| 1. Alvo **explícito por e-mail** | o script antigo (`seed-rich-demo.mjs`) pegava "o profile mais recente" e sobrescrevia XP e ouro — rodá-lo hoje destruiria a conta real |
+| 2. **Recusa** conta com dado | não escreve por cima de nada que você tenha registrado |
+| 3. Alvo tem de **parecer demo** | **conta VAZIA ≠ conta DESCARTÁVEL.** Foi o furo real: em 2026-08-06 um teste apontou para o gmail do dono, que estava vazio, e a trava 2 deixou passar |
+| 4. Tudo pelo **`_grant`** | é o único jeito de `sum(economy_events) == characters.gold` continuar verdade. Cravar ouro na mão foi o que o script antigo fazia |
+
+### O que esperar
+
+- **É lento** — cada registro passa pelo `_grant`, que faz ~10 queries. Contra o
+  Postgres remoto dá alguns minutos. É o preço de o ledger fechar; um `insert`
+  direto seria instantâneo e mentiroso.
+- **É determinístico** — semente fixa, então a mesma demo sai igual toda vez.
+  "Reproduzir o que eu vi ontem" funciona.
+- **`--reset` limpa antes** — demo suja não serve para testar de novo.
+- **Os crons rodam para ela também.** Isso é bom (você vê o sistema respirar),
+  mas significa que a demo evolui sozinha.
+- Inclui **dias de trabalho paralelo** de propósito — é o caso que os tetos
+  existem para tratar ([04 §4.16.1](./04-modulos.md)).
+
 ## 3. Decisões de produto (não são tarefas)
 
 ### 3.1 ❓ Plano / cardápio na nutrição — entra quando?

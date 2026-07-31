@@ -3,7 +3,7 @@
 > **Dono de:** as tabelas e relacionamentos. Semântica/fórmulas moram nos docs de
 > domínio ([02](./02-economia.md) economia, [03](./03-atributos-build.md) atributos,
 > [04](./04-modulos.md) módulos, [05](./05-temporadas-boss.md)/[09](./09-narrativa-e-ia.md)
-> boss/narrativa). Aqui só estrutura. Estado: ✅ implementado (varredura 2026-08-04) — todas as tabelas descritas existem nas migrations.
+> boss/narrativa). Aqui só estrutura. Estado: ✅ implementado — as 121 tabelas do banco estão descritas aqui (auditoria de 2026-08-06: as 22 que faltavam entraram no §9.17).
 > Legenda: ✅ existe hoje · 🆕 nova · 🔄 coluna(s) a adicionar/alterar.
 > Mantemos os nomes de tabela atuais (sem rename) para evitar churn.
 
@@ -498,6 +498,106 @@ número fica preso ao dia.
 - Respeita `user_modules`: módulo desligado não vira história.
 - Do diário entra só a **contagem**, nunca o texto — expor o conteúdo continua
   sendo opt-in por `season_story_settings.retrospective_uses_journal` (§9.13).
+
+## 9.18 Trabalho: tetos configuráveis ✅ (2026-08-06)
+- **work_settings** ✅ — `max_minutes_per_task` (240), `max_minutes_per_day`
+  (480), `minutes_per_unit` (90), com CHECK de faixa em cada um. Sem linha = os
+  padrões, iguais aos `default` da tabela: ninguém precisa configurar nada para o
+  módulo funcionar.
+- **work_tasks.paid_minutes** ✅ — o que entrou na recompensa.
+  `measured_minutes` passou a guardar o **BRUTO**, sem teto.
+  - **Por que os dois.** Trabalho paralelo infla o medido (20 h num dia de 10 h) e
+    o teto corta o que vira XP. Guardar só um mente de um jeito ou de outro: só o
+    medido infla a realidade, só o pago esconde metade do que você fez.
+  - O orçamento do dia é gasto por `paid_minutes`, não pelo medido — senão a
+    contagem dobrada consumiria o teto sem esforço correspondente.
+
+## 9.17 As tabelas que faltavam nomear ✅ (2026-08-06)
+
+> Auditoria de 2026-08-06: **22 das 121 tabelas** não eram nomeadas em nenhum
+> doc. Os CONCEITOS estavam explicados (tracking aparece em 13 docs, foco em 5) —
+> faltava a referência de schema, que é o que este documento promete ser.
+>
+> Agrupadas por assunto, porque o padrão diz onde a documentação era fina.
+
+### Tracking e dispositivos (9)
+
+O `11-tracking-tempo-de-tela.md` explica a mecânica inteira; estas são as tabelas
+por trás dela.
+
+- **tracking_sets** — `name`. Conjunto nomeado de fontes ("redes sociais",
+  "distrações"), para regra e janela agirem sobre um grupo em vez de app por app.
+- **tracking_set_sources** — `set_id` + `source_id`. A tabela de ligação.
+- **tracking_windows** — `name`, `set_id`, `unlock_cost_gold`, `unlock_minutes`,
+  `is_active`. A **janela de bloqueio**: qual conjunto é barrado, quanto custa
+  destravar e por quanto tempo.
+- **tracking_window_slots** — `weekdays`, `start_time`, `end_time`. Os horários
+  de cada janela. Tabela separada porque uma janela tem vários horários (dias de
+  semana de manhã **e** fim de semana à noite).
+- **tracking_unlocks** — `target_key`, `expires_at`, `gold_paid`. O destravamento
+  ATIVO: pagou, tem até `expires_at`. É estado, não histórico.
+- **tracking_unlock_receipts** — o mesmo evento, guardado como HISTÓRICO, com
+  `client_id` para deduplicar. Separadas de propósito: o unlock expira e some, o
+  recibo fica — senão "quanto de ouro já gastei destravando?" não teria resposta.
+- **tracking_source_names** — `kind`, `matcher`, `label`. O apelido que você deu
+  a uma fonte (`com.burbn.instagram` → "Instagram").
+- **tracking_ignored_sources** — fontes que não contam nem cobram. Sem isto, um
+  app de sistema entraria no relatório todo dia.
+- **device_pairing_codes** — `code`, `expires_at`, `consumed_at`. O código de
+  pareamento da extensão/desktop. `consumed_at` em vez de `delete`: código já
+  usado precisa continuar existindo para a tentativa de reuso ser distinguível
+  de código inválido.
+
+### Modo foco (1)
+
+- **focus_sessions** — `set_id`, `started_at`, `ends_at`, `status`,
+  `reward_gold`, `abandon_cost_gold`, `closed_at`. A sessão de foco: bloqueia um
+  conjunto por um tempo, paga ao concluir e **cobra ao abandonar**. O custo do
+  abandono é gravado na LINHA, no início — decidir o preço no fim deixaria a
+  penalidade mudar conforme a regra mudasse no meio da sessão.
+
+### Objetivos e requisitos (5)
+
+- **temporary_challenges** — o desafio com prazo (`starts_on`/`ends_on`,
+  `repeatable`, recompensa em item). Tem as colunas de batismo narrativo
+  (`story_title` etc.) como os demais.
+- **requirement_groups** — `owner_type`/`owner_id`, `mode`, `required_count`.
+  Agrupa requisitos de um objetivo com a regra de quantos precisam bater
+  ("3 de 5").
+- **objective_period_results** — `period_key`, `evaluated_on`, `passed`,
+  `claimed`. O veredito de um período. `claimed` separado de `passed` porque
+  passar e resgatar são momentos diferentes.
+- **objective_claims** — o resgate em si, com o item que saiu.
+- **objective_suggestions** — `diagnosis`, `suggested_objective`, `analytics`,
+  `ai_summary`, `status`. Sugestões geradas pela IA a partir do seu histórico,
+  numa fila de aprovação — mesma doutrina da fila da nutrição: a IA propõe, você
+  decide.
+
+### Assistente (3)
+
+- **assistant_threads** — `title`, `archived_at`. A conversa.
+- **assistant_messages** — `seq`, `role`, `content`, `tool_call_id`,
+  `tool_name`, `tokens_in`/`tokens_out`. As mensagens, com o rastro das chamadas
+  de ferramenta.
+- **assistant_usage_daily** — `requests`, `tool_calls`, `tokens_in`,
+  `tokens_out`. Consumo por dia — é o que permite ter teto sem contar linha a
+  linha em `assistant_messages`.
+
+### Narrativa, arte e catálogo (4)
+
+- **narrative_generation_jobs** — `layer`, `status`, `model`, `prompt`,
+  `output`, `error`, `attempts`. A fila de geração de texto. O `prompt` fica
+  gravado: sem ele não dá para saber por que um capítulo saiu como saiu.
+- **generated_images** — `kind`, `owner_table`, `owner_id`, `prompt_hash`,
+  `status`, `url`, `cost_usd`, `attempts`. A fila de arte. O `prompt_hash`
+  evita pagar duas vezes pela mesma imagem; o `cost_usd` é o que sustenta o teto
+  mensal.
+- **codex_encounters** — `entry_id`, `occurred_on`, `period_key`, `outcome`,
+  `beat_id`. Cada vez que você enfrentou uma criatura ou dungeon do Codex. É o
+  que transforma uma entrada estática em memória que atravessa temporadas.
+- **exercise_catalog** — catálogo GLOBAL de exercícios (1.324 linhas), sem
+  `user_id`, mesmo molde do `foods`: `external_id`, `name`, `name_pt`,
+  `target`, `secondary_muscles`, `gif_url`, `attribution`. O app só lê.
 
 ## 10. Narrativa 🆕
 - **narrative_beats** 🆕 — `id`, `user_id`, `season_id`, `boss_id`(nullable),

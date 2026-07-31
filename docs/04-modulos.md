@@ -3,7 +3,7 @@
 > **Dono de:** o contrato que todo módulo cumpre, o `module_registry`, e a ficha de
 > cada módulo (o que recompensa, qual `source_type`, o que alimenta). Fórmulas →
 > [02](./02-economia.md). Build/atributos → [03](./03-atributos-build.md). Boss →
-> [05](./05-temporadas-boss.md). Dados → [06](./06-dados.md). Estado: ✅ implementado (varredura 2026-08-04) — 21 chaves no `module_registry`, 15 ativas.
+> [05](./05-temporadas-boss.md). Dados → [06](./06-dados.md). Estado: ✅ implementado — **22 chaves** no `module_registry`, **16 ativas** (conferido em 2026-08-06). Cada uma pode ser desligada por usuário (§2.1).
 > Legenda: ✅ existe hoje · 🆕 projetado.
 
 ---
@@ -302,6 +302,37 @@ Cada ficha: o que recompensa · `source_type` · base de dificuldade · o que al
 >   sem data → janela larga + filtro por `completedAt` do nosso lado.
 > - **`userId` não é filtro puro** → traz tasks de outras pessoas em coluna de
 >   revisão; filtramos por `taskUsers`.
+
+#### 4.16.1 Trabalho PARALELO e os tetos configuráveis ✅ 🆕 (2026-08-06)
+
+**O caso que quebrava a conta:** tocar cinco tarefas ao mesmo tempo faz um dia de
+10 h somar **20 h ou mais** de tempo medido. Não é trapaça — é como o trabalho
+real acontece.
+
+**O que já protegia:** teto por tarefa (4 h, timer esquecido) e teto do dia (8 h,
+a trava contra o trabalho dominar o extrato).
+
+**Os dois furos que a auditoria de 2026-08-06 achou:**
+
+1. **O teto REBAIXAVA em vez de parar.** Com o orçamento do dia esgotado,
+   `paidMinutes` virava 0 — e isso caía no mesmo ramo do *"esqueci de
+   cronometrar"*, que paga 0,15 a 0,4 de `easy`. Somado a um `Math.max(1, …)`,
+   cada tarefa além do teto continuava rendendo. Num dia de 20 tarefas, as 12
+   excedentes pagavam como se você tivesse esquecido o timer.
+   → Agora são **três** casos: pagou (dentro do teto), sem timer (paga o mínimo,
+   porque esquecer não pode virar punição) e **teto esgotado (paga zero)**.
+
+2. **A estatística mentia.** A coluna guardava o valor já cortado, então o
+   histórico perdia quanto tempo de fato foi medido.
+   → `measured_minutes` passa a ser o **BRUTO** e `paid_minutes` o que entrou na
+   conta. A tela mostra os dois: *"20 h medidas · 8 h pagas (40%)"*.
+
+**Os tetos saíram do código** para `work_settings` ([06 §9.18](./06-dados.md)):
+quem tem expediente de 6 h e quem tem de 10 h não compartilham o mesmo orçamento,
+e o valor certo só aparece com uso real. Configuráveis em `/work`.
+
+> **Registrar tudo, pagar dentro do teto.** O tempo que não paga continua no
+> banco — some da economia, nunca do histórico.
 
 ### 4.17 Bucket list ✅ (camada meta, `kind: meta`) — implementado em 2026-08-03
 - **O lugar do "algum dia".** Todo o resto do sistema tem prazo ou cadência; é

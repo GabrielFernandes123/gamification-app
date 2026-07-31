@@ -4,7 +4,7 @@
 > regras de padronização, a navegação pluggável e a cura dos problemas atuais, e onde as
 > telas novas se encaixam. Módulos/registry → [04](./04-modulos.md). Telas novas
 > (personagem, boss, história) referenciam [03](./03-atributos-build.md)/[05](./05-temporadas-boss.md)/[09](./09-narrativa-e-ia.md).
-> Estado: 📋 padrão a consolidar. Legenda: ✅ já existe · 🆕 padrão novo · 🔄 correção.
+> Estado: ✅ implementado — design system, navegação e as 39 rotas do web estão de pé (conferido em 2026-08-06). Legenda: ✅ já existe · 🆕 padrão novo · 🔄 correção · 📋 proposta.
 
 ---
 
