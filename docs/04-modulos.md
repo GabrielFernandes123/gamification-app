@@ -34,6 +34,28 @@ há lista hardcoded em lugar nenhum.
 Campos conceituais (modelo em [06](./06-dados.md)): `key` (= `source_type`), `nome`,
 `icone`, `cor`, `ordem`, `ativo`, `kind` (`atividade` | `meta`).
 
+## 2.1 Liga-desliga de módulos ✅ 🆕 (2026-08-06)
+
+Todo módulo de atividade pode ser **desligado por usuário**. É temporário e
+**não apaga nada**: o dado registrado continua no banco e reaparece ao religar.
+
+| Enquanto desligado | |
+|---|---|
+| Some das telas | é isso que impede registrar — não há trava dura na rota |
+| Não paga XP nem ouro | gate no `_grant` |
+| Não causa dano | gate no `DamageService` |
+| Não fecha período | os 5 crons pulam |
+| Não vira objetivo de boss nem capítulo | registry + digest do narrador |
+
+**Por que existe.** Um sistema com quinze módulos cobra quinze coisas de quem
+usa, e quem não quer Leitura ainda via a tela, o objetivo de boss e o painel
+vazio de estatística. Desligar é a diferença entre "ainda não comecei isso" e
+"isto está me cobrando todo dia".
+
+Schema e o alerta sobre `ativo` × `habilitado` em
+[06 §9.15](./06-dados.md). Sem trava dura na rota **por decisão**: sumir a tela
+já resolve, e um 403 obrigaria todo cliente a tratar um erro que não é erro.
+
 ## 3. Tipos de atividade (o que define dano/streak)
 
 Para manter coerência, todo módulo de atividade é de **um de dois tipos**:
@@ -119,6 +141,14 @@ Cada ficha: o que recompensa · `source_type` · base de dificuldade · o que al
 - **`night_on`:** data local do **início** do sono, menos um dia quando se deitou
   antes do meio-dia (deitar 00:30 pertence à noite anterior). O `occurred_on` do
   ledger é o dia de **acordar** — o dia que o sono beneficia.
+- **Tela própria** ✅ (2026-08-05) — `/sono` no web ([08](./08-navegacao-ux.md)).
+  O sono vinha sendo registrado sem ter onde ser LIDO: a listagem, o histórico e
+  a configuração das metas moravam espalhados, e um módulo que só escreve não
+  vira estatística.
+- **`targets`, `score` e `tz` no log** ✅ (2026-08-05) — a régua do
+  [06 §0](./06-dados.md): a noite guarda a meta que a julgou e o fuso em que "a
+  noite de 4" foi definida. Sem isso, mudar o horário-alvo hoje reescreveria a
+  avaliação de março, e uma viagem faria a mesma noite mudar de dia.
 
 ### 4.10 Encontros diários ✅ (camada meta, `kind: meta`)
 - Um encontro por dia com **duas opções**, gerado na primeira leitura do dia.
@@ -199,14 +229,58 @@ Cada ficha: o que recompensa · `source_type` · base de dificuldade · o que al
   correção futura no dataset não pode reescrever o que você comeu em março.
 - **Duas recompensas, separadas de propósito:** registrar uma refeição paga
   trivial na hora; o **dia** paga a fração dos critérios ativos cumpridos no
-  fechamento (proteína ≥ X · calorias ≤ Y · N refeições), igual ao Sono.
-  `meta.kind` (`entry` | `day`) distingue as duas no ledger.
+  fechamento, igual ao Sono. `meta.kind` (`entry` | `day`) distingue as duas no
+  ledger.
 - **Nunca dano.** Um item específico pode virar hábito negativo, que já tem dano.
   O ato de comer, não.
 - **Peso ditado vai para `body_measurements`**, nunca para uma tabela nova —
   duas fontes de peso é como se cria divergência entre dois gráficos do mesmo
   dado.
 - **`source_type`:** `nutrition`. **Streak / dano:** não / não.
+
+#### 4.14.1 O que a Fase 1 acrescentou (2026-08-05 e 2026-08-06)
+- **Refeições são do usuário** ✅ — `nutrition_meal_slots` substituiu o enum de
+  cinco valores. Cada slot tem nome, horário e **fatia do dia** (`share_pct`), e
+  o alvo de uma refeição é uma FATIA do alvo do dia, nunca um número próprio:
+  guardar gramas por refeição envelheceria em silêncio quando a meta do dia
+  mudasse.
+- **Alimento do usuário** ✅ — `foods.user_id` preenchido, `source='custom'`, com
+  os macros do rótulo e porções próprias ("1 scoop = 30 g"). Na busca, `custom`
+  vem **antes** de `taco`: quem cadastrou uma linha quer usá-la.
+- **Faixa em vez de teto** ✅ — ver [02 §5.9.1](./02-economia.md). Corrigiu o dia
+  de 300 kcal que era pago como sucesso.
+- **Sódio** ✅ — o catálogo **já trazia** `sodium_mg` e o valor era descartado na
+  ingestão. Passou a atravessar item → refeição → dia → critério, pelo mesmo
+  caminho da fibra.
+- **Água** ✅ — o único critério que não vem de alimento nenhum. Registro de um
+  toque (200/300/500 ml), com desfazer, e **sem fila de aprovação**: não há chute
+  de porção em "250 ml". Fica na Início do app, porque é o registro que mais
+  acontece em movimento.
+- **Receitas** ✅ (2026-08-06) — a combinação que se repete, salva com nome.
+  Montar "meu shake" item a item custava quatro buscas por dia, e esse atrito é o
+  que faz parar de registrar. Registrar a receita passa pelo **mesmo caminho** de
+  uma refeição normal: paga o mesmo trivial e congela os macros igual — é atalho
+  de digitação, não um tipo diferente de registro.
+- **Média semanal** ✅ (2026-08-06) — critério separado que **convive** com o
+  diário. Ver [06 §9.7](./06-dados.md).
+- **Foto do rótulo por IA** ✅ (2026-08-06) — a IA **lê** a tabela impressa e
+  preenche os campos; quem salva é você.
+  - **Rótulo sim, prato não** — decisão de 2026-08-06. No rótulo o número está
+    impresso, então errar é erro de OCR que a revisão pega. No prato a IA
+    ESTIMARIA quanto pesa o arroz, e 150 g contra 250 g não tem como ser revisado
+    por quem tirou a foto.
+  - O rótulo brasileiro declara **por porção** e o catálogo é por 100 g. O prompt
+    exige que a IA diga em que base leu, e o serviço converte — sem isso, um whey
+    de 380 kcal/100 g viraria 380 por scoop, **três vezes o real**, sem sinal.
+- **Código de barras** ✅ (2026-08-06, API) — `GET /nutrition/barcode/:code`
+  devolve o alimento **ou `null`**, e o `null` é o ponto: é a tela dizendo "não
+  conheço, quer cadastrar?", que é onde a foto do rótulo entra. A tela de bipe
+  entra junto com a ampliação do catálogo — com as 582 linhas da TACO, todas
+  genéricas e sem código de barras, bipar não acha nada.
+- **Metas por peso e calculadora de TDEE** ✅ — ver [02 §5.9.2](./02-economia.md).
+  A calculadora é **só web**: é configuração, e o app é registro em movimento
+  ([08 §0](./08-navegacao-ux.md)). Os insumos fixos moram em `body_profile`, no
+  Corpo, porque são dados da pessoa e não da dieta.
 
 ### 4.16 Trabalho ✅ (tipo-evento) — implementado em 2026-08-03
 - **Pull, não outbox.** Cron a cada 15 min contra o `GET /tasks` do techSpace;

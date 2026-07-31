@@ -39,7 +39,7 @@
 > divisão corporal** · **quadro de missões**, **radar da base**, **metas diárias**,
 > **tiles de loja/missões** e a **faixa do boss** na Início.
 >
-> `src/app` foi de **6.000 para 3.649 linhas** (−39%), e a Início abre com 2 queries
+> `src/app` foi de **6.000 para 3.661 linhas** (−39%), e a Início abre com 2 queries
 > em vez de 9. Nenhuma capacidade sumiu: cada item acima já tinha par no web (§0.1).
 >
 > A única configuração que ficou é a de **permissões** — porque é do sistema
@@ -277,6 +277,94 @@ rótulos, que é apresentação.
     fraqueza revelada por Foco, contra-ataque/meta diária — [05](./05-temporadas-boss.md)).
   É o coração emocional do sistema — onde o esforço da vida vira épico. Merece o maior
   investimento de design.
+
+## 8.1 O mapa de rotas do web ✅ 🆕 (2026-08-06)
+
+Estava documentado só o `GET /today`. O web tem **39 rotas** — 32 dentro do shell
+e 7 fora, mais o catch-all — e sem elas escritas não dá para responder "onde fica
+X" sem abrir o `App.tsx`.
+
+| Seção | Rotas |
+|---|---|
+| **Decidir** | `/` (Início) · `/plan` · `/chat` · `/historia` |
+| **Registrar** | `/habits` · `/sidequests` · `/body` (+ `/exercises`, `/parts`, `/templates`, `/treinos/:id`, `/workouts/:id`, `/settings`) · `/nutrition` · `/sono` · `/leitura` · `/journal` · `/work` |
+| **Acompanhar** | `/stats` · `/history` · `/objectives` · `/codex` · `/achievements` · `/skills` · `/character` · `/tracking` · `/bucket` · `/relationships` · `/store` · `/wiki` · `/settings` |
+| **Fora do shell** | `/widget` · `/hud` · `/focus` · `/blocked` · `/login` · `/signup` · `/auth/handoff` |
+
+- **`/sono`** ✅ (2026-08-05) — a tela que faltava. O sono era registrado e não
+  tinha onde ser LIDO; listagem, histórico e metas moravam espalhados. Um módulo
+  que só escreve não vira estatística (§0.2).
+- **As quatro últimas não usam o shell** de propósito: `/widget`, `/hud` e
+  `/focus` são janelas do Electron, e `/blocked` é a tela de bloqueio do tracking
+  — todas precisam de moldura própria.
+
+### 8.1.1 O que mudou em 2026-08-06
+- **Estatísticas ganhou 6 abas** — Plano, Sono, Nutrição, Leitura, Trabalho e
+  Pessoas. Elas **somem quando o módulo está desligado** ([04 §2.1](./04-modulos.md)),
+  e é isso que resolve a sensação de vazio: os painéis existem prontos, e quem
+  não usa o módulo não vê a aba em vez de encontrar um gráfico zerado.
+  - A ordem é intencional: o que é do **jogo** (Geral, Economia, Combate,
+    Temporada) nunca some; o que é de **registro** aparece conforme você liga.
+  - Desligar o módulo estando na aba dele cai para a Visão geral — sem essa
+    guarda a tela ficaria em branco, sem erro nenhum.
+- **Nutrição ganhou a aba Receitas**, ao lado do dia e não junto de metas e
+  slots: receita é **catálogo pessoal**, não configuração. Quem abre ali vem
+  registrar.
+- **Ajustes ganhou o painel Módulos** — o liga-desliga, com o texto dizendo a
+  consequência em vez de confiar na cor de um botão.
+
+### 8.1.2 Estatísticas — a arquitetura e a questão de agrupamento em aberto
+
+> Migrado de `análise de estatísticas de 2026-07-30` §5–§6 em **2026-08-06**, ao descartar os
+> docs da raiz (não eram versionados). Atualizado: metade já foi resolvida.
+
+**✅ Resolvido — uma rota por recorte.** `/stats/overview` rodava ~20 queries
+agregadas e devolvia o payload inteiro, mesmo para quem abrisse só a Visão geral.
+Hoje são **14 rotas** (`/stats/economy`, `/stats/habits`, `/stats/sleep`…) e o
+front usa `useQuery({ enabled: tab === '<recorte>' })`.
+
+A regra que sobra dessa decisão, para o próximo painel: **quebre no mesmo commit
+do primeiro painel novo, nunca antes nem depois.** Antes é refatorar sem entregar;
+depois é refatorar 13 painéis.
+
+**❓ Em aberto — agrupar por DOMÍNIO DA VIDA ou por módulo do software?**
+
+Hoje as abas são por módulo (Hábitos, Treino, Sono, Nutrição, Leitura…). A
+alternativa avaliada agrupa por domínio:
+
+| Aba | Conteúdo |
+|---|---|
+| Corpo | treino + cardio + medidas + **sono** + **nutrição** |
+| Vida | **leitura** + **trabalho** + **relacionamentos** + diário |
+| Economia | economia + preço que respira + cicatrizes + sonhos |
+| Combate & Temporada | dano recebido + **dano causado** + tiers + dungeons |
+
+**O argumento a favor:** agrupamento por domínio da vida envelhece melhor — é o
+que permite o próximo módulo entrar sem virar a 12ª aba.
+
+**Por que NÃO foi feito agora:** a análise original recomendava adiar porque as
+abas nasceriam vazias, e *"aba vazia ensina o usuário a não clicar"*. Esse
+argumento **caiu** com o liga-desliga ([04 §2.1](./04-modulos.md)) — aba de
+módulo desligado não existe, então não há vazio a ensinar.
+
+O que sobra é uma questão de **preferência com consequência real**: por módulo é
+previsível (você sabe onde procurar); por domínio é mais enxuto e sobrevive a mais
+módulos. Reavaliar quando 3–4 dos módulos novos tiverem histórico de verdade — a
+decisão fica muito mais fácil olhando painéis com dado.
+
+### 8.2 A régua aplicada à nutrição 🆕 (2026-08-06)
+Um exemplo de como o §0 decide, na prática, onde cada peça mora:
+
+| Peça | Onde | Por quê |
+|---|---|---|
+| Registrar refeição (voz, manual) | **app** e web | registro em movimento |
+| **Água** (+200/+300/+500) | **app** (Início) e web | é o registro que mais acontece fora de casa |
+| Aprovar a fila da IA | **web** primeiro | é conferência, e a tela grande mostra o item ao lado do catálogo |
+| Editar metas, slots, alimento próprio | **web** | configuração; mexe-se uma vez |
+| **Calculadora de TDEE** | **só web** | configuração pura, com seis campos — não é coisa de fila de supermercado |
+| **Criar** receita | **só web** | montar item a item é configuração |
+| **Registrar** receita | **app** e web | um toque, com o shake na mão — no app some quando não há nenhuma salva, porque bloco inútil na Início custa atenção todo dia |
+| Foto do rótulo | **web** | o cadastro do alimento já mora lá; a foto só preenche os campos |
 
 ## 9. Acessibilidade e responsividade (mínimos) 🆕
 - Alvos de toque ≥ 44pt; contraste suficiente no tema dark; respeitar safe areas

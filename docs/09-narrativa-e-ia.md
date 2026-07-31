@@ -88,6 +88,93 @@ que você **negligenciou recentemente**. **Não** é fixada um ano antes pelo es
 **Saída validada por JSON schema** em todas as camadas. **Fallback sem IA:** arco/boss só
 pela engine + catálogo de temas genéricos — o sistema **nunca trava** por dependência de IA.
 
+## 3.2 As TRÊS CAMADAS de "ligado à história" ✅ 🆕
+
+> Migrado de `varredura de pontas soltas (2026-07-31)` §0 em **2026-08-06**, ao descartar os docs da
+> raiz (não eram versionados).
+
+"Ligado à história" quer dizer coisas diferentes em três níveis, e confundi-los é
+o que faz um módulo **parecer** conectado quando não está.
+
+| Camada | O que é | Como se liga |
+|---|---|---|
+| **1. Economia** | O evento entra no ledger | `_grant` — **automático** |
+| **2. Combate** | O evento fere o boss, e o narrador vê a origem do golpe | `module_registry.kind = 'atividade'` — **automático** |
+| **3. Narrativa** | O evento vira capítulo, criatura, nome temático ou arte | **código por módulo** — era aqui que faltava |
+
+### A camada 2 é automática, e isso não é óbvio
+
+O filtro vive em `boss-engine.service.ts`:
+
+```sql
+where ativo = true and kind = 'atividade' and key <> 'tracking'
+```
+
+**Nenhum módulo precisou de código para ferir o boss.** E o golpe carrega
+`boss_damage_events.source_type`, que entra nos golpes recentes do snapshot —
+então o narrador sabe que foi o Diário ou o Treino que acertou.
+
+| Ferem o boss (11) | Não ferem |
+|---|---|
+| habit · workout · sidequest · body_goal · body_measurement · sleep · cardio · reading · journal · nutrition · work | `tracking` — excluído **de propósito**: é custo, não conquista |
+| | `plan` · `bucket` · `relationship` · `event` — são `kind = 'meta'` |
+
+> ⚠️ **Ligado ≠ testado.** O ledger só tem eventos de `tracking`, `habit`,
+> `store`, `sidequest`, `workout` e `death`. Os módulos novos de atividade nunca
+> foram usados, então esse caminho **nunca rodou**. O primeiro registro de diário
+> deve aparecer em `boss_damage_events` — se não aparecer, é **bug**, não falta
+> de feature. Está no roteiro de testes ([16](./16-acoes-e-testes.md)).
+
+### A camada 3 era o buraco — e foi fechada em 2026-08-06
+
+Ver §3.3 logo abaixo: o narrador passou a enxergar os módulos de vida real.
+
+## 3.3 O que o narrador ENXERGA ✅ 🆕 (2026-08-06)
+
+Até aqui o narrador lia **sete tabelas, todas de combate**: `bosses`,
+`codex_entries`, `narrative_beats`, `journal_entries`, `profiles`, `seasons` e
+`season_story_settings`.
+
+Não lia hábitos, sono, nutrição, leitura, treino, trabalho nem relacionamentos.
+**Quinze módulos de vida real que nunca viravam uma frase.** Você lia 200 páginas
+ou dormia mal a semana toda e a história continuava falando só da briga com o
+boss — a alma do projeto enxergando um quinze avos dele.
+
+### A inversão: o narrador PUXA, os módulos não empurram
+
+A saída óbvia seria cada módulo escrever o próprio capítulo. Foi descartada:
+
+- viraria um **log** — quinze módulos gritando "aconteceu algo aqui!";
+- exigiria ensinar **quinze lugares** a escrever narrativa, cada um com o seu
+  critério de "isto merece um capítulo".
+
+Em vez disso, um lugar só sabe ler a semana: `src/common/module-digest.ts`
+([06 §9.16](./06-dados.md)). Ele agrega os oito módulos de vida — sono, nutrição,
+leitura, trabalho, relacionamentos, sonhos, diário e treino — e devolve fatos
+curtos que entram no prompt.
+
+### Três regras que fazem a diferença entre matéria-prima e enfeite
+
+1. **O fato tem de ser CAUSA.** O prompt exige tecer ao menos um fato da vida
+   real como motivo do que acontece na história. Sem essa instrução o modelo
+   escreve *"enquanto isso, ele dormia bem"* — decoração. O que se quer é o
+   oposto: o esforço real é o que move o arco.
+2. **Silêncio é um fato.** Sem registro nenhum no período, o prompt manda
+   **não inventar** atividade. Uma semana parada é matéria narrativa legítima;
+   uma semana inventada corrói a única coisa que a história tem de valioso, que
+   é ser verdade sobre você.
+3. **Módulo desligado não vira história.** Quem desligou Leitura
+   ([06 §9.15](./06-dados.md)) não quer o narrador mencionando livros.
+
+### O que continua fora, de propósito
+
+O **conteúdo** do diário. Só a contagem de entradas entra no digest; expor o
+texto ao modelo segue sendo opt-in por `retrospective_uses_journal` (§6), por
+privacidade. Um diário é o lugar onde se escreve o que não se conta.
+
+> **Falhar aqui não pode impedir o capítulo.** O digest é `catch`-ado: história
+> sem ele é pior, mas história nenhuma é muito pior.
+
 ## 4. Recalibração narrativa
 
 A recalibração anti-"front-load" ([05 §3.6](./05-temporadas-boss.md)) é decidida pela

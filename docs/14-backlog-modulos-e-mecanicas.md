@@ -1377,11 +1377,15 @@ Valem para qualquer módulo futuro e deveriam ser promovidos ao [00](./00-visao.
 
 ### 11.4 Placar
 
-## ✅ **O backlog está zerado.**
+## ✅ **O backlog DESTA lista está zerado.**
 
 **29 de 30 itens executados** em quatro levas (2026-07-30, 07-31, 08-01 e 08-02/03).
 O único que resta é **⑪ Ascensão**, adiado por decisão — depende de um ciclo anual
 completo, não de escopo.
+
+> 🔄 **2026-08-06:** "zerado" vale para os 30 itens **desta** lista. O [§13](#13-herdado-dos-docs-da-raiz-ao-congelá-los--2026-08-06)
+> acrescentou o que sobrava nos cinco docs da raiz quando eles foram congelados —
+> o maior sendo a Início ainda não consumir o `GET /today`.
 
 **A leva de 2026-08-02/03** fechou os 9 que sobravam, todos de servidor/web:
 Reputação (⑮), Retrospectiva (⑯), Ferrugem (⑨), Cicatrizes (⑫), Limite de WIP (⑧),
@@ -1639,3 +1643,168 @@ resposta for vazia, nada aparece. Mais a tela de preferências em Configuraçõe
 sistema. Desligar o push do tracking calaria também hábitos e diário. A chave geral agora
 é `notification_settings.push_enabled`; o `AlertsService` continua conferindo a dele
 antes de chamar.
+
+---
+
+## 13. Herdado dos docs da raiz ao congelá-los 🆕 (2026-08-06)
+
+Os cinco documentos da raiz do workspace viraram **retratos datados** — análises
+fechadas, que não são mais editadas. O que sobrava de **pendente** neles migrou
+para cá, porque congelar um doc com pendência dentro equivale a apagá-la.
+
+> **Por que eles foram congelados:** eram análise E placar de execução ao mesmo
+> tempo, e guardavam cópias de regras que já viviam nestes docs. As cópias
+> divergiram. Dois deles chegaram a afirmar, por seis dias, o **contrário** do que
+> o repositório mostrava — um dizia que os 4 bugs de estatística seguiam no
+> código (estavam corrigidos), outro que nenhuma tela do app tinha mudado (três
+> tinham encolhido entre 54% e 75%). Documento vivo que descreve execução compete
+> com o código pelo papel de fonte da verdade, e perde em silêncio.
+
+### 13.1 Do análise de simplificação do app (2026-07-30)
+
+| Item | Estado |
+|---|---|
+| **A Início consumir o `GET /today`** | 🔴 **a promessa não cumprida.** A rota existe e funciona, mas **só o widget a consome**; o `dashboard.tsx` continua montando o dia com queries por módulo. As "9 queries → 3" dependem só desta migração |
+| **Fila offline** (`NetInfo` + persister) | ⛔ fora de escopo por decisão do dono (2026-07-31). Segue sendo a maior lacuna do app |
+| **App Intents / Atalhos e Live Activity** | 🟡 exigem target nativo novo (Swift). O repo já tem quatro targets, então o caminho é conhecido — mas é código que **não compila neste ambiente**, e escrever no escuro para descobrir na build é pior que não escrever. Vale a sessão com o loop de build na mão |
+| **Validação no aparelho** | 🟡 pendente. Inclui o teste que `tsc` não pega: **o botão "Feito" da notificação** — o `categoryId` estava divergente entre API (`habit-single`) e app (`habitSingle`) e foi alinhado em 2026-08-06, mas só o aparelho prova |
+
+### 13.2 Do ESTATISTICAS
+
+| Item | Estado |
+|---|---|
+| Painéis de **sono** e **nutrição** | 🟡 **aguardando dado, não código.** O schema tem `targets`/`score`/`tz` e `targets_snapshot`; falta série histórica. Quando existir, é quase só desenho |
+| Etapa 1 — painel de **Temporada** | 🟡 não feito |
+
+### 13.3 Do NUTRICAO
+
+| Item | Estado |
+|---|---|
+| **Fase 3** — receitas | 🟡 o resto da fase 3 saiu em 2026-07-31 (alimento do usuário, porções, recentes, repetir) |
+| **Fase 4** — código de barras, foto do prato, média semanal | 🟡 |
+| **Decisão 6** — plano/cardápio entra quando? | ❓ **em aberto.** É o que mais muda a cara do app e a maior fatia de trabalho |
+| Foto do rótulo lida por IA | 🟡 ideia para a fase 4; cai na fila de aprovação que já existe |
+
+### 13.4 Do varredura de pontas soltas (2026-07-31)
+
+| Item | Estado |
+|---|---|
+| **C.3** — o escalonamento é invisível depois que acontece | 🟠 a API devolve `daysBeyondCeiling` e `cappedByPeriod`; nenhuma tela mostra |
+| **C.4** — o card de "ontem" pode virar ruído diário | 🟡 |
+| **C.5** — `periodTarget()` no app é export morto | 🟡 |
+| **§4/§5** — quem escreve capítulo e o que o narrador enxerga | 🟡 |
+
+### 13.5 Do auditoria funcional de 2026-07-30
+
+| Item | Estado |
+|---|---|
+| **§4** — módulos com zero uso | 🟠 parcial: o sono ganhou tela em 2026-08-05. Os demais dependem de uso, não de código |
+| **§7** — menores que mexem no uso diário | 🟡 parcial: semana deslocada e menu foram feitos |
+
+### 13.5.1 O que foi FEITO na leva de 2026-08-06
+
+| Item | Onde ficou |
+|---|---|
+| **Liga-desliga de módulos** (novo, pedido nesta leva) | [04 §2.1](./04-modulos.md) · [06 §9.15](./06-dados.md) |
+| **6 painéis de estatística** (plano, sono, nutrição, leitura, trabalho, pessoas) | [08 §8.1.1](./08-navegacao-ux.md) |
+| **Nutrição:** receitas, média semanal, rótulo por IA, código de barras (API), script do catálogo | [04 §4.14.1](./04-modulos.md) · [02 §5.9.3](./02-economia.md) |
+| **O narrador enxerga os 15 módulos** (era §13.4 §4/§5) | [09 §3.1](./09-narrativa-e-ia.md) |
+| **Escalonamento visível** (era §13.4 C.3) | [02 §7.2.1](./02-economia.md) |
+| **Card de ontem só quando custou algo** (era §13.4 C.4) | consulta em `yesterdayPending` |
+| **`periodTarget` morto** (era §13.4 C.5) | removido |
+| **Mecânicas futuras** (era §13 5.x) | doc próprio: [15](./15-mecanicas-futuras.md) |
+
+**Continua pendente:** a Início consumir o `GET /today` (§13.1), validação no
+aparelho (§13.1), fila offline e App Intents (descartados/adiados por decisão), e
+a tela de código de barras — que só faz sentido **depois** da importação do
+catálogo, porque a TACO é toda genérica e não tem código de barras nenhum.
+
+### 13.6 A regra que sobreviveu aos cinco
+
+Foi promovida para [06 §0](./06-dados.md), e vale para todo módulo novo:
+
+> **Todo registro que vira estatística guarda o parâmetro que o julgou.**
+
+E o corolário que decide onde uma coluna mora: **valor derivado de config
+mutável é congelado no fechamento; valor derivado de dado que muda sozinho (como
+o peso) é derivado na leitura.**
+
+---
+
+## 16. Catálogo de alimentos — datasets, licenças e o custo de crescer
+
+> Migrado de `análise de nutrição de 2026-08-01` §6–§8 em **2026-08-06**, quando os
+> docs da raiz foram descartados (não eram versionados — viviam fora de qualquer
+> repo e se perderiam na troca de ambiente).
+>
+> **Atualizado na migração**, não copiado: parte do que estava previsto ali já foi
+> implementada, e manter a previsão como se fosse futuro seria repetir o erro que
+> congelou aqueles documentos.
+
+### 16.1 As fontes avaliadas
+
+| Fonte | O que traz | Volume | Licença | Como pegar |
+|---|---|---|---|---|
+| **Open Food Facts (BR)** | Industrializados, marca, **código de barras**, macros por 100 g e por porção, NOVA/Nutri-Score, imagem do rótulo | ~35 mil produtos no domínio BR | ODbL (atribuição + share-alike **na base**) | API v2 sem chave; dump JSONL (~0,9 GB gz / 9 GB) |
+| **USDA FoodData Central** | Genéricos com qualidade laboratorial (Foundation / SR Legacy), preparações (FNDDS) e o arquivo **Portions and Weights** (medida caseira → gramas) | 380 mil no total; ~8 mil na parte genérica útil | **CC0 / domínio público** | API com chave grátis (1.000 req/h) + dumps |
+| **IBGE — POF 2008-2009** | *Medidas Referidas*: fatia, colher de sopa, concha → gramas, **em pt-BR e em alimentos brasileiros**. E ~1.970 itens "como consumidos" | 540 páginas | Público | PDF / microdados — **exige extração** |
+| **TBCA / USP 7.2** | 5.700 alimentos, **4.000+ deles preparações** (feijoada, coxinha, pão de queijo) — exatamente o buraco da TACO | 5.700 | ⚠️ **CC BY-NC-ND 4.0** | Só consulta manual |
+
+### 16.2 O que foi DESCARTADO, e por quê
+
+Vale mais que a lista do que serve — cada uma destas parece boa até a licença:
+
+- **TBCA** — a melhor fonte de conteúdo (pratos prontos brasileiros) e a que não
+  dá para usar: **NC-ND** significa sem derivados, sem download, sem API.
+  Importar seria scraping contra os termos. Para preparações, o caminho legítimo
+  é FNDDS (CC0, mas americano) ou IBGE.
+- **FatSecret** — Basic grátis com 5.000 chamadas/dia, mas é **dataset EUA
+  apenas**; pt-BR só na Premier comercial.
+- **Nutritionix / Edamam / Spoonacular** — free tiers pequenos e, o que mata: os
+  termos **proíbem armazenar ou cachear** os dados nutricionais. Colide de frente
+  com o desenho do módulo, que **congela o macro dentro de `nutrition_items`**.
+  Não dá para usar sem quebrar a garantia de histórico imutável
+  ([06 §9.7](./06-dados.md)).
+
+### 16.3 Sobre a licença ODbL (Open Food Facts)
+
+O share-alike incide sobre a **base de dados**, não sobre o app, e uso pessoal ou
+privado não dispara obrigação nenhuma. Guardar `source` + `external_id` por linha
+— o que o schema **já faz** — permite tanto atribuir quanto segregar a parte
+derivada da OFF, caso a base um dia seja distribuída.
+
+### 16.4 O que já foi FEITO (2026-08-06)
+
+| Previsto em §6/§7 | Estado |
+|---|---|
+| `foods.brand`, `barcode`, `user_id`, `serving_size_g` | ✅ existem |
+| Prioridade por fonte no `matchFood` (`custom` > `taco`) | ✅ implementada |
+| Filtro duro na importação (macros completos + sanidade) | ✅ no `import-openfoodfacts.mjs` |
+| Script de importação da OFF | ✅ `scripts/import-openfoodfacts.mjs`, streaming e filtrado por país |
+| Foto do rótulo por IA | ✅ [04 §4.14.1](./04-modulos.md) |
+
+### 16.5 ⚠️ O que AINDA vai doer quando o catálogo crescer
+
+Este é o item que sobrevive à migração como **pendência real**, não como ideia:
+
+> **A busca vai degradar.** Hoje é `search_name like '%termo%'`, e um índice btree
+> **não é usado** em `like '%...%'`. Com 582 linhas ninguém nota; com 40 mil, sim.
+> O `matchFood` é pior — monta até 6 `LIKE` em `OR`.
+>
+> **A solução está disponível e não pede nada à infra:** `pg_trgm` já consta em
+> `pg_available_extensions` neste Postgres (verificado). É `create extension` +
+> índice GIN.
+
+**Ainda não foi feito de propósito:** otimizar uma busca de 582 linhas é otimização
+prematura. O gatilho é a importação — no dia em que ela rodar, o índice vira
+pré-requisito, não melhoria.
+
+### 16.6 Ordem sugerida, se for crescer
+
+1. **Open Food Facts BR** — maior ganho por esforço, e traz código de barras
+   junto. O script já existe e filtra por país em streaming.
+2. **`pg_trgm` + GIN** — no mesmo dia, antes de a busca ficar lenta (§16.5).
+3. **Porções domésticas** — USDA *Portions and Weights* primeiro (pronto e CC0);
+   IBGE *Medidas Referidas* depois, se quiser rótulos em pt-BR.
+4. **USDA Foundation + SR Legacy traduzidos** — mesma pipeline do
+   `translate-exercise-catalog.mjs`.

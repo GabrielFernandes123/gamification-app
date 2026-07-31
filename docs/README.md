@@ -44,6 +44,8 @@ ignoravam). Estes documentos são o mecanismo que impede isso.
 | 12 | `12-ios-limitacoes.md` | O que o iOS não deixa fazer (Screen Time/DeviceActivity) e os contornos | ✅ |
 | 13 | `13-ios-build-e-apple.md` | Build EAS, capabilities e provisioning na conta Apple | ✅ |
 | 14 | `14-backlog-modulos-e-mecanicas.md` | **Backlog** de módulos, entradas automáticas e mecânicas candidatas — não é dono de nada; itens aprovados migram para o doc dono | 🚧 |
+| 15 | `15-mecanicas-futuras.md` | **Ideias vivas**, não pendências: mecânicas analisadas que não entram agora, com o bloqueio de cada uma registrado | 📋 |
+| 16 | `16-acoes-e-testes.md` | **O que só você pode fazer**: testes no aparelho, operações longas e decisões de produto. Nada aqui é código pendente | 🚧 |
 
 ## Princípios invioláveis (resumo — detalhe em 00)
 

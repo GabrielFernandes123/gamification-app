@@ -40,6 +40,15 @@ type Props = {
   weekday: number;
 };
 
+/**
+ * "×1,5" em vez de "1.5x" — o multiplicador aparece no meio de uma frase em
+ * português, e o separador decimal errado num número que representa DANO é o
+ * tipo de detalhe que faz a mensagem parecer de outro app.
+ */
+function formatMultiplier(m: number) {
+  return `×${m.toFixed(1).replace('.', ',')}`;
+}
+
 export function HabitRow({ habit, progress, periodProgress, weekday }: Props) {
   const router = useRouter();
   const complete = useCompleteHabit();
@@ -339,9 +348,16 @@ export function HabitRow({ habit, progress, periodProgress, weekday }: Props) {
         {/* O aviso vem ANTES do clique em "Recaí" — é o que faz a margem valer
             alguma coisa no momento da tentação. Sem ele, o teto só decidiria um
             bônus no fim da semana (02 §5.19). */}
-        {margem && margem.left === 0 ? (
+        {margem && margem.daysBeyond > 0 ? (
+          // JÁ estourou. Este é o aviso que faltava: o dano vinha escalando e
+          // nenhuma tela dizia por quê — a única mecânica que funcionava em
+          // segredo, e logo a que PUNE (varredura de pontas soltas (2026-07-31) C.3).
           <Text variant="label" color={theme.colors.hp}>
-            Margem esgotada — a próxima recaída custa +50% de dano.
+            {`${margem.daysBeyond} ${margem.daysBeyond === 1 ? 'dia' : 'dias'} além do teto — a próxima recaída custa ${formatMultiplier(margem.nextMultiplier)} de dano.`}
+          </Text>
+        ) : margem && margem.left === 0 ? (
+          <Text variant="label" color={theme.colors.hp}>
+            {`Margem esgotada — a próxima recaída custa ${formatMultiplier(margem.nextMultiplier)} de dano.`}
           </Text>
         ) : margem && margem.left === 1 ? (
           <Text variant="label" color={theme.colors.gold}>

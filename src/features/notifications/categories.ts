@@ -1,7 +1,7 @@
 import * as Notifications from 'expo-notifications';
 
 /**
- * AÇÕES NA NOTIFICAÇÃO (APP-SIMPLIFICACAO §4.4).
+ * AÇÕES NA NOTIFICAÇÃO (análise de simplificação do app (2026-07-30) §4.4).
  *
  * "Registrar sem abrir o app" vale mais que qualquer tela interna num app de
  * bolso: a notificação chega, o hábito é marcado e o telefone volta ao bolso.

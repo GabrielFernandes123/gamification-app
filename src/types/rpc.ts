@@ -11,7 +11,7 @@ export type BossProgressResult = {
   /**
    * Do golpe gravado em `boss_damage_events`: quem aplica o efeito é quem diz se
    * ele incidiu. Sem isso o toque mostrava o número dobrado do crítico sem dizer
-   * que houve crítico — a mecânica acontecia invisível (ANALISE-FUNCIONAL §7).
+   * que houve crítico — a mecânica acontecia invisível (auditoria funcional de 2026-07-30 §7).
    */
   wasWeakness?: boolean;
   wasCritical?: boolean;

@@ -62,14 +62,20 @@ export function habitProgress(logs: HabitLog[] | undefined, habitId: string): Ha
 
 export type PeriodProgress = { done: number; target: number; unit: 'semana' | 'mês' };
 
-/** Dias COMPLETOS (positivo) ou RESISTIDOS (negativo) no período corrente, vs a
- *  meta de dias. `null` para hábitos de dias fixos (sem meta de período). */
+/** Dias COMPLETOS no período corrente, vs a meta de dias. `null` para hábitos de
+ *  dias fixos (sem meta de período) e para NEGATIVOS. */
 export function periodDayProgress(
   logs: HabitLog[] | undefined,
   habit: Habit,
   today: string,
 ): PeriodProgress | null {
   if (habit.schedule === 'weekdays') return null;
+  // Negativo não tem meta de dias: `weekly_target`/`monthly_target` viraram TETO de
+  // recaídas, não alvo a perseguir. Contar dias resistidos contra esse número dava
+  // "4/2 dias · semana" — barra estourada justo em quem estava indo bem. Quem manda
+  // no negativo é o `periodMargin` que o servidor calcula (o web já faz assim em
+  // `habitMeta.ts`); aqui só precisamos sair do caminho.
+  if (habit.type !== 'positive') return null;
   const d = new Date(`${today}T00:00:00Z`);
   const weekly = habit.schedule === 'weekly_count';
   const start = weekly
@@ -79,34 +85,17 @@ export function periodDayProgress(
   const dailyT = habit.executions_per_day ?? 1;
   const startIso = isoOf(start);
 
-  // contagem de sucesso/recaída por dia, só deste hábito, dentro da janela
+  // execuções de sucesso por dia, só deste hábito, dentro da janela
   const succ: Record<string, number> = {};
-  const fail: Record<string, number> = {};
   for (const l of logs ?? []) {
-    if (l.habit_id !== habit.id) continue;
+    if (l.habit_id !== habit.id || !l.success) continue;
     const day = dateOnly(l.occurred_on);
     if (day < startIso || day > today) continue;
-    const bucket = l.success ? succ : fail;
-    bucket[day] = (bucket[day] ?? 0) + 1;
+    succ[day] = (succ[day] ?? 0) + 1;
   }
 
+  // dias com execuções de sucesso >= meta diária
   let done = 0;
-  if (habit.type === 'positive') {
-    // dias com execuções de sucesso >= meta diária
-    for (const day in succ) if (succ[day] >= dailyT) done++;
-  } else {
-    // dias resistidos = dias FECHADOS do período com recaídas < limite
-    // Hoje só entra se o dia já foi encerrado (is_auto log = cron ou "Evitei" manual)
-    const todaySettled = (logs ?? []).some(
-      (l) => l.habit_id === habit.id && dateOnly(l.occurred_on) === today && l.is_auto,
-    );
-    const loopEnd = todaySettled ? d.getTime() : d.getTime() - DAY_MS;
-    // Dias antes da criação do hábito não contam como "resistido".
-    const createdAt = new Date(`${dateOnly(habit.created_at)}T00:00:00Z`).getTime();
-    const loopStart = Math.max(start.getTime(), createdAt);
-    for (let t = loopStart; t <= loopEnd; t += DAY_MS) {
-      if ((fail[isoOf(new Date(t))] ?? 0) < dailyT) done++;
-    }
-  }
+  for (const day in succ) if (succ[day] >= dailyT) done++;
   return { done, target, unit: weekly ? 'semana' : 'mês' };
 }

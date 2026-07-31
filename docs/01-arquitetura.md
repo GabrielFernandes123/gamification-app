@@ -246,6 +246,53 @@ As **migrations de schema continuam valendo** — movemos a *lógica*, não os *
 > novo; smoke/validação em runtime; e garantir que a role do `DATABASE_URL` é
 > dedicada (sujeita à RLS) — ver §7.
 
+## 10.1 O ledger de migrations ✅ 🆕 (2026-08-06)
+
+> Conhecimento operacional que quase se perdeu: vivia só num doc da raiz, fora de
+> qualquer repositório.
+
+Migrations são **arquivos SQL aplicados à mão**, e há dois scripts:
+
+| Script | O que faz |
+|---|---|
+| `run-all-migrations.mjs` | aplica tudo que **falta**, consultando a tabela `_migrations` |
+| `run-migration.mjs` | aplica **um** arquivo |
+| `backfill-migrations.mjs` | registra em `_migrations` o que já foi aplicado |
+
+### ⚠️ A armadilha que isso já causou
+
+`run-migration.mjs` **não registrava nada** em `_migrations`. Quem aplicasse por
+ele deixava a migration invisível — e o `run-all-migrations.mjs`, que pula o que
+está registrado, tentaria **reaplicar**.
+
+Medido em 2026-08-06: **63 de 119 migrations estavam fora do ledger**, desde
+25/07. Treze delas **não eram idempotentes**. Rodar o `run-all` teria:
+
+- **duplicado os itens da loja** (`unify_items`: `insert` sem `on conflict`);
+- duplicado entradas do Codex;
+- **zerado os streaks** dos hábitos negativos e resetado os tetos
+  (`negative_period_ceiling`: `update` sem guarda).
+
+### O conserto, e a regra que ficou
+
+1. `run-migration.mjs` passou a **gravar em `_migrations` na mesma transação**, e
+   a pular o que já está registrado (`--force` ignora).
+2. `backfill-migrations.mjs` registrou as 63 — **provando cada uma antes**: ele
+   extrai do SQL os objetos criados (tabela, coluna, tipo, índice, função) e
+   confere no catálogo do Postgres. As que só mexem em dados exigem **evidência
+   escrita** numa lista no próprio script, com a consulta usada.
+
+> **A regra:** toda migration aplicada tem de estar em `_migrations`. E toda
+> migration nova deveria ser escrita para ser **idempotente** — `if not exists`,
+> `on conflict`, `update` com guarda. As três que quase causaram estrago não
+> eram, e nada no processo teria avisado.
+
+**Como conferir a qualquer momento:**
+
+```bash
+node scripts/run-all-migrations.mjs   # tem de imprimir só SKIP
+```
+
 ## 11. Hospedagem
 
 A API roda em qualquer lugar (Fly/Railway/Render/VPS) — não há amarração. Como tudo

@@ -27,6 +27,16 @@ export type PeriodMargin = {
   left: number;
   /** Dias que ainda restam no período, incluindo hoje. */
   daysLeft: number;
+  /** Dias que JÁ passaram do teto. 0 = ainda dentro da margem. */
+  daysBeyond: number;
+  /**
+   * Quanto a PRÓXIMA recaída vai custar, como multiplicador do dano.
+   *
+   * Vem do servidor, e não é calculado aqui, porque a fórmula tem um dono só
+   * (`reward.ts periodOvershootDamage`) — espelhá-la no cliente garantiria que
+   * os dois divergissem no primeiro ajuste de balanceamento.
+   */
+  nextMultiplier: number;
   start: string;
   end: string;
 };

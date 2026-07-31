@@ -7,7 +7,7 @@ import { useToday } from '@/hooks/useToday';
 import { HABIT_ACTION_DONE } from './categories';
 
 /**
- * TRATA O BOTÃO "FEITO" DA NOTIFICAÇÃO (APP-SIMPLIFICACAO §4.4).
+ * TRATA O BOTÃO "FEITO" DA NOTIFICAÇÃO (análise de simplificação do app (2026-07-30) §4.4).
  *
  * ── A guarda de DIA, que é o coração disto ───────────────────────────────
  * Com `opensAppToForeground: false`, o JS só roda se o processo estiver vivo. Se o

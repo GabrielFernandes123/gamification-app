@@ -30,7 +30,7 @@ export function dailyTarget(habit: Habit): number {
  * O aviso prévio ("Margem esgotada — a próxima recaída custa +50%") é o que muda
  * comportamento; esta frase é o que ENSINA a regra. Sem ela o toast dizia só
  * "Você tomou 27 de dano", e um número sem causa parece arbitrário — meia volta
- * do laço (PONTOS-SOLTOS §C.3).
+ * do laço (varredura de pontas soltas (2026-07-31) §C.3).
  *
  * Nunca recalcula nada: só nomeia o que o servidor já decidiu e devolveu. O
  * multiplicador do escalonamento de propósito NÃO é reproduzido aqui — quem

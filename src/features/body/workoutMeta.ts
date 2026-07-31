@@ -4,7 +4,7 @@ import type { WorkoutDraftSet, WorkoutSetType } from '@/types/body';
 /**
  * `duration` existe porque `isometric` era o ÚNICO tipo cronometrado, então o
  * builder de cardio o escolhia sozinho e uma corrida aparecia como "Isometria"
- * (ANALISE-FUNCIONAL §7). Isometria voltou a significar isometria — prancha,
+ * (auditoria funcional de 2026-07-30 §7). Isometria voltou a significar isometria — prancha,
  * barra estática —, e o que é medido em tempo sem ser isometria tem caixa própria.
  */
 export const SET_TYPE_META: Record<WorkoutSetType, { label: string; short: string; color: string; timeBased?: boolean }> = {

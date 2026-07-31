@@ -225,6 +225,48 @@ Os macros vêm sempre da linha da `foods` escolhida — **nunca do corpo da requ
 do texto do modelo**. É a mesma disciplina dos encontros diários: a IA nomeia, o catálogo
 numera.
 
+#### 5.9.1 Faixa, e não teto ✅ 🆕 (2026-08-05)
+Cada critério passou a ter **piso e teto, os dois opcionais**. A primeira versão
+tinha só `kcal_max`, e isso **premiava não comer**: um dia de 300 kcal satisfazia
+`kcal ≤ 2600` e era pago pelo fechamento. Meta de dieta tem dois lados.
+
+Os dois lados serem opcionais é o que faz "proteína ≥ 140 g, sem teto" e
+"carboidrato ≤ 300 g, sem piso" conviverem na mesma forma, sem um campo de modo
+dizendo qual leitura vale. **Sódio** (2026-08-06) entrou sem nenhuma regra nova
+justamente por isso: é só um critério com piso nulo.
+
+#### 5.9.3 A semana, ao lado do dia ✅ 🆕 (2026-08-06)
+Um **terceiro** grant de nutrição (`meta.kind: 'week'`), sobre as MÉDIAS dos dias
+fechados. Não substitui o diário — os dois medem coisas diferentes:
+
+| | Mede | Falha quando |
+|---|---|---|
+| **Dia** | disciplina | você não bateu a proteína hoje |
+| **Semana** | resultado | a média da semana ficou fora da faixa |
+
+Só semanal deixaria compensar cinco dias ruins com dois ótimos; só diário castiga
+a variação normal de quem come fora uma vez. Comer 1.800 kcal na segunda e 2.800
+na terça pode falhar **os dois dias** e ainda assim fechar a semana certa.
+
+- **Média, não soma:** a semana de seis dias registrados e a de sete têm de ser
+  comparáveis com a mesma faixa.
+- **`min_days` (padrão 5):** abaixo disso a semana não é avaliada nem paga. Sem
+  o piso, dois dias registrados pagariam como semana inteira — premiando quem
+  parou de anotar.
+- **Sem critério avaliável, não paga.** `metRatio` devolveria 1 para tudo-`null`,
+  e pagar a semana cheia por falta de dado é o oposto do que o `min_days` faz.
+
+#### 5.9.2 Critérios que não vêm de alimento ✅ 🆕 (2026-08-06)
+- **Água** entra na fração como qualquer critério ligado, mas é contada por
+  registro próprio (`nutrition_water_logs`) e não desce pela cadeia de alimentos.
+- **Metas relativas ao peso** (`2 g/kg`) são **derivadas na leitura** a partir do
+  peso mais recente. Não mudam o passado: o `targets_snapshot` do fechamento
+  guarda as gramas absolutas que valeram naquele dia ([06 §0](./06-dados.md)).
+- **A calculadora de TDEE sugere, nunca impõe.** Preenche os campos e cada número
+  segue editável. Sem peso, altura, nascimento ou sexo ela **não estima** — diz o
+  que falta. Uma meta plausível e errada é pior que nenhuma, porque ninguém
+  desconfia dela.
+
 ### 5.10 Plano do dia ✅ 🆕 (2026-08-01)
 
 ```
@@ -390,6 +432,21 @@ o jogo, não contra a sua vida — se o preço deles respirasse, nada teria valo
 > Significa que você produziu mais. A manchete do card tem de ser os **dias** (constantes),
 > com o ouro como número derivado.
 
+### 5.21 Módulo desligado não paga ✅ 🆕 (2026-08-06)
+
+O gate mora **no `_grant`**, antes de qualquer conta — e ali, e não nos módulos,
+pelo mesmo motivo da nêmese (§5.x) e do bônus do retorno: são 15 chamadores, e
+espalhar a checagem por eles deixaria alguns de fora **sem nenhum erro que
+denunciasse**. O módulo desligado continuaria pagando em silêncio.
+
+Cai sozinho porque `input.sourceType` **já é** a chave do módulo: os dois usam o
+enum `economy_source_type`. Ver [04 §2.1](./04-modulos.md) e
+[06 §9.15](./06-dados.md).
+
+O retorno mantém a **mesma forma**, zerada. Devolver um objeto diferente
+obrigaria os 15 chamadores a saber que este caso existe, e o primeiro que
+esquecesse quebraria em runtime — não no `tsc`.
+
 ## 6. Streaks
 
 Dois níveis (o segundo é 🆕):
@@ -425,8 +482,41 @@ Vale para **todo** agendamento (não é mais adiado p/ o fechamento do período)
 - **ALÉM do limite** (registro contínuo, sem teto de quantidade): dano **escalante** por
   recaída extra — base `fator_dano / limite`, **+20%/extra se limite = 1** (tolerância
   zero), **+10%/extra se limite ≥ 2**; teto 80% HP por golpe, acumula **até a morte**.
-- **Período:** mede se a meta de dias foi batida para histórico/analytics; sem dano,
-  recompensa ou incremento extra de streak.
+
+#### 7.2.1 O TETO DO PERÍODO ✅ 🆕 (2026-08-04)
+Para negativo **semanal/mensal**, `weekly_target`/`monthly_target` deixou de ser
+"meta de dias" e virou **teto de recaídas no período** ("no máximo 2 por semana").
+Era a leitura que faltava: contar dias resistidos contra uma meta produzia
+`4/2 dias · semana` — barra estourada justo em quem estava indo bem.
+
+- **A margem escala o dano.** Recaída dentro do teto custa o normal; recaída
+  **além** dele multiplica por `1 + 0.5 × dias_além`. Sem isso, o teto só
+  decidiria um bônus no fim da semana e recair custaria o mesmo estando em 0, 1
+  ou 2 — no momento da tentação, que é o único que importa aqui, a margem ficava
+  inerte.
+- **Não é punir duas vezes**, e a distinção é fina: o dano do dia é pelo ATO;
+  o multiplicador é por ter gastado a margem que o próprio desenho ofereceu.
+- **Dois streaks, não um.** `current_streak` (dias seguidos resistindo) e
+  `period_streak` (períodos seguidos dentro do teto) convivem. Substituir o
+  diário pelo de período apagaria o feedback de curto prazo, que é o que sustenta
+  o hábito nos primeiros dias.
+- **Bônus de ouro por períodos limpos:** `min(50%, floor(períodos/4) × 10%)`.
+
+#### 7.2.2 OS DOIS TETOS DE DANO ✅ 🆕 (2026-08-04)
+Duas frases que dá para dizer em voz alta, e uma constante para cada:
+
+| Regra | Constante | Valor |
+|---|---|---|
+| Um hábito sozinho não te mata num período | `PERIOD_DAMAGE_CAP_RATIO` | 80% do HP máx |
+| Um dia ruim não te mata | `DAILY_HABIT_DAMAGE_CAP_RATIO` | **25%** do HP máx |
+
+O teto DIÁRIO era o que faltava: os golpes do dia eram independentes, então cinco
+hábitos estourados somavam cinco golpes de até 80% cada e nada olhava o total.
+
+Os 25% saíram de **medição, não de intuição** — 26 dias, 58 golpes, 849 de HP no
+banco em 2026-07-30: mediana do dano diário 36% do HP, p75 44%, p90 55%, pior dia
+66%. Um teto na cauda não protegeria do dia comum ruim, que é justamente o que
+transforma semana ruim em espiral.
 
 ### 7.3 Redução de dano (buff) ✅
 Dano efetivo = `floor( dano × (1 − redução%/100) )`, da maior redução ativa em

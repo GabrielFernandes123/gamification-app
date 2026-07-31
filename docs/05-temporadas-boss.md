@@ -80,8 +80,16 @@ você não bate a meta diária**, no fechamento o boss te ataca.
 dano_recebido = ataque_boss × (1 − redução_Vitalidade)      # se não esquivar
 ```
 - **`ataque_boss`:** fração do seu `max_hp`, escalada pelo tier — sempre relevante,
-  nunca one-shot. ✅ Implementado: **mensal 10% · trimestral 12% · semestral 15% ·
-  anual 18%** (mín. 6), e o enrave de fase (§3.5) sobe +8% por limiar cruzado. 🆕
+  nunca one-shot. ✅ **mensal 18% · trimestral 22% · semestral 26% · anual 30%**
+  (mín. 6), e o enrave de fase (§3.5) sobe +8% por limiar cruzado. 🆕
+  - 🔄 **Rebalanceado em 2026-08-05** (era 10/12/15/18). O boss estava decorativo:
+    perder o dia custava menos que uma recaída de hábito difícil, e o clímax
+    narrativo não assustava.
+  - O rebalanceamento precisou de **migration, não só da constante**:
+    `attack_boss` é calculado UMA VEZ na criação do boss e gravado na linha, então
+    mudar o código só valeria para bosses futuros — e os ativos iam até 2027. A
+    migration usa `greatest()`: é um **piso**, não uma redefinição, para quem já
+    subiu por enrave continuar mais forte (e para ser idempotente).
 - **Redução (Vitalidade):** `= min(0.75, Vitalidade × 0.01)`. 🆕 (Só aqui — não reduz
   dano de hábito perdido, ver [02 §7.3](./02-economia.md).)
 - **Esquiva (Agilidade):** chance `= min(0.50, Agilidade × 0.005)`; se esquiva, dano = 0. 🆕
@@ -94,7 +102,11 @@ dano_recebido = ataque_boss × (1 − redução_Vitalidade)      # se não esqui
 - O contra-ataque pode **levar à morte** (HP→0) pelas regras de [02 §8](./02-economia.md).
 - **O boss se alimenta do tempo perdido (tracking, zona 3)** 🆕: segundos de uso acima
   do `boss_threshold_seconds` de cada fonte ([11-tracking](./11-tracking-tempo-de-tela.md))
-  amplificam o contra-ataque do dia: `dano × (1 + min(0.50, ⌊feed/5min⌋ × 0.01))`.
+  amplificam o contra-ataque do dia: `dano × (1 + min(1.00, ⌊feed/3min⌋ × 0.01))`.
+  🔄 (2026-08-05: passo de 5 → 3 min e teto de +50% → +100%. Subiu a AMPLITUDE, não
+  a frequência — `FEED_BAD_DAY_SECONDS` ficou em 1h de propósito, porque a
+  frequência do contra-ataque já havia mudado por outro caminho, a meta diária de
+  XP caindo de 200 para 180; mexer nos dois contaria a mesma correção duas vezes.)
   E **1h+ de zona 3 torna o dia ruim por si só** — contra-ataque mesmo com a meta de
   XP batida. Um beat narrativo (`meta.event: 'tracking_feed'`) registra o banquete.
   Tracking fica FORA dos objetivos de fase e da eleição de fraqueza (só gera ouro

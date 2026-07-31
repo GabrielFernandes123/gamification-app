@@ -6,7 +6,7 @@ import { qk } from '@/lib/queryKeys';
 /** Espelha `gamificacao-api/src/nutrition/`. */
 
 /** Os cinco nutrientes com meta, na ordem em que aparecem nas telas. */
-export const NUTRIENTS = ['kcal', 'protein', 'carb', 'fat', 'fiber'] as const;
+export const NUTRIENTS = ['kcal', 'protein', 'carb', 'fat', 'fiber', 'sodium'] as const;
 
 export type Nutrient = (typeof NUTRIENTS)[number];
 
@@ -16,6 +16,7 @@ export const NUTRIENT_LABEL: Record<Nutrient, string> = {
   carb: 'carbo',
   fat: 'gordura',
   fiber: 'fibra',
+  sodium: 'sódio',
 };
 
 /** A unidade — as calorias são as únicas que não são gramas. */
@@ -25,6 +26,7 @@ export const NUTRIENT_UNIT: Record<Nutrient, string> = {
   carb: 'g',
   fat: 'g',
   fiber: 'g',
+  sodium: 'mg',
 };
 
 export const NUTRIENT_FIELDS: Record<
@@ -40,6 +42,7 @@ export const NUTRIENT_FIELDS: Record<
   carb: { min: 'carb_min_g', max: 'carb_max_g', enabled: 'carb_enabled' },
   fat: { min: 'fat_min_g', max: 'fat_max_g', enabled: 'fat_enabled' },
   fiber: { min: 'fiber_min_g', max: 'fiber_max_g', enabled: 'fiber_enabled' },
+  sodium: { min: 'sodium_min_mg', max: 'sodium_max_mg', enabled: 'sodium_enabled' },
 };
 
 export const NUTRIENT_TOTAL: Record<Nutrient, keyof Totals> = {
@@ -48,6 +51,7 @@ export const NUTRIENT_TOTAL: Record<Nutrient, keyof Totals> = {
   carb: 'carbG',
   fat: 'fatG',
   fiber: 'fiberG',
+  sodium: 'sodiumMg',
 };
 
 export type Totals = {
@@ -56,6 +60,7 @@ export type Totals = {
   carbG: number;
   fatG: number;
   fiberG: number;
+  sodiumMg: number;
 };
 
 export type Bounds = { min: number | null; max: number | null; enabled: boolean };
@@ -164,13 +169,21 @@ export type NutritionTargets = {
   fiber_max_g: number | null;
   fiber_enabled: boolean;
 
+  sodium_min_mg: number | null;
+  sodium_max_mg: number | null;
+  sodium_enabled: boolean;
+
+  /** Água: contagem com piso, como refeições — não é nutriente. */
+  water_min_ml: number | null;
+  water_enabled: boolean;
+
   meals_min: number;
   meals_enabled: boolean;
   difficulty: string;
 };
 
 /** `null` = critério desligado. Não é o mesmo que não cumprido. */
-export type NutritionCriteria = Record<Nutrient | 'meals', boolean | null>;
+export type NutritionCriteria = Record<Nutrient | 'meals' | 'water', boolean | null>;
 
 export type NutritionDay = {
   day: string;
@@ -216,6 +229,35 @@ export function useMealSlots() {
   return useQuery({
     queryKey: qk.nutritionMealSlots,
     queryFn: () => apiFetch<MealSlot[]>('/nutrition/meal-slots'),
+  });
+}
+
+/**
+ * ÁGUA — o registro que mais combina com o celular.
+ *
+ * Query própria de propósito: beber não invalida a lista de refeições, e um
+ * refetch do dia inteiro a cada gole seria caro no 4G.
+ */
+export function useNutritionWater() {
+  return useQuery({
+    queryKey: ['nutritionWater'] as const,
+    queryFn: () => apiFetch<{ day: string; totalMl: number }>('/nutrition/water'),
+  });
+}
+
+export function useAddWater() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (ml: number) =>
+      apiFetch<{ day: string; totalMl: number }>('/nutrition/water', {
+        method: 'POST',
+        body: { ml },
+      }),
+    onSuccess: (data) => {
+      queryClient.setQueryData(['nutritionWater'], data);
+      // Água pode ser critério ligado: o dia precisa ser reavaliado.
+      void queryClient.invalidateQueries({ queryKey: qk.nutritionDay('hoje') });
+    },
   });
 }
 
@@ -385,4 +427,39 @@ export async function fileToBase64(uri: string): Promise<string> {
     binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
   }
   return globalThis.btoa(binary);
+}
+
+
+/* ---------------------------------------------------------------------------
+ * RECEITAS — no celular é onde o atalho de um toque mais vale.
+ *
+ * O app não CRIA receita (montar item a item é configuração, e configuração
+ * mora no web pela régua do 08 §0). Ele lista e REGISTRA — que é o movimento
+ * de quem está com o shake na mão.
+ * ------------------------------------------------------------------------- */
+
+export type Recipe = {
+  id: string;
+  name: string;
+  slotId: string | null;
+  kcal: number;
+  items: { foodId: string; name: string; quantityG: number; kcal: number; proteinG: number }[];
+};
+
+export function useRecipes() {
+  return useQuery({
+    queryKey: ['nutritionRecipes'] as const,
+    queryFn: () => apiFetch<Recipe[]>('/nutrition/recipes'),
+  });
+}
+
+export function useLogRecipe() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, slotId }: { id: string; slotId?: string }) =>
+      apiFetch(`/nutrition/recipes/${id}/log`, { method: 'POST', body: { slotId } }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: qk.nutritionDay('hoje') });
+    },
+  });
 }

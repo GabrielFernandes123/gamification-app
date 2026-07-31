@@ -38,7 +38,7 @@ export function useYesterdayPending() {
 
 /**
  * "Eu recaí" de ontem passou a custar o MESMO que recair na hora — mesma função
- * de dano na API (PONTOS-SOLTOS §C.2). Por isso a correção agora devolve também
+ * de dano na API (varredura de pontas soltas (2026-07-31) §C.2). Por isso a correção agora devolve também
  * o porquê do número, como o `relapse()` sempre devolveu.
  */
 export type CorrectYesterdayResult = {

@@ -38,7 +38,7 @@ function TabIcon({
 
 export default function TabsLayout() {
   useNotificationSync();
-  // O botão "Feito" da notificação (APP-SIMPLIFICACAO §4.4). Fica aqui, ao lado
+  // O botão "Feito" da notificação (análise de simplificação do app (2026-07-30) §4.4). Fica aqui, ao lado
   // dos outros sincronizadores, porque também é "o mundo de fora agindo sobre o
   // estado de dentro" — e precisa valer com o app aberto em qualquer aba.
   useNotificationActions();

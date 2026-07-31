@@ -17,6 +17,28 @@
 - **Atributo total NÃO é armazenado** — é computado na API (skills + partes + equip +
   pontos + classe, [03 §2](./03-atributos-build.md)). Só os *insumos* são persistidos.
 
+### A régua do dado que vira estatística
+
+> **Todo registro que vira estatística guarda o parâmetro que o julgou.**
+
+Se o número depende de configuração mutável, a configuração vai **junto na
+linha**. Senão, mudar a régua reescreve o passado em silêncio — o gráfico muda
+sozinho e ninguém consegue explicar por quê.
+
+Isso já mordeu três vezes antes de virar regra:
+
+| Onde | O que faltava | Como ficou |
+|---|---|---|
+| Nutrição | "cumpriu 2 de 3" sem saber de quê | `nutrition_days.targets_snapshot` |
+| Sono | a nota sem a meta que a produziu | `sleep_logs.targets` + `score` + `tz` |
+| Hábitos | o dano sem a dificuldade da época | `habit_levels` + `streak_at_log` |
+
+O corolário é o que decide onde uma coluna mora: **valor derivado de config
+mutável é congelado no fechamento; valor derivado de dado que muda sozinho (como
+o peso) é derivado na leitura.** Por isso `targets_snapshot` grava gramas
+absolutas mesmo quando a meta é `2 g/kg` — a razão continua viva nas metas, o
+número fica preso ao dia.
+
 ## 1. Núcleo RPG
 - **characters** ✅🔄 — `user_id`, `total_xp`, `gold`, `current_hp`, `death_count`,
   `daily_xp_goal`, `daily_gold_goal`, `last_reset_at`; GENERATED `level`, `max_hp`.
@@ -151,6 +173,11 @@
   (o relógio devolve a noite em pedaços) — e o índice parcial
   `(user_id, external_id) where external_id is not null` — dedupe da importação, sem o
   qual cada abertura do app pagaria de novo pela mesma noite.
+  - **`targets`, `score` e `tz`** ✅ (2026-08-05) — aplicação da régua do §0:
+    `targets` congela a meta que julgou a noite, `score` guarda a nota calculada
+    e `tz` o fuso em que "a noite de 4" foi definida. Sem `tz`, uma viagem faria
+    a mesma noite mudar de dia; sem `targets`, mudar o horário-alvo hoje
+    reescreveria a avaliação de março.
 
 ## 9.2 Encontros diários ✅ (2026-07-30)
 - **daily_events** ✅ — `id`, `user_id`, `day`(date), `title`, `description`,
@@ -166,6 +193,12 @@
   classe**, não buraco: sem total não há proporção e a sessão paga trivial),
   `current_units`, `status`(fila|lendo|concluida|abandonada), `difficulty`,
   `primary_skill_id`, `started_on`, `finished_on`, `cover_url`, `notes`.
+  - **`needs_story` / `story_title` / `story_description` / `story_model`** ✅
+    (2026-08-05) — a obra ganha nome de tomo na história ([09](./09-narrativa-e-ia.md)).
+    `needs_story` tem de ser marcado **`true` no insert**: a coluna nasce `false`
+    e o batismo filtra por ela. Marcar a coluna sem marcar o insert deixou o
+    recurso morto e silencioso por um dia inteiro — não havia erro, só nunca
+    acontecia. Mesmo cuidado vale para `bucket_items` e `character_scars`.
 - **reading_logs** ✅ — `id`, `user_id`, `reading_id`, `occurred_on`,
   `units_delta`(**check > 0**: corrigir para baixo é edição da obra, não sessão),
   `minutes`, `note`, `xp_gained`, `gold_gained`.
@@ -204,22 +237,85 @@
     `journal-media` — não uma URL. A URL de leitura é assinada a cada consulta
     (validade curta), então nenhuma URL permanente fica gravada em lugar nenhum.
 
-## 9.7 Nutrição ✅ (2026-08-01)
-- **foods** ✅ — catálogo global **sem `user_id`** (mesmo molde do
-  `exercise_catalog`): `source`(`taco`), `external_id`, `unique (source,
-  external_id)`, `name`, `search_name` (minúsculo e sem acento — é como o match
-  da IA e a busca do usuário chegam), `category`, `kcal`, `protein_g`, `carb_g`,
-  `fat_g`, `fiber_g`, `sodium_mg`, **por 100 g**. 582 linhas da TACO 4ª edição.
+## 9.7 Nutrição ✅ (2026-08-01, evoluída em 2026-08-06)
+- **foods** ✅ — catálogo `source`(`taco`|`custom`), `external_id`, `unique
+  (source, external_id)`, `name`, `search_name` (minúsculo e sem acento — é como
+  o match da IA e a busca do usuário chegam), `category`, `brand`, `kcal`,
+  `protein_g`, `carb_g`, `fat_g`, `fiber_g`, `sodium_mg`, `serving_size_g`,
+  **por 100 g**. 582 linhas da TACO 4ª edição.
   `numeric` e não `float`: são somados o dia inteiro e comparados com metas.
-- **nutrition_entries** ✅ — `user_id`, `occurred_on`, `meal`(check
-  cafe|almoco|jantar|lanche|ceia), `logged_at`, `note`, `source`(manual|voice) e
-  os totais materializados (`kcal`, `protein_g`, `carb_g`, `fat_g`).
+  - **`user_id`** ✅ (2026-08-05) — `null` = linha global da TACO; preenchido =
+    alimento do usuário (o whey dele, com os macros do rótulo). A busca escopa
+    explicitamente no SQL (`user_id is null or user_id = $n`): a API fala com o
+    Postgres por conexão direta, então a RLS **não** protege essa query.
+- **food_portions** ✅ — porção doméstica ("1 fatia" = 30 g). Quem sabe quanto
+  pesa é a tabela, nunca o cliente.
+- **nutrition_meal_slots** ✅ (2026-08-05) — as refeições **do usuário**:
+  `name`, `position`, `target_at`, `share_pct`, `active`. Substituiu o enum de
+  cinco valores. Teto de 12 slots.
+- **nutrition_entries** ✅ — `user_id`, `occurred_on`, `slot_id`, **`meal_name`
+  congelado**, `logged_at`, `note`, `source`(manual|voice) e os totais
+  materializados (`kcal`, `protein_g`, `carb_g`, `fat_g`, `fiber_g`,
+  `sodium_mg`).
+  - O nome vai congelado ao lado do `slot_id` **de propósito**: renomear um slot
+    não pode reescrever o histórico, pela mesma razão que corrigir o catálogo não
+    reescreve os macros de março.
 - **nutrition_items** ✅ — `entry_id` (cascade), `food_id` (**`set null`**:
   procedência, não fonte do número), `name`, `quantity_g`(check > 0) e os macros
   **congelados no momento do registro**. Uma correção futura no dataset não pode
   reescrever o que você comeu em março.
-- **nutrition_targets** ✅ — mesma forma do `sleep_settings`: `protein_min_g`,
-  `kcal_max`, `meals_min`, cada um com seu `*_enabled`, mais `difficulty`.
+- **nutrition_targets** ✅ — um por usuário. Cada nutriente tem **piso, teto e
+  liga/desliga**, e os dois lados da faixa são opcionais.
+  - **Por que faixa, e não teto** — a primeira versão tinha só `kcal_max`, e isso
+    premiava não comer: um dia de 300 kcal satisfazia `kcal <= 2600` e era pago
+    pelo fechamento.
+  - Nutrientes: `kcal`, `protein`, `carb`, `fat`, `fiber`, **`sodium`** ✅
+    (2026-08-06). Sódio é o único em que o normal é ter só teto — não precisou de
+    tratamento especial porque a faixa já nasceu com os dois lados opcionais.
+  - **`water_min_ml` / `water_enabled`** ✅ (2026-08-06) — água segue o padrão de
+    `meals_min` (contagem com piso), **não** o de nutriente: não vem de alimento
+    nenhum e fatiar "35% da água no almoço" não quer dizer nada.
+  - **`protein_per_kg` / `carb_per_kg` / `fat_per_kg`** ✅ (2026-08-06) — metas
+    relativas ao peso. Quando preenchidas, o `*_min_g` é **derivado na leitura**
+    a partir do peso mais recente de `body_measurements`. Sem cron e sem
+    reescrita: mudou o peso, o próximo cálculo já sai diferente.
+  - **`activity_level` / `goal`** ✅ (2026-08-06) — insumos da calculadora de
+    TDEE que são configuração de dieta (mudam com a fase, não com o corpo).
+    Altura, nascimento e sexo ficam em `body_profile`, no Corpo.
+  - Cada nutriente tem dois CHECK: `_range` (piso ≤ teto) e `_bounded` (critério
+    ligado precisa de ao menos um lado). A regra mora no banco, e não só no DTO,
+    porque é regra do dado.
+- **`foods.barcode`** ✅ (2026-08-06) — EAN/UPC, com **índice parcial** (`where
+  barcode is not null`): a TACO inteira e todo alimento digitado à mão têm nulo,
+  e indexar nulo é espaço à toa.
+  - **Coluna própria, não `external_id`.** Aquele é a chave DA FONTE e já tem
+    `unique (source, external_id)`; o código de barras é propriedade do PRODUTO —
+    o mesmo EAN pode vir de duas fontes, e alimento genérico não tem nenhum.
+- **nutrition_recipes** + **nutrition_recipe_items** ✅ (2026-08-06) — a
+  combinação que se repete, salva com nome. `unique (user_id, name)`.
+  - **Guarda `food_id` + gramas, NUNCA macro.** O macro é congelado no momento
+    do REGISTRO, lendo o catálogo (mesma doutrina de `nutrition_items`). Receita
+    com macro salvo envelheceria em silêncio quando o alimento fosse corrigido, e
+    ainda desalinharia da mesma refeição registrada por outro caminho.
+  - `food_id` com **`restrict`**, e não `set null`: item sem alimento não tem de
+    onde tirar macro, então a receita ficaria quebrada sem avisar.
+- **nutrition_weekly_targets** + **nutrition_weeks** ✅ (2026-08-06) — o critério
+  de MÉDIA semanal, que **convive** com o diário em vez de substituí-lo.
+  - O diário mede **disciplina** ("bati a proteína hoje?"); o semanal mede
+    **resultado** ("a média fechou?"). Só semanal deixaria compensar cinco dias
+    ruins com dois ótimos; só diário castiga quem come fora uma vez.
+  - Limites próprios, e não o diário × 7. Só kcal e os 3 macros: "média de 3,4
+    refeições" não significa nada, e água é contagem do dia.
+  - **`min_days` (padrão 5)** — abaixo disso a semana não é avaliada nem paga.
+    Sem esse piso, uma semana com dois dias registrados teria "média" e pagaria
+    como semana inteira, premiando quem parou de anotar.
+  - `nutrition_weeks.targets_snapshot`: a régua do §0 de novo.
+- **nutrition_water_logs** ✅ (2026-08-06) — `user_id`, `occurred_on`, `ml`.
+  Tabela própria, e não um contador em `nutrition_days`, por uma questão de
+  **ordem**: a linha de `nutrition_days` só nasce no fechamento, e a água é
+  registrada ao longo do dia. Incrementar uma linha inexistente obrigaria a
+  criá-la meio pronta, e aí o `on conflict do nothing` que o fechamento usa para
+  detectar "já fechei este dia" passaria a mentir.
 - **nutrition_pending** ✅ — a fila de aprovação. `transcript` (o que a IA
   ouviu, guardado mesmo depois de aprovado), `model`, `payload` jsonb (itens já
   resolvidos contra a `foods`), `status`(pending|approved|rejected|expired),
@@ -230,15 +326,25 @@
     que é reusado é o mecanismo: a transição só acontece com
     `where status = 'pending'` na própria UPDATE.
 - **nutrition_days** ✅ — o fechamento. `unique (user_id, occurred_on)` é o que
-  torna o cron idempotente. Guarda `criteria_met` jsonb (com `null` para critério
-  desligado **na hora do fechamento**), para o histórico continuar legível depois
-  de o usuário mudar as metas.
+  torna o cron idempotente. Guarda os totais (`kcal`, macros, `fiber_g`,
+  `sodium_mg`, `water_ml`), `meals` e `criteria_met` jsonb (com `null` para
+  critério desligado **na hora do fechamento**).
+  - **`targets_snapshot`** ✅ (2026-08-05) — o alvo que julgou este dia,
+    congelado junto do veredito. Sem ele, "cumpriu 2 de 3" fica sem resposta para
+    "2 de quê" assim que a meta mudar, e um painel de aderência somaria critérios
+    diferentes no mesmo eixo sem avisar. Guarda o valor **absoluto** vigente no
+    dia, mesmo quando a meta é definida em g/kg — é o que mantém o histórico
+    legível depois de o peso mudar.
 
 ## 9.8 Plano do dia e trégua ✅ (2026-08-01)
 - **daily_plans** ✅ — `user_id`, `plan_on`, `unique (user_id, plan_on)`,
-  `planned_habits` (o que você DISSE de manhã), `note`, e `actual_habits`,
+  `planned_habits` (quantos você DISSE de manhã), `note`, e `actual_habits`,
   `accuracy`, `closed_at` preenchidos no fechamento. **Não há coluna de
   "falhou"**, nem dano, nem streak: errar a previsão não custa nada.
+  - ⚠️ **`planned_habits` e `actual_habits` são `integer`** — CONTAGENS, não
+    listas. Este doc dizia jsonb até 2026-08-06, e a primeira query do painel de
+    estatística quebrou contra o banco real (`jsonb_array_length(integer)`).
+    Corrigido depois de conferir o schema, não a memória.
 - **truce_periods** ✅ — `user_id`, `started_on`, `ends_on` (**inclusivo**;
   `null` = em aberto), `reason`, `ended_at`. Período fechado em vez de um
   booleano em `characters`, para o histórico continuar explicando meses depois
@@ -328,6 +434,70 @@
 > e reputação medem "dias parado"; a trégua desconta os dias que caíram dentro
 > dela. Nada precisa ser reescrito quando a trégua acaba, e `last_xp_at`
 > continua contando a verdade sobre quando a skill foi exercitada.
+
+## 9.14 Regularidade e perfil corporal ✅ (2026-08-05 / 2026-08-06)
+- **regularity_bonuses** ✅ (2026-08-05) — o bônus por constância. `user_id`,
+  `kind`, `period_start`, `period_end`, `streak`, `bonus_gold`, `bonus_xp`,
+  `granted_at`, com `unique` por (usuário, tipo, período) para o cron ser
+  idempotente. Guarda o `streak` **da época**, não só o bônus: é a régua do §0
+  de novo — o bônus sem a sequência que o gerou não explica nada seis meses
+  depois.
+- **body_profile** ✅ (2026-08-06) — `user_id` (pk), `height_cm`, `birth_date`,
+  `sex`. Insumos fixos da calculadora de TDEE ([04](./04-modulos.md)).
+  - Mora no **Corpo**, e não na Nutrição, porque é dado da PESSOA: quem consome
+    hoje é a dieta, mas altura serve a IMC e idade serve a faixa de frequência
+    cardíaca — nenhum dos dois é dieta.
+  - **O peso NÃO está aqui de propósito.** Ele muda toda semana e já é série
+    histórica em `body_measurements`; uma cópia "atual" criaria duas verdades, e
+    a cópia é sempre a que envelhece. A calculadora lê a medida mais recente.
+
+## 9.15 Liga-desliga de módulos ✅ (2026-08-06)
+- **user_modules** ✅ — `user_id`, `module_key`, `enabled`, `disabled_at`, PK
+  composta. **Só se grava linha para o que foi DESLIGADO**: ausência = ligado.
+  Assim um módulo novo entra ligado para todo mundo sem backfill, e a tabela
+  fica pequena — o normal é ter tudo ligado.
+- **`module_key` é do enum `economy_source_type`**, o mesmo de
+  `module_registry.key` e `economy_events.source_type`. A chave do módulo e o
+  tipo de origem do ledger **são a mesma coisa** — o que faz o gate no `_grant`
+  cair sozinho: o `sourceType` que já chega ali é a chave.
+
+> ### ⚠️ `ativo` e `habilitado` são coisas DIFERENTES
+>
+> | Coluna | Onde | O que quer dizer |
+> |---|---|---|
+> | `module_registry.ativo` | global | "aparece no lançador de módulos" |
+> | `user_modules.enabled` | por usuário | "está ligado para mim" |
+>
+> Seis módulos estão com **`ativo = false`** — achievement, boss, store, death,
+> build, event — e o boss funciona, a loja funciona, você morre. Confundir as
+> duas colunas colocaria a Leitura desligada no mesmo balde do Boss.
+
+- **`disabled_at`** existe para os relógios que contam "dias desde" — ferrugem de
+  skill, cadência de relacionamento. Eles pausam por **SUBTRAÇÃO**, não por
+  congelamento de coluna (mesma doutrina da trégua, §9.13): sem essa data, voltar
+  depois de um mês encontraria tudo enferrujado por um tempo que não passou.
+  Streak de hábito **não** precisa disso — ele zera no fechamento, e com o módulo
+  desligado o fechamento não roda, então congela sozinho.
+- **Onde o gate incide** (fonte única em `src/modules/enabled.ts`, helper solto
+  no padrão do `truce.ts`): `_grant` (não paga), `DamageService` (não bate), os
+  5 crons de fechamento, objetivos de boss, o narrador (§9.16), o lançador do
+  web e as abas de estatística.
+- **Desligar não apaga nada.** O dado registrado continua no banco e reaparece
+  inteiro ao religar — é pausa, não exclusão.
+
+## 9.16 Digest cross-módulo ✅ (2026-08-06) — sem tabela
+- **`src/common/module-digest.ts`** — não é schema, é uma LEITURA, mas está aqui
+  porque define o que a narrativa enxerga da sua vida.
+- O narrador lia sete tabelas, todas de combate (bosses, codex, beats, diário,
+  perfil, temporada, configurações). **Não lia hábitos, sono, nutrição, leitura,
+  treino, trabalho nem relacionamentos** — quinze módulos de vida real que nunca
+  viravam uma frase de história.
+- O digest agrega os oito módulos de vida numa query cada e devolve fatos curtos.
+  **O narrador PUXA; os módulos não empurram** — a alternativa (cada módulo
+  escrevendo capítulo) viraria log e exigiria ensinar quinze lugares a narrar.
+- Respeita `user_modules`: módulo desligado não vira história.
+- Do diário entra só a **contagem**, nunca o texto — expor o conteúdo continua
+  sendo opt-in por `season_story_settings.retrospective_uses_journal` (§9.13).
 
 ## 10. Narrativa 🆕
 - **narrative_beats** 🆕 — `id`, `user_id`, `season_id`, `boss_id`(nullable),

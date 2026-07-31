@@ -22,18 +22,23 @@ import {
   useCreateMeal,
   useFoodSearch,
   useMealSlots,
+  useAddWater,
   useNutritionDay,
   useNutritionPending,
+  useNutritionWater,
   useRecentMeals,
   useRemoveMeal,
   useRepeatMeal,
   type Bounds,
   type DaySlot,
   type Food,
+  useLogRecipe,
+  useRecipes,
   type Nutrient,
   type NutritionCriteria,
   type NutritionEntry,
   type NutritionTargets,
+  type Recipe,
 } from './hooks/useNutrition';
 
 /**
@@ -88,12 +93,15 @@ export function NutritionPanel() {
             targets={targets}
             meals={day.data.entries.length}
           />
+          <WaterRow target={targets.water_min_ml} />
         </>
       ) : null}
 
       {pending.data?.map((proposal) => (
         <ProposalCard key={proposal.id} proposal={proposal} />
       ))}
+
+      <RecipeShortcuts />
 
       <MealVoiceButton onProposed={() => void pending.refetch()} />
 
@@ -265,6 +273,87 @@ function formatBounds(bounds: Bounds, unit: string): string {
 }
 
 /**
+ * RECEITAS — o atalho de um toque.
+ *
+ * O app NÃO cria receita: montar item a item é configuração, e configuração
+ * mora no web (08 §0). Aqui ela é só um botão — que é o movimento de quem está
+ * com o shake na mão.
+ *
+ * Some quando não há nenhuma salva, em vez de mostrar um vazio explicativo: a
+ * Início é a tela mais disputada do app, e um bloco que não faz nada nela custa
+ * atenção de todo dia para ensinar uma vez.
+ */
+function RecipeShortcuts() {
+  const recipes = useRecipes();
+  const log = useLogRecipe();
+  const toast = useToast();
+
+  if (!recipes.data?.length) return null;
+
+  return (
+    <View style={styles.recipes}>
+      <Text variant="bodyMuted">Receitas</Text>
+      <View style={styles.recipeRow}>
+        {recipes.data.slice(0, 6).map((r: Recipe) => (
+          <Pressable
+            key={r.id}
+            disabled={log.isPending}
+            style={styles.recipeChip}
+            onPress={() =>
+              log.mutate(
+                { id: r.id, slotId: r.slotId ?? undefined },
+                {
+                  onSuccess: () => toast.success(`${r.name} registrada`),
+                  onError: (error: unknown) => toast.error(formatErrorMessage(error)),
+                },
+              )
+            }
+          >
+            <Text variant="label">{r.name}</Text>
+            <Text variant="bodyMuted">{r.kcal} kcal</Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+/**
+ * ÁGUA — um toque, sem formulário.
+ *
+ * É o registro que mais combina com o celular: acontece dez vezes por dia, em
+ * movimento, e qualquer atrito extra faz ninguém registrar. Por isso volumes
+ * fixos em vez de campo numérico, e por isso fica na Início e não numa tela
+ * interna.
+ */
+function WaterRow({ target }: { target: number | null }) {
+  const water = useNutritionWater();
+  const add = useAddWater();
+  const total = water.data?.totalMl ?? 0;
+
+  return (
+    <View style={styles.water}>
+      <Text variant="bodyMuted">
+        Água {(total / 1000).toFixed(1)} L
+        {target ? ` de ${(target / 1000).toFixed(1)} L` : ''}
+      </Text>
+      <View style={styles.waterButtons}>
+        {[200, 300, 500].map((ml) => (
+          <Pressable
+            key={ml}
+            disabled={add.isPending}
+            onPress={() => add.mutate(ml)}
+            style={styles.waterButton}
+          >
+            <Text variant="label">+{ml}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+/**
  * Os critérios do dia. Critério desligado simplesmente não aparece — mostrá-lo
  * cinza sugeriria que está pendente, quando na verdade ele saiu da conta.
  */
@@ -293,6 +382,13 @@ function Criteria({
       key: 'meals',
       label: `${meals}/${targets.meals_min} refeições`,
       met: criteria.meals,
+    });
+  }
+  if (criteria.water !== null && targets.water_min_ml !== null) {
+    rows.push({
+      key: 'water',
+      label: `água ≥ ${(targets.water_min_ml / 1000).toFixed(1)} L`,
+      met: criteria.water,
     });
   }
   if (!rows.length) return null;
@@ -569,6 +665,33 @@ const styles = StyleSheet.create({
   },
 
   criteria: { gap: theme.spacing.xs },
+  water: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+    justifyContent: 'space-between',
+  },
+  waterButtons: { flexDirection: 'row', gap: theme.spacing.xs },
+  recipes: { gap: theme.spacing.xs },
+  recipeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.xs },
+  recipeChip: {
+    backgroundColor: theme.colors.surfaceAlt,
+    borderRadius: theme.radius.sm,
+    // 44 de altura mínima: alvo de toque confortável, como a linha da água.
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+  },
+  waterButton: {
+    backgroundColor: theme.colors.surfaceAlt,
+    borderRadius: theme.radius.sm,
+    // 44 de altura mínima: é o alvo de toque confortável, e este botão existe
+    // justamente para ser acertado sem olhar.
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: theme.spacing.sm,
+  },
   criterion: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.xs },
 
   entry: {
