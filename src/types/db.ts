@@ -4458,6 +4458,7 @@ export type Database = {
         | "failure"
         | "dropset"
         | "isometric"
+        | "duration"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -4683,6 +4684,7 @@ export const Constants = {
         "failure",
         "dropset",
         "isometric",
+        "duration",
       ],
     },
   },
