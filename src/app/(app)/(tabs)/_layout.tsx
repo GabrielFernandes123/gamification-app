@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import { StyleSheet, View, type ColorValue } from 'react-native';
 
 import { useNotificationSync } from '@/features/notifications/useNotificationSync';
+import { useTodayJourneySync } from '@/features/widgets/useTodayJourney';
 import { theme } from '@/theme/theme';
 
 function TabIcon({
@@ -36,6 +37,10 @@ function TabIcon({
 
 export default function TabsLayout() {
   useNotificationSync();
+  // Aqui, e não na Início: o widget precisa valer para quem abre o app direto
+  // em Hábitos. Fica ao lado do sync de notificação porque é o mesmo tipo de
+  // coisa — sincronizar o mundo de fora com o estado de dentro.
+  useTodayJourneySync();
   const router = useRouter();
 
   useEffect(() => {

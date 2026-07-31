@@ -27,6 +27,24 @@
 > `ModuleLauncher` passa a **abrir o web** (`EXPO_PUBLIC_WEB_URL`) para toda chave do
 > registry sem tela própria no celular.
 
+### 0.0 A segunda passada: a régua entrou nas telas 🔄 (2026-07-31)
+> O corte de 2026-07-30 tirou **rotas** e parou aí. Os painéis de leitura e de
+> configuração continuaram morando **dentro** das quatro telas que sobraram: o Corpo
+> ainda tinha um builder de metas e um gráfico de evolução, a Início ainda era um
+> console de nove queries, e Configurações ainda era a cópia inteira da tela do web.
+>
+> Nesta passada saíram: **Configurações** (nome, fuso, metas do dia, modo de morte,
+> avisos do corpo, hábitos inativos, zerar progresso) · **Metas do corpo** (CRUD) ·
+> **gráfico de medidas** · **Resumo do corpo** (semana, PRs, avisos) · **ficha da
+> divisão corporal** · **quadro de missões**, **radar da base**, **metas diárias**,
+> **tiles de loja/missões** e a **faixa do boss** na Início.
+>
+> `src/app` foi de **6.000 para 3.649 linhas** (−39%), e a Início abre com 2 queries
+> em vez de 9. Nenhuma capacidade sumiu: cada item acima já tinha par no web (§0.1).
+>
+> A única configuração que ficou é a de **permissões** — porque é do sistema
+> operacional, e o navegador não alcança.
+
 ### 0.1 O corolário: **todo módulo do app precisa de par no web** 🆕 (2026-08-01)
 > A régua do §0 só é verdade se o outro lado existir. Se o celular apenas registra,
 > **consultar, configurar e corrigir têm de existir no web** — senão não existem em
@@ -166,12 +184,12 @@ sozinho ao ser ligado.
 
 | Aba | O que faz | Por que fica no celular |
 |---|---|---|
-| **Início** | HUD · o dia · snapshot do boss + oráculo · **plano do dia / trégua** · ação rápida de refeição | é o resumo que se olha no meio do dia |
+| **Início** | HUD · cicatriz · ontem · **plano do dia / trégua** · pessoas · refeição por voz | as decisões que só podem ser tomadas agora |
 | **Hábitos** | lista + marcar/desfazer | o registro mais frequente |
 | **Corpo** | executar treino · medidas · **nutrição** | academia e mesa, longe do PC |
 | **Diário** | humor · foto do caderno · áudio · texto | registro do dia, feito onde você está |
 
-Mais **Configurações** enxuta (perfil, fuso, escudo do iOS, sair) e as telas de execução
+Mais **Ajustes** (permissões do iOS, escudo do iPhone, sair) e as telas de execução
 em full-screen que já existem (`body/workouts/[id]`).
 
 - **História/Boss deixou de ser aba** 🔄 — a tela-assinatura mora no **web**. No celular
@@ -185,29 +203,49 @@ em full-screen que já existem (`body/workouts/[id]`).
   `CharacterHud` usa `useActiveBuffs`, `HabitRow` usa a loja, o dashboard usa a
   temporada. Podar por intuição aqui quebra o HUD; poda só o que o `tsc` provar órfão.
 
-### 6.2.1 O que a Início mostra (resumo de tudo) 🔄
-A Início é o painel-resumo, não um módulo:
+### 6.2.1 O que a Início mostra 🔄 (2026-07-31 — de resumo para decisões)
+A Início **deixou de ser painel-resumo**. O teste de entrada passou a ser um só: *é uma
+decisão que só pode ser tomada agora, longe do computador?* Quem não passa, saiu — e
+com ela foram o quadro de missões, o radar da base, as metas diárias, os tiles de
+loja/missões e a **faixa do boss**.
+
+O boss é a mudança que contraria a decisão anterior desta mesma seção, e por isso vale
+o registro: a faixa era o resto de uma tela de contemplação que já tinha ido para o web
+([§8](#8-telas-novas)). Olhar o HP do boss não é decidir nada — e o `/historia`, no PC,
+está aberto o dia inteiro. Ela custava a query mais cara da tela.
+
 - **HUD do personagem** no topo (HP/XP/nível/ouro/Essência/streak global) → toque abre
-  **Personagem no web**.
+  **Personagem no web**. Fica porque é o **retorno do que você registrou**, não
+  estatística ([§0.2](#02-a-segunda-metade-da-regra-mecânica-que-muda-número-precisa-aparecer)).
 - **Plano do dia / trégua** 🆕 — quantos hábitos você declara para hoje, ou o cartão de
   trégua ativa ([14 §5.2⑦](./14-backlog-modulos-e-mecanicas.md) e [§5.3⑩](./14-backlog-modulos-e-mecanicas.md)).
 - **Ação rápida de refeição por voz** 🆕 — é a ação mais frequente do dia depois de
   hábitos; enterrá-la em Corpo › Comida custaria três toques para algo que se faz três
   vezes por dia.
-- **Hoje, em todos os módulos:** hábitos pendentes, status do treino, alertas do corpo.
-- **Snapshot do boss atual** (HP/dias/oráculo) → toque abre **História no web**.
+- **Ontem fechou sozinho** — o card de correção do fechamento automático (§0.3).
 - **Cicatriz pendente** 🆕 — quando uma morte deixou uma escolha em aberto. Vem antes
   de tudo: é a única coisa da tela esperando uma decisão, e o momento em que ela
   importa é logo depois de acontecer ([14 §5.4⑫](./14-backlog-modulos-e-mecanicas.md)).
 - **Quem está esfriando** 🆕 — até 3 pessoas e um botão de "falei". Ligar para alguém
   acontece no carro, na fila, longe do PC; se exigisse abrir o computador viraria
   "depois eu anoto", e o módulo é 90% lembrete.
-- **Metas diárias** (XP/ouro) e celebrações recentes.
+- **`ModuleLauncher`** — a porta única para tudo que vive no web (§6.1).
+
+### 6.2.2 O widget não mora mais na tela 🆕 (2026-07-31)
+O snapshot do widget do iPhone era montado **dentro da Início**, a partir das nove
+queries dela. Isso acoplava um artefato do sistema operacional a uma tela — e a tela
+acabou de perder as queries.
+
+Agora ele vem de **`GET /today`** (agregado novo na API) e é publicado por
+`useTodayJourneySync`, montado no **layout das abas**. Duas consequências boas: o widget
+atualiza mesmo para quem abre o app direto em Hábitos, e a contagem do dia passa a vir
+do servidor — a mesma fonte que paga o XP (§0.2). No app fica só o **texto** dos
+rótulos, que é apresentação.
 
 ### 6.3 Correções dos problemas atuais 🔄
-- **Abas internas do Corpo:** hoje 7 "abas" onde umas trocam painel e outras navegam pra
-  fora — comportamento ambíguo. **Unificar:** todas viram **painéis in-screen**; CRUD
-  profundo (criar exercício/divisão) vira **modal**. Sem barra dupla.
+- ✔ **Abas internas do Corpo:** resolvido em 2026-07-31 — sobraram três painéis
+  in-screen (Treinos · Medidas · Comida) e **um** ícone no header que abre `/body` no
+  web. Antes eram 5 abas e 3 ícones com destinos diferentes.
 - **Portas duplicadas:** Skills e Side Quests têm aba escondida (`href:null`) **e** tela
   full-screen. **Remover a duplicação** — manter só a tela acessada pelo dashboard.
 - **"Histórico":** corrigir o typo "Historico" (sem acento) em todos os lugares.
@@ -230,7 +268,7 @@ A Início é o painel-resumo, não um módulo:
   **mais imersiva e diferenciada** e a **única exceção sancionada** aos arquétipos
   (§1/§4). Saiu do celular porque é leitura e contemplação, não registro em movimento
   (§0) — e porque a tela grande é onde arte, capítulos e árvore de bosses cabem de
-  verdade. No app fica só o snapshot na Início. Pode usar layout
+  verdade. **No app não ficou nada** — nem o snapshot (§6.2.1, 2026-07-31). Pode usar layout
   full-bleed, atmosfera, arte e animação para criar a sensação de **jornada/batalha**,
   **mantendo-se nos design tokens** (§2) para coesão de marca. Reúne tudo num só lugar:
   - o **arco/história** (capítulos, marcos de dano tecidos no texto, árvore de bosses
@@ -250,15 +288,34 @@ A Início é o painel-resumo, não um módulo:
 2. ✔ **Abas inferiores (4):** Início · Hábitos · Corpo · Diário.
 3. ✔ **Histórico** não é aba nem tela do app — vive no web.
 4. ✔ **História/Boss** = a tela mais incrível/diferenciada (exceção sancionada, §8),
-   **no web**; no celular só o snapshot na Início.
-5. ✔ **Início** é home-resumo real (§6.2.1), agora com plano do dia e refeição por voz.
-6. ✔ **Vocabulário PT** fixado no glossário (§11).
+   **no web**; no celular, **nada** — nem o snapshot. *(2026-07-31, §6.2.1.)*
+5. ✔ **Início** é a tela das decisões do dia, não um resumo (§6.2.1). *(2026-07-31 —
+   substitui a decisão anterior, que a definia como home-resumo.)*
+6. ✔ **A única configuração do app é permissão** (§0.0). Perfil, fuso, metas, modo de
+   morte e avisos vivem no web. *(2026-07-31.)*
+7. ✔ **Corpo tem três painéis:** Treinos · Medidas · Comida. Metas, gráficos, divisões e
+   exercícios são web. *(2026-07-31.)*
+8. ✔ **O widget vem de `GET /today`**, montado no layout das abas (§6.2.2). *(2026-07-31.)*
+9. ✔ **Vocabulário PT** fixado no glossário (§11).
 
 ### 10.1 Histórico da decisão
 Até 2026-07-30 o app tinha **5 abas** (Início · Hábitos · Corpo · Loja · História/Boss) e
 espelhava quase todo o web. A mudança não foi de gosto: era manutenção dupla de telas que
 o dono abria no PC de qualquer jeito. O que se ganhou foi espaço para o que só o celular
 faz — HealthKit, microfone e câmera —, tudo entrando na mesma build.
+
+Em **2026-07-31** veio a segunda passada (§0.0). A de 2026-07-30 tinha tirado rotas; esta
+entrou nas telas que ficaram, onde a leitura e a configuração continuavam escondidas
+dentro de abas internas. Duas decisões foram **revertidas** em vez de estendidas:
+
+- a **faixa do boss na Início** (decisão 4 anterior) — mantê-la fazia sentido enquanto a
+  Início era resumo; deixou de fazer quando ela virou a tela das decisões;
+- a **Início como home-resumo** (decisão 5 anterior) — o resumo é justamente o que o web
+  e os widgets do Electron entregam melhor, no monitor que fica aberto o dia todo.
+
+Junto foi o `openWeb`: como o corte transformou esse helper no único caminho para tudo
+que saiu, ele passou a **carregar a sessão** para o Safari (fragment + `/auth/handoff` no
+web). Sem isso, cada link teria terminado numa tela de login.
 
 ## 11. Glossário de vocabulário PT 🆕 (fonte única dos rótulos de UI)
 Um rótulo por conceito — usar **exatamente** estes na UI; não criar sinônimos por tela.

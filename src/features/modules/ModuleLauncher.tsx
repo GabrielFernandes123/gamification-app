@@ -24,12 +24,14 @@ const APP_ROUTES: Record<string, Href> = {
   habit: '/(app)/(tabs)/habits',
   workout: '/(app)/(tabs)/body',
   cardio: '/(app)/(tabs)/body',
-  body_goal: '/(app)/(tabs)/body',
   body_measurement: '/(app)/(tabs)/body',
-  sleep: '/(app)/(tabs)/body',
   // Nutrição é painel dentro de Corpo; Diário tem aba própria.
   nutrition: '/(app)/(tabs)/body',
   journal: '/(app)/(tabs)/diario',
+  // `body_goal` e `sleep` saíram desta lista em 2026-07-31: o painel de metas
+  // do corpo foi para o web e o sono nunca teve tela no app — ele entra sozinho
+  // pelo HealthKit. Apontar para a aba Corpo levaria a uma tela que não fala do
+  // assunto, que é pior do que abrir o site.
 };
 
 /**
@@ -51,6 +53,10 @@ const WEB_ROUTES: Record<string, string> = {
   bucket: '/bucket',
   relationship: '/relationships',
   work: '/work',
+  // Saíram do app em 2026-07-31 e precisam de destino explícito: o fallback
+  // `/${key}` daria `/body_goal` e `/sleep`, que não existem no web.
+  body_goal: '/body',
+  sleep: '/settings',
   // As quatro abaixo estão `ativo = false` no registry hoje, e é só por isso
   // que o fallback `/${key}` nunca as levou para o NotFoundPage — `achievement`
   // daria `/achievement`, e a rota é `/achievements`. Mapeadas para o dia em

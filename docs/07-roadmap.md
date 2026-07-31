@@ -104,6 +104,22 @@ Nada disso está listado acima porque nada disso precisou de fase própria — �
 prova retroativa de que a ordem estava certa. O rastreamento é no
 [14 §11](./14-backlog-modulos-e-mecanicas.md).
 
+### Enxugamento do app — 2ª passada ✅ (2026-07-31)
+Não é fase de roadmap (não destrava nada; é dívida de superfície), mas mexeu em código
+de todos os lados e merece registro:
+
+- **App:** Configurações virou **Permissões** (as outras vivem no web) · Corpo perdeu
+  metas, gráfico, resumo e ficha de divisão · Início virou a tela das decisões do dia.
+  `src/app`: **6.000 → 3.649 linhas** (−39%); `features/objectives`, `features/season/hooks`,
+  `features/warroom`, `features/settings` e `features/health/hooks/useSleep.ts` ficaram
+  órfãos e saíram, junto com 21 hooks de `useBody.ts`.
+- **API:** `GET /today` — agregado novo que alimenta o widget do iPhone e substitui as
+  nove queries que a Início fazia.
+- **Web:** `/auth/handoff` — recebe a sessão do app pelo fragment, para os links do
+  celular não caírem no login.
+
+Detalhe e razões em [08 §0.0 e §10.1](./08-navegacao-ux.md).
+
 ---
 
 ## Resumo visual
@@ -117,5 +133,6 @@ prova retroativa de que a ordem estava certa. O rastreamento é no
 6 Narrativa/IA (história+personalização)   ✅
 7 Polimento (ouro, morte, tiers longos)    ✅
 ─────────────────────────────────────────────
+  enxugamento do app, 2ª passada           ✅ (2026-07-31)
   daqui em diante: 14 §11
 ```

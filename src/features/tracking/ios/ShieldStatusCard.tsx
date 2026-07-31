@@ -1,5 +1,5 @@
 import { RefreshCw, ShieldAlert, ShieldCheck } from 'lucide-react-native';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import * as DeviceActivity from 'react-native-device-activity';
 
@@ -19,13 +19,41 @@ import { useShieldSync } from './useShieldSync';
 export function ShieldStatusCard() {
   const { result, syncing, sync } = useShieldSync();
   const [authorizing, setAuthorizing] = useState(false);
+  // Estado lido do PRÓPRIO iOS, não inferido do sync (ver abaixo).
+  const [authStatus, setAuthStatus] = useState<number | null>(null);
+  const disponivel = Platform.OS === 'ios' && DeviceActivity.isAvailable();
 
-  if (Platform.OS !== 'ios' || !DeviceActivity.isAvailable()) return null;
+  const refreshAuth = useCallback(() => {
+    if (!disponivel) return;
+    try {
+      setAuthStatus(DeviceActivity.getAuthorizationStatus());
+    } catch {
+      setAuthStatus(null);
+    }
+  }, [disponivel]);
+
+  useEffect(() => {
+    refreshAuth();
+  }, [refreshAuth, result]);
+
+  if (!disponivel) return null;
 
   const ok = result?.ok === true;
   const message = describe(result);
-  // reinstalar o app revoga a autorização no iOS, então este caminho é comum
-  const needsAuth = result?.ok === false && result.reason === 'unauthorized';
+
+  /**
+   * A autorização vem do iOS, NÃO do resultado do sync.
+   *
+   * Antes o botão só aparecia com `result.reason === 'unauthorized'` — e o
+   * `syncShield` chama `fetchPolicy()` ANTES de checar autorização. Numa
+   * instalação nova com a API fora do ar, o sync morria em `reason: 'error'`
+   * e o botão de autorizar nunca aparecia: dava para ficar sem nenhum caminho
+   * na interface para conceder o Tempo de Uso.
+   *
+   * 0 = não perguntado · 1 = negado · 2 = concedido.
+   */
+  const concedido = authStatus === 2;
+  const negado = authStatus === 1;
 
   async function authorize() {
     setAuthorizing(true);
@@ -35,6 +63,7 @@ export function ShieldStatusCard() {
     } catch {
       // negar cai aqui; o card continua mostrando o estado
     } finally {
+      refreshAuth();
       setAuthorizing(false);
     }
   }
@@ -63,12 +92,22 @@ export function ShieldStatusCard() {
           Falha ao armar: {result.failures.join(' · ')}
         </Text>
       ) : null}
-      {needsAuth ? (
-        <Button
-          label="Autorizar Tempo de Uso"
-          loading={authorizing}
-          onPress={() => void authorize()}
-        />
+      {/* Passo 1 do fluxo, sempre visível enquanto não concedido — sem ele o
+          resto do módulo não sobe, e depender do sync para exibi-lo criava um
+          beco sem saída quando o sync falhava por outro motivo. */}
+      {!concedido ? (
+        <>
+          <Text variant="label" color={negado ? theme.colors.hp : theme.colors.gold}>
+            {negado
+              ? 'Autorização NEGADA. O iOS não pergunta de novo: vá em Ajustes → Tempo de Uso e libere o Evolve.'
+              : 'O Tempo de Uso ainda não foi autorizado — sem isso o bloqueio não sobe.'}
+          </Text>
+          <Button
+            label={negado ? 'Tentar autorizar de novo' : 'Autorizar Tempo de Uso'}
+            loading={authorizing}
+            onPress={() => void authorize()}
+          />
+        </>
       ) : null}
       <Button
         label="Sincronizar agora"

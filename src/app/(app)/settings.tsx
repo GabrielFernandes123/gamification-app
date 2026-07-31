@@ -1,94 +1,34 @@
 import { useRouter } from 'expo-router';
-import { Bell, ChevronLeft, LogOut, RotateCcw, ShieldAlert, X } from 'lucide-react-native';
-import { useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { ChevronLeft, ExternalLink, LogOut } from 'lucide-react-native';
+import { StyleSheet, Pressable, View } from 'react-native';
 
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { useConfirm } from '@/components/ui/ConfirmDialog';
-import { Input } from '@/components/ui/Input';
-import { NumericPickerField } from '@/components/ui/NumericPickerField';
 import { Screen } from '@/components/ui/Screen';
-import { Segmented } from '@/components/ui/Segmented';
 import { Text } from '@/components/ui/Text';
-import { useToast } from '@/components/ui/Toast';
-import { useBodyAlertSettings, useUpsertBodyAlertSettings } from '@/features/body/hooks/useBody';
-import { useCharacter, useProfile } from '@/features/character/hooks/useCharacter';
+import { PermissionsPanel } from '@/features/permissions/PermissionsPanel';
 import { ShieldPanel } from '@/features/tracking/ios/ShieldPanel';
-import {
-  useInactiveHabits,
-  useReactivateHabit,
-  useResetProgress,
-  useUpdateGoals,
-  useUpdateProfile,
-} from '@/features/settings/hooks/useSettings';
+import { openWeb } from '@/lib/openWeb';
 import { useAuth } from '@/providers/AuthProvider';
 import { theme } from '@/theme/theme';
-import { todayInTz } from '@/utils/date';
-import { formatErrorMessage } from '@/utils/errors';
 
-const TIMEZONES = [
-  { value: 'America/Cuiaba', label: 'Cuiabá' },
-  { value: 'America/Sao_Paulo', label: 'São Paulo' },
-  { value: 'America/Manaus', label: 'Manaus' },
-  { value: 'America/Fortaleza', label: 'Fortaleza' },
-  { value: 'America/Rio_Branco', label: 'Rio Branco' },
-  { value: 'UTC', label: 'UTC' },
-];
-
-const DEATH_MODES = [
-  { value: 'seasonal', label: 'Temporada' },
-  { value: 'soft', label: 'Leve' },
-  { value: 'hardcore', label: 'Hardcore' },
-];
-
+/**
+ * Ajustes do app — e só o que é do APARELHO.
+ *
+ * Esta tela já foi a cópia inteira das configurações do web: nome, fuso, metas
+ * de XP/ouro, modo de morte, avisos do corpo, hábitos inativos e o reset de
+ * progresso. Tudo isso saiu (doc 08 §0): configurar é decisão pensada, feita
+ * sentado, e viver em dois lugares só criava manutenção dupla e a dúvida de
+ * qual dos dois estava certo.
+ *
+ * Ficou o que o navegador **não consegue**:
+ * - **permissões**, que são do sistema operacional;
+ * - o **escudo do iPhone**, cujo seletor de apps devolve um token opaco que só
+ *   existe dentro do aparelho.
+ */
 export default function SettingsScreen() {
   const router = useRouter();
   const { signOut } = useAuth();
-  const profile = useProfile();
-  const character = useCharacter();
-  const bodyAlerts = useBodyAlertSettings();
-  const updateProfile = useUpdateProfile();
-  const updateGoals = useUpdateGoals();
-  const updateBodyAlerts = useUpsertBodyAlertSettings();
-  const inactive = useInactiveHabits();
-  const reactivate = useReactivateHabit();
-  const toast = useToast();
-
-  const [nameDraft, setNameDraft] = useState<string | null>(null);
-  const [tzDraft, setTzDraft] = useState<string | null>(null);
-  const [xpGoalDraft, setXpGoalDraft] = useState<number | null>(null);
-  const [goldGoalDraft, setGoldGoalDraft] = useState<number | null>(null);
-  const [deathModeDraft, setDeathModeDraft] = useState<string | null>(null);
-  const [workoutDaysDraft, setWorkoutDaysDraft] = useState<number | null>(null);
-  const [measurementDaysDraft, setMeasurementDaysDraft] = useState<number | null>(null);
-  const [partDaysDraft, setPartDaysDraft] = useState<number | null>(null);
-
-  const name = nameDraft ?? profile.data?.display_name ?? '';
-  const tz = tzDraft ?? profile.data?.timezone ?? 'America/Cuiaba';
-  const xpGoal = xpGoalDraft ?? character.data?.daily_xp_goal ?? 400;
-  const goldGoal = goldGoalDraft ?? character.data?.daily_gold_goal ?? 50;
-  const deathMode = deathModeDraft ?? character.data?.death_mode ?? 'seasonal';
-  const workoutDays = workoutDaysDraft ?? bodyAlerts.data?.workout_stale_days ?? 5;
-  const measurementDays = measurementDaysDraft ?? bodyAlerts.data?.measurement_stale_days ?? 14;
-  const partDays = partDaysDraft ?? bodyAlerts.data?.body_part_stale_days ?? 10;
-
-  const saving = updateProfile.isPending || updateGoals.isPending || updateBodyAlerts.isPending;
-
-  async function onSave() {
-    try {
-      await updateProfile.mutateAsync({ display_name: name.trim() || null, timezone: tz });
-      await updateGoals.mutateAsync({ daily_xp_goal: xpGoal, daily_gold_goal: goldGoal, death_mode: deathMode });
-      await updateBodyAlerts.mutateAsync({
-        workout_stale_days: workoutDays,
-        measurement_stale_days: measurementDays,
-        body_part_stale_days: partDays,
-      });
-      toast.success('Configurações salvas', `Hoje no fuso selecionado: ${todayInTz(tz)}.`);
-    } catch (e) {
-      toast.error('Erro ao salvar', formatErrorMessage(e));
-    }
-  }
 
   return (
     <Screen scroll contentStyle={styles.content}>
@@ -96,78 +36,30 @@ export default function SettingsScreen() {
         <Pressable onPress={() => router.back()} hitSlop={10} accessibilityLabel="Voltar">
           <ChevronLeft color={theme.colors.text} size={26} />
         </Pressable>
-        <Text variant="h1">Configurações</Text>
+        <Text variant="h1">Ajustes</Text>
         <View style={{ width: 26 }} />
       </View>
 
-      <Input label="Nome" value={name} onChangeText={setNameDraft} placeholder="Seu nome" />
+      <PermissionsPanel />
 
-      <Field label="Fuso horário">
-        <Segmented options={TIMEZONES} value={tz} onChange={setTzDraft} wrap />
-        <Text variant="bodyMuted">Data usada nos hábitos: {todayInTz(tz)}</Text>
-      </Field>
+      <ShieldPanel />
 
-      <NumericPickerField label="Meta diária de XP" title="Meta diária de XP" value={xpGoal} onChange={(v) => setXpGoalDraft(v ?? 0)} min={0} max={100000} step={50} unit="XP" />
-      <NumericPickerField label="Meta diária de ouro" title="Meta diária de ouro" value={goldGoal} onChange={(v) => setGoldGoalDraft(v ?? 0)} min={0} max={100000} step={10} unit="ouro" />
-
-      <Field label="Morte">
-        <Segmented options={DEATH_MODES} value={deathMode} onChange={setDeathModeDraft} wrap />
-        <Text variant="bodyMuted">
-          Temporada reduz ouro e sequência; Leve reduz pouco; Hardcore reinicia XP, ouro e progresso volátil.
-        </Text>
-      </Field>
-
-      <Card style={styles.alertCard}>
-        <View style={styles.alertHeader}>
-          <View style={styles.alertIcon}>
-            <Bell color={theme.colors.textInverse} size={20} />
-          </View>
-          <View style={styles.flex}>
-            <Text variant="title">Avisos do corpo</Text>
-            <Text variant="bodyMuted">Depois de quantos dias o resumo deve alertar.</Text>
-          </View>
+      <Card style={styles.webCard}>
+        <View>
+          <Text variant="title">Configurações do personagem</Text>
+          <Text variant="bodyMuted">
+            Nome, fuso, metas do dia, modo de morte, avisos do corpo e hábitos
+            arquivados ficam no site — são decisões de mesa, não de bolso.
+          </Text>
         </View>
-        {bodyAlerts.isLoading ? (
-          <ActivityIndicator color={theme.colors.primary} />
-        ) : (
-          <>
-            <NumericPickerField label="Sem treinar" value={workoutDays} onChange={(v) => setWorkoutDaysDraft(v ?? 1)} min={1} max={60} unit="dias" />
-            <NumericPickerField label="Sem medir" value={measurementDays} onChange={(v) => setMeasurementDaysDraft(v ?? 1)} min={1} max={90} unit="dias" />
-            <NumericPickerField label="Divisão sem estímulo" value={partDays} onChange={(v) => setPartDaysDraft(v ?? 1)} min={1} max={60} unit="dias" />
-          </>
-        )}
+        <Button
+          label="Abrir no site"
+          variant="outline"
+          icon={<ExternalLink color={theme.colors.text} size={16} />}
+          onPress={() => void openWeb('/settings')}
+          fullWidth
+        />
       </Card>
-
-      <Button label="Salvar" onPress={onSave} loading={saving} fullWidth />
-
-      <View style={styles.section}>
-        <Text variant="h2">Hábitos inativos</Text>
-        {(inactive.data ?? []).length === 0 ? (
-          <Text variant="bodyMuted">Nenhum hábito inativo.</Text>
-        ) : (
-          (inactive.data ?? []).map((h) => (
-            <Card key={h.id} style={styles.inactiveRow}>
-              <Text variant="title" style={styles.inactiveName} numberOfLines={1}>
-                {h.name}
-              </Text>
-              <Button
-                label="Reativar"
-                size="sm"
-                variant="outline"
-                icon={<RotateCcw color={theme.colors.text} size={16} />}
-                onPress={() =>
-                  reactivate.mutate(h.id, {
-                    onSuccess: () => toast.success('Hábito reativado', h.name),
-                    onError: (e) => toast.error('Erro ao reativar', formatErrorMessage(e)),
-                  })
-                }
-              />
-            </Card>
-          ))
-        )}
-      </View>
-
-      <DangerZone />
 
       <Button
         label="Sair"
@@ -178,128 +70,6 @@ export default function SettingsScreen() {
         style={styles.signOut}
       />
     </Screen>
-  );
-}
-
-const RESET_CONFIRM_WORD = 'RESETAR';
-
-// Zona de perigo: reset total do progresso, com confirmação em duas etapas
-// (confirm destrutivo + digitar RESETAR) dado o impacto irreversível.
-function DangerZone() {
-  const confirm = useConfirm();
-  const toast = useToast();
-  const resetProgress = useResetProgress();
-  const [modalOpen, setModalOpen] = useState(false);
-  const [confirmText, setConfirmText] = useState('');
-
-  async function onRequestReset() {
-    const ok = await confirm({
-      title: 'Zerar todo o progresso?',
-      message:
-        'XP, ouro, sequências, níveis de skills/corpo e todos os registros de hábitos serão apagados. Hábitos, treinos e recompensas cadastrados são mantidos. Isso não pode ser desfeito.',
-      confirmLabel: 'Continuar',
-      destructive: true,
-    });
-    if (!ok) return;
-    setConfirmText('');
-    setModalOpen(true);
-  }
-
-  function onConfirmReset() {
-    if (confirmText.trim().toUpperCase() !== RESET_CONFIRM_WORD) return;
-    resetProgress.mutate(undefined, {
-      onSuccess: (result) => {
-        setModalOpen(false);
-        toast.success(
-          'Progresso zerado',
-          `${result.habitLogsDeleted} registro(s) de hábito apagado(s). Recomeço limpo.`,
-        );
-      },
-      onError: (e) => toast.error('Erro ao resetar', formatErrorMessage(e)),
-    });
-  }
-
-  const canConfirm = confirmText.trim().toUpperCase() === RESET_CONFIRM_WORD;
-
-  return (
-    <View style={styles.section}>
-      <Text variant="h2" color={theme.colors.hp}>
-        Zona de perigo
-      </Text>
-      {/* Escudo do iPhone: a única parte de Tempo de tela que NÃO pode viver no
-          web — o seletor de apps do iOS devolve um token opaco e só funciona no
-          aparelho. */}
-      <ShieldPanel />
-
-      <Card accent={theme.colors.hp} style={styles.dangerCard}>
-        <View style={styles.alertHeader}>
-          <View style={[styles.alertIcon, styles.dangerIcon]}>
-            <ShieldAlert color={theme.colors.textInverse} size={20} />
-          </View>
-          <View style={styles.flex}>
-            <Text variant="title">Zerar progresso</Text>
-            <Text variant="bodyMuted">
-              Volta XP, ouro, HP e sequências ao início. Ação irreversível.
-            </Text>
-          </View>
-        </View>
-        <Button
-          label="Zerar todo o progresso"
-          variant="danger"
-          onPress={onRequestReset}
-          loading={resetProgress.isPending}
-          fullWidth
-        />
-      </Card>
-
-      <Modal
-        visible={modalOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setModalOpen(false)}
-      >
-        <View style={styles.backdrop}>
-          <Card accent={theme.colors.hp} style={styles.dangerCard}>
-            <View style={styles.modalHeader}>
-              <Text variant="h2" color={theme.colors.hp}>
-                Última confirmação
-              </Text>
-              <Pressable onPress={() => setModalOpen(false)} hitSlop={10} accessibilityLabel="Fechar">
-                <X color={theme.colors.textMuted} size={22} />
-              </Pressable>
-            </View>
-            <Text variant="bodyMuted">
-              Para confirmar, digite {RESET_CONFIRM_WORD} abaixo. Todo o progresso do personagem
-              será zerado.
-            </Text>
-            <Input
-              label={`Digite ${RESET_CONFIRM_WORD}`}
-              value={confirmText}
-              onChangeText={setConfirmText}
-              placeholder={RESET_CONFIRM_WORD}
-              autoCapitalize="characters"
-            />
-            <Button
-              label="Zerar de vez"
-              variant="danger"
-              disabled={!canConfirm}
-              loading={resetProgress.isPending}
-              onPress={onConfirmReset}
-              fullWidth
-            />
-          </Card>
-        </View>
-      </Modal>
-    </View>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <View style={styles.field}>
-      <Text variant="label">{label}</Text>
-      {children}
-    </View>
   );
 }
 
@@ -315,46 +85,6 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
     padding: theme.spacing.md,
   },
-  field: { gap: theme.spacing.sm },
-  flex: { flex: 1, minWidth: 0 },
-  alertCard: { gap: theme.spacing.md },
-  alertHeader: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md },
-  alertIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: theme.radius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.primaryBright,
-    backgroundColor: theme.colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  section: { gap: theme.spacing.md, marginTop: theme.spacing.md },
-  inactiveRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: theme.spacing.md,
-    borderRadius: theme.radius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surfaceSoft,
-    padding: theme.spacing.md,
-  },
-  inactiveName: { flex: 1 },
+  webCard: { gap: theme.spacing.md },
   signOut: { marginTop: theme.spacing.lg },
-  dangerCard: { gap: theme.spacing.md },
-  dangerIcon: { backgroundColor: theme.colors.hp, borderColor: theme.colors.hp },
-  backdrop: {
-    flex: 1,
-    backgroundColor: theme.colors.overlay,
-    justifyContent: 'center',
-    padding: theme.spacing.lg,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: theme.spacing.md,
-  },
 });
