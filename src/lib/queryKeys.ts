@@ -61,6 +61,7 @@ export const qk = {
   nutritionFoods: (query: string) => ['nutritionFoods', query] as const,
   nutritionPending: ['nutritionPending'] as const,
   nutritionMealSlots: ['nutritionMealSlots'] as const,
+  nutritionRecent: ['nutritionRecent'] as const,
   planToday: ['planToday'] as const,
   relationships: ['relationships'] as const,
   scars: ['scars'] as const,

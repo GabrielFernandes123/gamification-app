@@ -1,4 +1,4 @@
-import { Check, Plus, Search, Trash2, Utensils, X } from 'lucide-react-native';
+import { Check, Plus, Repeat, Search, Trash2, Utensils, X } from 'lucide-react-native';
 import { useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, View } from 'react-native';
 
@@ -24,7 +24,9 @@ import {
   useMealSlots,
   useNutritionDay,
   useNutritionPending,
+  useRecentMeals,
   useRemoveMeal,
+  useRepeatMeal,
   type Bounds,
   type DaySlot,
   type Food,
@@ -316,6 +318,14 @@ function Criteria({
   );
 }
 
+type PickedItem = {
+  food: Food;
+  /** Preenchido = registro por porção; nulo = por gramas. */
+  portionId: string | null;
+  portions: number;
+  quantityG: number | null;
+};
+
 /** Registro manual: busca no catálogo, escolhe a porção, soma na refeição. */
 function AddMealModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const toast = useToast();
@@ -323,8 +333,10 @@ function AddMealModal({ visible, onClose }: { visible: boolean; onClose: () => v
   const slots = useMealSlots();
   const [slotId, setSlotId] = useState('');
   const [query, setQuery] = useState('');
-  const [picked, setPicked] = useState<{ food: Food; quantityG: number }[]>([]);
+  const [picked, setPicked] = useState<PickedItem[]>([]);
   const search = useFoodSearch(query);
+  const recent = useRecentMeals();
+  const repeat = useRepeatMeal();
 
   const options = (slots.data ?? []).map((slot) => ({
     value: slot.id,
@@ -340,19 +352,44 @@ function AddMealModal({ visible, onClose }: { visible: boolean; onClose: () => v
     onClose();
   }
 
+  /** Ao escolher o alimento, a porção PADRÃO dele já vem selecionada. */
+  function pick(food: Food) {
+    const padrao = food.portions?.find((p) => p.isDefault) ?? food.portions?.[0];
+    setPicked((current) => [
+      ...current,
+      padrao
+        ? { food, portionId: padrao.id, portions: 1, quantityG: null }
+        : { food, portionId: null, portions: 1, quantityG: 100 },
+    ]);
+    setQuery('');
+  }
+
   async function save() {
     try {
       await create.mutateAsync({
         slotId: value,
-        items: picked.map((item) => ({
-          foodId: item.food.id,
-          quantityG: item.quantityG,
-        })),
+        // Porção manda `portionId` + quantas; as gramas saem da linha dela no
+        // servidor. O app não multiplica — mesma regra do macro.
+        items: picked.map((item) =>
+          item.portionId
+            ? { foodId: item.food.id, portionId: item.portionId, portions: item.portions }
+            : { foodId: item.food.id, quantityG: item.quantityG ?? 100 },
+        ),
       });
       toast.success('Refeição registrada');
       close();
     } catch (error) {
       toast.error('Não deu para registrar', formatErrorMessage(error));
+    }
+  }
+
+  async function repetir(id: string) {
+    try {
+      const result = await repeat.mutateAsync({ id, slotId: value });
+      toast.success('Refeição repetida', `${Math.round(result.totals.kcal)} kcal`);
+      close();
+    } catch (error) {
+      toast.error('Não deu para repetir', formatErrorMessage(error));
     }
   }
 
@@ -371,11 +408,35 @@ function AddMealModal({ visible, onClose }: { visible: boolean; onClose: () => v
 
           <Segmented options={options} value={value} onChange={setSlotId} wrap />
 
+          {/* REPETIR primeiro: na cozinha, montar a mesma refeição item por item
+              é o que faz o registro ser abandonado. Um toque resolve o caso mais
+              comum, e ele fica antes da busca por isso. */}
+          {(recent.data ?? []).length > 0 ? (
+            <View style={styles.results}>
+              {(recent.data ?? []).slice(0, 3).map((meal) => (
+                <Pressable
+                  key={meal.id}
+                  style={styles.result}
+                  accessibilityRole="button"
+                  disabled={repeat.isPending}
+                  onPress={() => void repetir(meal.id)}
+                  accessibilityLabel={`Repetir ${meal.items.map((i) => i.name).join(', ')}`}
+                >
+                  <Repeat color={theme.colors.textSubtle} size={14} />
+                  <Text variant="body" style={styles.flex} numberOfLines={1}>
+                    {meal.items.map((item) => item.name).join(' + ')}
+                  </Text>
+                  <Text variant="label">{Math.round(meal.kcal)} kcal</Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+
           <Input
-            label="Buscar na tabela TACO"
+            label="Buscar no catálogo"
             value={query}
             onChangeText={setQuery}
-            placeholder="frango, arroz, banana..."
+            placeholder="frango, arroz, meu whey..."
             autoCorrect={false}
           />
 
@@ -388,14 +449,14 @@ function AddMealModal({ visible, onClose }: { visible: boolean; onClose: () => v
                   key={food.id}
                   style={styles.result}
                   accessibilityRole="button"
-                  onPress={() => {
-                    setPicked((current) => [...current, { food, quantityG: 100 }]);
-                    setQuery('');
-                  }}
+                  onPress={() => pick(food)}
                 >
                   <Search color={theme.colors.textSubtle} size={14} />
                   <Text variant="body" style={styles.flex} numberOfLines={1}>
                     {food.name}
+                    {/* O alimento que VOCÊ cadastrou fica marcado: dois "whey",
+                        um da TACO e um seu, seriam indistinguíveis. */}
+                    {food.isCustom ? ' · seu' : ''}
                   </Text>
                   <Text variant="label">{Math.round(food.kcal)} kcal/100g</Text>
                 </Pressable>
@@ -405,22 +466,58 @@ function AddMealModal({ visible, onClose }: { visible: boolean; onClose: () => v
 
           {picked.map((item, index) => (
             <View key={`${item.food.id}-${index}`} style={styles.pickedRow}>
-              <Text variant="bodyMedium" style={styles.flex} numberOfLines={1}>
-                {item.food.name}
-              </Text>
+              <View style={styles.flex}>
+                <Text variant="bodyMedium" numberOfLines={1}>
+                  {item.food.name}
+                </Text>
+                {/* Porção OU gramas. Com porção cadastrada, o passo é "quantas
+                    fatias" — que é como se pensa na cozinha, sem balança. */}
+                {(item.food.portions ?? []).length > 0 ? (
+                  <Segmented
+                    options={[
+                      ...(item.food.portions ?? []).map((portion) => ({
+                        value: portion.id,
+                        label: portion.label,
+                      })),
+                      { value: 'g', label: 'gramas' },
+                    ]}
+                    value={item.portionId ?? 'g'}
+                    onChange={(next) =>
+                      setPicked((current) =>
+                        current.map((entry, i) =>
+                          i === index
+                            ? next === 'g'
+                              ? { ...entry, portionId: null, quantityG: 100 }
+                              : { ...entry, portionId: next, quantityG: null, portions: 1 }
+                            : entry,
+                        ),
+                      )
+                    }
+                    wrap
+                  />
+                ) : null}
+              </View>
               <NumberStepper
-                value={item.quantityG}
+                value={item.portionId ? item.portions : (item.quantityG ?? 100)}
                 onChange={(value) =>
                   setPicked((current) =>
                     current.map((entry, i) =>
-                      i === index ? { ...entry, quantityG: value } : entry,
+                      i === index
+                        ? entry.portionId
+                          ? { ...entry, portions: value }
+                          : { ...entry, quantityG: value }
+                        : entry,
                     ),
                   )
                 }
                 min={1}
-                max={5000}
-                step={10}
-                accessibilityLabel={`Gramas de ${item.food.name}`}
+                max={item.portionId ? 50 : 5000}
+                step={item.portionId ? 1 : 10}
+                accessibilityLabel={
+                  item.portionId
+                    ? `Quantas porções de ${item.food.name}`
+                    : `Gramas de ${item.food.name}`
+                }
               />
               <Pressable
                 onPress={() => setPicked((current) => current.filter((_, i) => i !== index))}

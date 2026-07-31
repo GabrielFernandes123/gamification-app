@@ -75,6 +75,14 @@ export type DaySlot = MealSlot & {
   consumed: Totals;
 };
 
+/** Porção doméstica: o rótulo e o peso que ele significa (fase 3). */
+export type FoodPortion = {
+  id: string;
+  label: string;
+  grams: number;
+  isDefault: boolean;
+};
+
 export type Food = {
   id: string;
   name: string;
@@ -83,6 +91,23 @@ export type Food = {
   proteinG: number;
   carbG: number;
   fatG: number;
+  /** Fase 3: o alimento cadastrado por você, e as porções dele. */
+  brand: string | null;
+  isCustom: boolean;
+  portions: FoodPortion[];
+};
+
+/**
+ * Item como o app pede: gramas OU porção.
+ *
+ * Com `portionId`, as gramas saem da linha da porção no SERVIDOR — o app não
+ * multiplica nada, pela mesma razão que não calcula macro.
+ */
+export type MealItemInput = {
+  foodId: string;
+  quantityG?: number;
+  portionId?: string;
+  portions?: number;
 };
 
 export type NutritionItem = {
@@ -228,7 +253,7 @@ export function useCreateMeal() {
       slotId: string;
       occurredOn?: string;
       note?: string;
-      items: { foodId: string; quantityG: number }[];
+      items: MealItemInput[];
     }) => apiFetch('/nutrition/entries', { method: 'POST', body: input }),
     onSuccess: () => invalidateNutrition(qc),
   });
@@ -302,6 +327,46 @@ export function useRejectProposal() {
     mutationFn: (id: string) =>
       apiFetch(`/nutrition/pending/${id}/reject`, { method: 'POST' }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: qk.nutritionPending }),
+  });
+}
+
+/**
+ * REFEIÇÕES RECENTES e REPETIR (fase 3).
+ *
+ * No celular isso vale mais que em qualquer outro lugar: o café da manhã de
+ * sempre são os mesmos itens, e montá-lo do zero na cozinha, item por item, é o
+ * que faz o registro ser abandonado. Cadastrar alimento continua só no web — o
+ * app registra, o web configura (doc 08 §0).
+ */
+export type RecentMeal = {
+  id: string;
+  slotId: string | null;
+  mealName: string;
+  lastOn: string;
+  kcal: number;
+  timesLogged: number;
+  items: { foodId: string | null; name: string; quantityG: number }[];
+};
+
+export function useRecentMeals() {
+  return useQuery({
+    queryKey: qk.nutritionRecent,
+    queryFn: () => apiFetch<RecentMeal[]>('/nutrition/recent'),
+  });
+}
+
+export function useRepeatMeal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { id: string; slotId?: string }) =>
+      apiFetch<{ totals: { kcal: number } }>(
+        `/nutrition/entries/${input.id}/repeat`,
+        { method: 'POST', body: { slotId: input.slotId } },
+      ),
+    onSuccess: () => {
+      invalidateNutrition(qc);
+      void qc.invalidateQueries({ queryKey: qk.nutritionRecent });
+    },
   });
 }
 
