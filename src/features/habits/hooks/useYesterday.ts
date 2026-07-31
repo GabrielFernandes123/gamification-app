@@ -36,14 +36,28 @@ export function useYesterdayPending() {
   });
 }
 
+/**
+ * "Eu recaí" de ontem passou a custar o MESMO que recair na hora — mesma função
+ * de dano na API (PONTOS-SOLTOS §C.2). Por isso a correção agora devolve também
+ * o porquê do número, como o `relapse()` sempre devolveu.
+ */
+export type CorrectYesterdayResult = {
+  corrected: 'done' | 'relapse';
+  damage?: number;
+  xp?: number;
+  daysBeyondCeiling?: number;
+  cappedByPeriod?: boolean;
+  cappedByDay?: boolean;
+};
+
 export function useCorrectYesterday() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: { id: string; outcome: 'done' | 'relapse' }) =>
-      apiFetch<{ corrected: 'done' | 'relapse'; damage?: number; xp?: number }>(
-        `/habits/${input.id}/correct-yesterday`,
-        { method: 'POST', body: { outcome: input.outcome } },
-      ),
+      apiFetch<CorrectYesterdayResult>(`/habits/${input.id}/correct-yesterday`, {
+        method: 'POST',
+        body: { outcome: input.outcome },
+      }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: yesterdayKey });
       void queryClient.invalidateQueries({ queryKey: qk.habits });

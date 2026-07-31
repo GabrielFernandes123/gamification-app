@@ -24,6 +24,7 @@ import { openWeb } from '@/lib/openWeb';
 import { theme } from '@/theme/theme';
 import { formatErrorMessage } from '@/utils/errors';
 import type { Habit } from '../hooks/useHabits';
+import { damageExplanation } from '../meta';
 import { useHabitLogs } from '../hooks/useHabitLogs';
 import type { HabitProgress, PeriodProgress } from '../hooks/useTodayLogs';
 import type { HabitLog } from '../hooks/useTodayLogs';
@@ -135,7 +136,7 @@ export function HabitRow({ habit, progress, periodProgress, weekday }: Props) {
           if (res.died) {
             setDeathOpen(true);
           } else if (res.failed) {
-            toast.warning('Limite atingido', `Você tomou ${res.damageTaken} de dano.`);
+            toast.warning('Limite atingido', damageExplanation(res));
           } else {
             toast.warning('Recaída registrada', `${res.relapses}/${res.limit} hoje.`);
           }

@@ -24,12 +24,38 @@ export function dailyTarget(habit: Habit): number {
   return habit.executions_per_day ?? 1;
 }
 
-// Meta "de manchete" mostrada na ficha: dias no período (flexível) ou meta
-// diária (dias fixos).
-export function periodTarget(habit: Habit): number {
-  if (habit.schedule === 'weekly_count') return habit.weekly_target ?? 1;
-  if (habit.schedule === 'monthly') return habit.monthly_target ?? 1;
-  return dailyTarget(habit);
+/**
+ * POR QUE O DANO FOI ESSE — a contraparte do aviso que aparece antes do clique.
+ *
+ * O aviso prévio ("Margem esgotada — a próxima recaída custa +50%") é o que muda
+ * comportamento; esta frase é o que ENSINA a regra. Sem ela o toast dizia só
+ * "Você tomou 27 de dano", e um número sem causa parece arbitrário — meia volta
+ * do laço (PONTOS-SOLTOS §C.3).
+ *
+ * Nunca recalcula nada: só nomeia o que o servidor já decidiu e devolveu. O
+ * multiplicador do escalonamento de propósito NÃO é reproduzido aqui — quem
+ * escala o dano é o `relapseDamage` na API, e um número derivado no cliente
+ * divergiria dele no primeiro ajuste de balanceamento (doc 08 §0.2).
+ */
+export function damageExplanation(res: {
+  damageTaken: number;
+  daysBeyondCeiling?: number;
+  cappedByPeriod?: boolean;
+  cappedByDay?: boolean;
+}): string {
+  const base = `Você tomou ${res.damageTaken} de dano`;
+  const dias = res.daysBeyondCeiling ?? 0;
+  const causas: string[] = [];
+  if (dias > 0) {
+    causas.push(
+      `escalado: ${dias === 1 ? '1 dia' : `${dias} dias`} além do teto do período`,
+    );
+  }
+  // Os dois tetos podem incidir juntos; nomear os dois evita a pergunta "por que
+  // tomei menos do que o aviso dizia?".
+  if (res.cappedByPeriod) causas.push('o teto do período absorveu o resto');
+  if (res.cappedByDay) causas.push('o teto do dia absorveu o resto');
+  return causas.length > 0 ? `${base} — ${causas.join('; ')}.` : `${base}.`;
 }
 
 export function scheduleDescription(habit: Habit): string {

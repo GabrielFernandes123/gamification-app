@@ -31,6 +31,18 @@ export type RelapseResult = {
   failed: boolean; // atingiu/passou o limite e tomou dano
   damageTaken: number;
   died: boolean;
+  /**
+   * Por que o dano foi o que foi. A API já devolvia os três; nenhum cliente lia,
+   * então o aviso ANTES do clique ("a próxima recaída custa +50%") não tinha
+   * contraparte DEPOIS — e um número sem explicação parece arbitrário.
+   *
+   * `daysBeyondCeiling` > 0: passou do teto de recaídas do período, dano escalado.
+   * `cappedByPeriod`: o teto do período absorveu parte (um hábito sozinho não te
+   * mata numa semana). `cappedByDay`: o teto diário somado absorveu parte.
+   */
+  daysBeyondCeiling?: number;
+  cappedByPeriod?: boolean;
+  cappedByDay?: boolean;
 };
 
 export type UndoResult = {

@@ -7,6 +7,7 @@ import { Text } from '@/components/ui/Text';
 import { useToast } from '@/components/ui/Toast';
 import { theme } from '@/theme/theme';
 import { formatErrorMessage } from '@/utils/errors';
+import { damageExplanation } from '../meta';
 import { useCorrectYesterday, useYesterdayPending } from '../hooks/useYesterday';
 
 /**
@@ -40,13 +41,21 @@ export function YesterdayCard() {
     correct.mutate(
       { id, outcome: positivo ? 'done' : 'relapse' },
       {
-        onSuccess: () =>
+        onSuccess: (res) =>
           positivo
             ? toast.success(
                 'Ontem corrigido',
                 'Dano devolvido e sequência de volta',
               )
-            : toast.info('Recaída registrada', 'O dia de ontem foi ajustado'),
+            : toast.warning(
+                'Recaída registrada',
+                // Antes dizia só "o dia de ontem foi ajustado", sem número: a
+                // correção nem cobrava o mesmo que recair na hora. Agora cobra,
+                // então tem de mostrar quanto — e por quê.
+                res.damage
+                  ? damageExplanation({ ...res, damageTaken: res.damage })
+                  : 'O dia de ontem foi ajustado',
+              ),
         onError: (error) =>
           toast.error('Não deu para corrigir', formatErrorMessage(error)),
       },
