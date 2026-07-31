@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { useEffect } from 'react';
 import { StyleSheet, View, type ColorValue } from 'react-native';
 
+import { useNotificationActions } from '@/features/notifications/useNotificationActions';
 import { useNotificationSync } from '@/features/notifications/useNotificationSync';
 import { useTodayJourneySync } from '@/features/widgets/useTodayJourney';
 import { theme } from '@/theme/theme';
@@ -37,6 +38,10 @@ function TabIcon({
 
 export default function TabsLayout() {
   useNotificationSync();
+  // O botão "Feito" da notificação (APP-SIMPLIFICACAO §4.4). Fica aqui, ao lado
+  // dos outros sincronizadores, porque também é "o mundo de fora agindo sobre o
+  // estado de dentro" — e precisa valer com o app aberto em qualquer aba.
+  useNotificationActions();
   // Aqui, e não na Início: o widget precisa valer para quem abre o app direto
   // em Hábitos. Fica ao lado do sync de notificação porque é o mesmo tipo de
   // coisa — sincronizar o mundo de fora com o estado de dentro.
@@ -45,6 +50,13 @@ export default function TabsLayout() {
 
   useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      // BOTÃO de ação não navega: "Feito" resolve sem trazer o app para a frente
+      // (quem trata é o `useNotificationActions`), e navegar aqui arrancaria a
+      // tela de quem estava em outra aba. Só o toque no CORPO da notificação —
+      // o `DEFAULT_ACTION_IDENTIFIER` — muda de rota.
+      if (response.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER) {
+        return;
+      }
       // As telas de DETALHE saíram do app (doc 08: só registro em movimento),
       // então o toque na notificação leva à aba onde se AGE, não a uma ficha de
       // leitura. Notificação de hábito abre a lista com o botão de marcar.

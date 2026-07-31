@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { useEffect } from 'react';
 
+import { registerNotificationCategories } from './categories';
 import { ensureNotificationPermissions } from './permissions';
 import { registerPushToken } from './pushToken';
 
@@ -35,6 +36,13 @@ export function useNotificationSync() {
       const granted = await ensureNotificationPermissions();
       if (!granted) return;
       await registerPushToken();
+
+      // As categorias de AÇÃO (os botões da notificação) precisam estar
+      // registradas ANTES de a notificação chegar — o iOS resolve o
+      // `categoryIdentifier` no momento da entrega, e categoria desconhecida
+      // simplesmente não mostra botão. Registrar a cada abertura é o mais
+      // barato: é idempotente por identificador.
+      await registerNotificationCategories();
 
       // Limpa o que a versão anterior deixou agendado. Sem isto, quem já tem o
       // app instalado continuaria recebendo os alarmes locais antigos para
