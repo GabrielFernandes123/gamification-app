@@ -68,15 +68,25 @@ export function SourceShieldRow({
 
   return (
     <View style={styles.wrap}>
+      {/* O NOME DA FONTE vem primeiro: o iOS devolve token opaco e nunca diz que
+          app foi escolhido (`activitySelectionMetadata` só conta quantos são),
+          então o único jeito de saber qual linha é qual é o rótulo da fonte.
+          Sem ele, duas fontes viravam duas linhas idênticas. */}
       <View style={styles.row}>
         {linked ? (
           <Link2 color={theme.colors.success} size={16} />
         ) : (
           <Link2Off color={theme.colors.textMuted} size={16} />
         )}
-        <Text variant="bodyMuted" style={styles.grow}>
-          {linked ? 'App do iPhone vinculado' : 'Nenhum app do iPhone vinculado'}
-        </Text>
+        <View style={styles.grow}>
+          <Text variant="bodyMedium" numberOfLines={1}>
+            {label}
+          </Text>
+          <Text variant="label" color={theme.colors.textMuted} numberOfLines={1}>
+            {matcher}
+            {linked ? ' · app vinculado' : ' · sem app vinculado'}
+          </Text>
+        </View>
         <Button
           label={linked ? 'Trocar' : 'Vincular'}
           variant="outline"
@@ -139,7 +149,12 @@ export function SourceShieldRow({
 }
 
 const styles = StyleSheet.create({
-  wrap: { gap: theme.spacing.xs, marginTop: theme.spacing.xs },
+  wrap: {
+    gap: theme.spacing.xs,
+    paddingTop: theme.spacing.sm,
+    borderTopColor: theme.colors.border,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
   row: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.xs },
   grow: { flex: 1 },
 });
