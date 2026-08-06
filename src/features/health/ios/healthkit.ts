@@ -40,9 +40,20 @@ type HealthKitModule = {
   requestAuthorization: (toRequest: {
     toRead: readonly string[];
   }) => Promise<boolean>;
+  /** 0 = desconhecido · 1 = ainda não perguntamos · 2 = já perguntamos. */
+  getRequestStatusForAuthorization: (toCheck: {
+    toRead: readonly string[];
+  }) => Promise<number>;
   queryCategorySamples: (
     identifier: string,
-    options: { filter?: { date?: { startDate?: Date; endDate?: Date } } },
+    options: {
+      // OBRIGATÓRIO. O pacote é Nitro: a struct nativa recebe `limit` como
+      // Double NÃO-opcional, e mandar `undefined` faz a ponte lançar antes de
+      // chegar ao HealthKit. Ver `nitrogen/.../QueryOptionsWithSortOrder.swift`.
+      limit: number;
+      ascending?: boolean;
+      filter?: { date?: { startDate?: Date; endDate?: Date } };
+    },
   ) => Promise<readonly CategorySample[]>;
   queryStatisticsForQuantity: (
     identifier: string,
@@ -101,35 +112,63 @@ export async function requestHealthPermissions(): Promise<boolean> {
 }
 
 /**
+ * Se a folha de permissão já foi apresentada alguma vez.
+ *
+ * Não é o mesmo que "concedida" — a Apple **não** informa se a leitura foi
+ * autorizada (saber que o app não pode ler já vazaria que o dado existe). Mas
+ * distinguir "nunca perguntamos" de "já perguntamos" é o suficiente para a tela
+ * de permissões oferecer o botão de pedir em vez de mostrar um estado morto.
+ */
+export async function healthAuthorizationAsked(): Promise<boolean | null> {
+  const health = nativeModule();
+  if (!health) return null;
+  try {
+    const status = await health.getRequestStatusForAuthorization({
+      toRead: [SLEEP_TYPE, HEART_RATE_TYPE],
+    });
+    if (status === 1) return false; // shouldRequest
+    if (status === 2) return true; // unnecessary — já foi apresentada
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Sessões de sono desde `since`.
  *
  * O relógio grava a noite em vários pedaços (acordou, virou, voltou a dormir), e
  * o HealthKit devolve cada pedaço como uma amostra. Fundimos os pedaços
  * próximos numa noite só — senão uma noite viraria oito sessões, e o backend,
  * que guarda uma noite por data, descartaria sete como duplicata.
+ *
+ * PROPAGA o erro de propósito. A versão anterior devolvia `[]` em qualquer
+ * tropeço, e foi exatamente isso que escondeu por semanas uma chamada inválida
+ * ao pacote: sem amostra e sem erro, "não dormi nada" e "a query nem rodou"
+ * ficam indistinguíveis. Quem chama decide o que fazer com a falha.
  */
 export async function readSleepSessions(since: Date): Promise<SleepSession[]> {
   const health = nativeModule();
   if (!health) return [];
 
-  try {
-    const samples = await health.queryCategorySamples(SLEEP_TYPE, {
-      filter: { date: { startDate: since, endDate: new Date() } },
-    });
+  const samples = await health.queryCategorySamples(SLEEP_TYPE, {
+    // 0 = sem teto. A janela já é de 7 dias; o limite existe na API do pacote e
+    // é obrigatório (ver o tipo acima), não é uma otimização opcional.
+    limit: 0,
+    ascending: true,
+    filter: { date: { startDate: since, endDate: new Date() } },
+  });
 
-    const asleep = samples
-      .filter((sample) => ASLEEP_VALUES.has(Number(sample.value)))
-      .map((sample) => ({
-        uuid: sample.uuid,
-        startedAt: toIso(sample.startDate),
-        endedAt: toIso(sample.endDate),
-      }))
-      .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+  const asleep = samples
+    .filter((sample) => ASLEEP_VALUES.has(Number(sample.value)))
+    .map((sample) => ({
+      uuid: sample.uuid,
+      startedAt: toIso(sample.startDate),
+      endedAt: toIso(sample.endDate),
+    }))
+    .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
 
-    return mergeSessions(asleep);
-  } catch {
-    return [];
-  }
+  return mergeSessions(asleep);
 }
 
 /**

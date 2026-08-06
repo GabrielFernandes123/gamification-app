@@ -6,7 +6,11 @@ import { useEffect } from 'react';
 import { AppState, Platform } from 'react-native';
 import * as DeviceActivity from 'react-native-device-activity';
 
-import { isHealthKitAvailable, requestHealthPermissions } from '@/features/health/ios/healthkit';
+import {
+  healthAuthorizationAsked,
+  isHealthKitAvailable,
+  requestHealthPermissions,
+} from '@/features/health/ios/healthkit';
 import { ensureNotificationPermissions } from '@/features/notifications/permissions';
 
 /**
@@ -105,16 +109,17 @@ export function usePermissionStatuses() {
 }
 
 async function readAll(): Promise<PermissionStatus[]> {
-  const [notifications, microphone, camera, photos] = await Promise.all([
+  const [notifications, microphone, camera, photos, health] = await Promise.all([
     read(() => Notifications.getPermissionsAsync()),
     read(() => getRecordingPermissionsAsync()),
     read(() => ImagePicker.getCameraPermissionsAsync()),
     read(() => ImagePicker.getMediaLibraryPermissionsAsync()),
+    healthState(),
   ]);
 
   return [
     build('notifications', notifications),
-    build('health', healthState()),
+    build('health', health),
     build('microphone', microphone),
     build('camera', camera),
     build('photos', photos),
@@ -140,9 +145,17 @@ async function read(
   }
 }
 
-function healthState(): PermissionState {
-  if (Platform.OS !== 'ios') return 'unavailable';
-  return isHealthKitAvailable() ? 'unknown' : 'unavailable';
+/**
+ * A Apple não conta se a LEITURA foi concedida — daí o `unknown`. Mas conta se
+ * a folha já foi apresentada, e essa diferença importa na tela: enquanto for
+ * `undetermined` o botão "Permitir" aparece e resolve ali mesmo; depois, o
+ * único caminho é o app Saúde e o texto precisa dizer isso.
+ */
+async function healthState(): Promise<PermissionState> {
+  if (Platform.OS !== 'ios' || !isHealthKitAvailable()) return 'unavailable';
+  const asked = await healthAuthorizationAsked();
+  if (asked === false) return 'undetermined';
+  return 'unknown';
 }
 
 /** 0 = não perguntado · 1 = negado · 2 = concedido (mesma leitura do ShieldStatusCard). */

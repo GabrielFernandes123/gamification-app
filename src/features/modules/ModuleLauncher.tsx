@@ -71,7 +71,11 @@ const WEB_ROUTES: Record<string, string> = {
 export function ModuleLauncher() {
   const router = useRouter();
   const modules = useModules();
-  const active = (modules.data ?? []).filter((m) => m.ativo);
+  // `ativo` = aparece no lançador (global); `habilitado` = ligado para MIM.
+  // O segundo faltava aqui, e era o furo do liga-desliga no celular: o módulo
+  // desligado no web continuava no lançador do app, abria a tela e deixava
+  // registrar — e o servidor não pagava nada pelo registro.
+  const active = (modules.data ?? []).filter((m) => m.ativo && m.habilitado);
   if (active.length === 0) return null;
 
   return (

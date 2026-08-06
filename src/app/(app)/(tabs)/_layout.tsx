@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { useEffect } from 'react';
 import { StyleSheet, View, type ColorValue } from 'react-native';
 
+import { useModulesEnabled } from '@/features/modules/useModules';
 import { useNotificationActions } from '@/features/notifications/useNotificationActions';
 import { useNotificationSync } from '@/features/notifications/useNotificationSync';
 import { useTodayJourneySync } from '@/features/widgets/useTodayJourney';
@@ -48,6 +49,23 @@ export default function TabsLayout() {
   useTodayJourneySync();
   const router = useRouter();
 
+  // ── ABA DE MÓDULO DESLIGADO SOME (06 §9.15) ────────────────────────────
+  // Home e Ajustes nunca somem: uma é a porta do app e a outra é de onde se
+  // religa o resto. As três do meio são módulos, e cada uma responde pelas
+  // chaves que a sua tela de fato registra.
+  //
+  // `href: null` esconde a aba E torna a rota inalcançável pelo roteador — que
+  // é o que faz isto valer também para o toque na notificação, que navega por
+  // caminho e não pelo botão.
+  const mostrarRotina = useModulesEnabled(['habit']);
+  const mostrarCorpo = useModulesEnabled([
+    'workout',
+    'cardio',
+    'body_measurement',
+    'nutrition',
+  ]);
+  const mostrarDiario = useModulesEnabled(['journal']);
+
   useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
       // BOTÃO de ação não navega: "Feito" resolve sem trazer o app para a frente
@@ -60,19 +78,26 @@ export default function TabsLayout() {
       // As telas de DETALHE saíram do app (doc 08: só registro em movimento),
       // então o toque na notificação leva à aba onde se AGE, não a uma ficha de
       // leitura. Notificação de hábito abre a lista com o botão de marcar.
+      //
+      // Cada destino confere a aba antes de navegar. Não deveria acontecer — o
+      // servidor parou de mandar notificação de módulo desligado —, mas uma
+      // notificação pode chegar MINUTOS depois de o módulo ser desligado, e
+      // navegar para uma aba com `href: null` não erra: fica na tela atual sem
+      // dizer nada, que é o pior jeito de falhar. A Home é o destino de
+      // consolo, e ela nunca some.
       const route = response.notification.request.content.data?.route;
       if (typeof route === 'string' && route.includes('body')) {
-        router.navigate('/(app)/(tabs)/body');
+        router.navigate(mostrarCorpo ? '/(app)/(tabs)/body' : '/(app)/(tabs)/dashboard');
         return;
       }
       if (typeof route === 'string' && route.includes('diario')) {
-        router.navigate('/(app)/(tabs)/diario');
+        router.navigate(mostrarDiario ? '/(app)/(tabs)/diario' : '/(app)/(tabs)/dashboard');
         return;
       }
-      router.navigate('/(app)/(tabs)/habits');
+      router.navigate(mostrarRotina ? '/(app)/(tabs)/habits' : '/(app)/(tabs)/dashboard');
     });
     return () => sub.remove();
-  }, [router]);
+  }, [router, mostrarCorpo, mostrarDiario, mostrarRotina]);
 
   return (
     <Tabs
@@ -99,6 +124,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="habits"
         options={{
+          href: mostrarRotina ? undefined : null,
           title: 'Rotina',
           tabBarIcon: ({ color, focused }) => (
             <TabIcon focused={focused} color={color}>
@@ -110,6 +136,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="body"
         options={{
+          href: mostrarCorpo ? undefined : null,
           title: 'Corpo',
           tabBarIcon: ({ color, focused }) => (
             <TabIcon focused={focused} color={color}>
@@ -121,6 +148,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="diario"
         options={{
+          href: mostrarDiario ? undefined : null,
           title: 'Diário',
           tabBarIcon: ({ color, focused }) => (
             <TabIcon focused={focused} color={color}>
