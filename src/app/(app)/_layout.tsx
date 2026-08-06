@@ -41,7 +41,6 @@ export default function AppLayout() {
           quests, Histórico, builder de treino e config de tempo de tela — vivem
           só no web; o caminho até elas passa pelo `openWeb()`. */}
       <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="settings" />
       <Stack.Screen name="body/workouts/[id]" />
     </Stack>
   );

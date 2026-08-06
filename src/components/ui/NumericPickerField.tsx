@@ -35,8 +35,13 @@ export function NumericPickerField({
   unit,
   placeholder = 'Selecionar',
 }: Props) {
+  // `value` é tipado como number, mas colunas `numeric` do Postgres chegam como
+  // string ("20.00") pela API. Sem esta coerção, `formatNumber` chamava
+  // `.toFixed` numa string e o erro estourava no render — que em build de
+  // produção fecha o app sem redbox nem toast.
+  const safeValue = toFiniteNumber(value);
   const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState(value ?? min);
+  const [draft, setDraft] = useState(safeValue ?? min);
   const scrollRef = useRef<ScrollView>(null);
   const lastIndexRef = useRef(-1);
   const options = useMemo(() => {
@@ -53,7 +58,7 @@ export function NumericPickerField({
   }
 
   function openPicker() {
-    const initial = value ?? min;
+    const initial = safeValue ?? min;
     setDraft(normalizeValue(initial, step));
     lastIndexRef.current = indexForValue(initial);
     setOpen(true);
@@ -82,7 +87,7 @@ export function NumericPickerField({
     setOpen(false);
   }
 
-  const displayValue = value === null ? placeholder : `${formatNumber(value)}${unit ? ` ${unit}` : ''}`;
+  const displayValue = safeValue === null ? placeholder : `${formatNumber(safeValue)}${unit ? ` ${unit}` : ''}`;
 
   return (
     <View style={styles.field}>
@@ -172,17 +177,25 @@ export function NumericPickerField({
   );
 }
 
+function toFiniteNumber(value: number | null | undefined): number | null {
+  if (value === null || value === undefined) return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
 function clampNumber(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
 function normalizeValue(value: number, step: number) {
-  const decimals = step.toString().split('.')[1]?.length ?? 0;
-  return Number(value.toFixed(decimals));
+  const decimals = String(step).split('.')[1]?.length ?? 0;
+  return Number(Number(value).toFixed(decimals));
 }
 
 function formatNumber(value: number) {
-  return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '—';
+  return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
 }
 
 const styles = StyleSheet.create({

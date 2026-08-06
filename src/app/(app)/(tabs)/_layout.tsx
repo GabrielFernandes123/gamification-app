@@ -1,6 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import { Tabs, useRouter } from 'expo-router';
-import { Dumbbell, Home, NotebookPen, Repeat2 } from 'lucide-react-native';
+import { Dumbbell, Home, NotebookPen, Repeat2, Settings } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { useEffect } from 'react';
 import { StyleSheet, View, type ColorValue } from 'react-native';
@@ -125,6 +125,21 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, focused }) => (
             <TabIcon focused={focused} color={color}>
               <NotebookPen color={color} size={20} />
+            </TabIcon>
+          ),
+        }}
+      />
+      {/* Ajustes virou ABA em 2026-08-01: era um empilhado atrás da engrenagem
+          da Início, e o que mora nele — permissões do sistema e o escudo do
+          iPhone — é a causa silenciosa de notificação que não chega. Achar isso
+          não pode depender de lembrar de um ícone no canto de outra tela. */}
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Ajustes',
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon focused={focused} color={color}>
+              <Settings color={color} size={20} />
             </TabIcon>
           ),
         }}

@@ -1,6 +1,5 @@
-import { useRouter } from 'expo-router';
-import { ChevronLeft, ExternalLink, LogOut } from 'lucide-react-native';
-import { StyleSheet, Pressable, View } from 'react-native';
+import { ExternalLink, LogOut } from 'lucide-react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -25,19 +24,19 @@ import { theme } from '@/theme/theme';
  * - **permissões**, que são do sistema operacional;
  * - o **escudo do iPhone**, cujo seletor de apps devolve um token opaco que só
  *   existe dentro do aparelho.
+ *
+ * É uma ABA, e não mais um empilhado atrás da engrenagem da Início: permissão
+ * negada é a causa silenciosa de notificação que não chega e de escudo que não
+ * aplica, e caçar isso não pode depender de lembrar de um ícone no canto.
+ * Por ser aba, a tela não tem botão de voltar — a barra é o caminho de volta.
  */
 export default function SettingsScreen() {
-  const router = useRouter();
   const { signOut } = useAuth();
 
   return (
     <Screen scroll contentStyle={styles.content}>
       <View style={styles.topBar}>
-        <Pressable onPress={() => router.back()} hitSlop={10} accessibilityLabel="Voltar">
-          <ChevronLeft color={theme.colors.text} size={26} />
-        </Pressable>
         <Text variant="h1">Ajustes</Text>
-        <View style={{ width: 26 }} />
       </View>
 
       <PermissionsPanel />
@@ -78,7 +77,6 @@ const styles = StyleSheet.create({
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     borderRadius: theme.radius.md,
     borderWidth: 1,
     borderColor: theme.colors.border,

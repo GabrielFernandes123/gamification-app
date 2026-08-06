@@ -505,11 +505,12 @@ function LogSetModal({
   saving: boolean;
 }) {
   const meta = SET_TYPE_META[planned.set_type];
-  const [reps, setReps] = useState<number | null>(previous?.reps ?? planned.target_reps ?? 10);
-  const [weight, setWeight] = useState<number | null>(previous?.weight ?? planned.target_weight ?? 20);
-  const [duration, setDuration] = useState<number | null>(previous?.duration_seconds ?? planned.target_duration_seconds ?? 30);
+  const [reps, setReps] = useState<number | null>(toNumber(previous?.reps) ?? planned.target_reps ?? 10);
+  const [weight, setWeight] = useState<number | null>(toNumber(previous?.weight) ?? planned.target_weight ?? 20);
+  const [duration, setDuration] = useState<number | null>(toNumber(previous?.duration_seconds) ?? planned.target_duration_seconds ?? 30);
   const [drops, setDrops] = useState<SetDrop[]>(
-    (previous?.drops as SetDrop[] | null) ?? (planned.drops as SetDrop[] | null) ?? [{ reps: 8, weight: 20 }, { reps: 8, weight: 12 }],
+    normalizeDrops(previous?.drops as SetDrop[] | null) ??
+      normalizeDrops(planned.drops as SetDrop[] | null) ?? [{ reps: 8, weight: 20 }, { reps: 8, weight: 12 }],
   );
 
   function confirm() {
@@ -652,6 +653,25 @@ function loggedLabel(s: WorkoutSet) {
   }
   if (s.duration_seconds) return `${s.duration_seconds}s × ${Number(s.weight)}kg`;
   return `${s.reps} × ${Number(s.weight)}kg`;
+}
+
+/**
+ * Coluna `numeric` do Postgres chega como STRING pelo driver `pg` ("20.00"), e
+ * `/workout-sets/by-exercise/:id` devolve `ws.*` cru — então o `weight` do
+ * histórico é string, ao contrário do `target_weight` do plano (que passa por
+ * `json_agg` e vira número JSON). Uma string entrando no NumericPickerField
+ * estourava `value.toFixed` DENTRO do render, e um erro de render em build de
+ * produção fecha o app sem mostrar nada.
+ */
+function toNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function normalizeDrops(drops: SetDrop[] | null | undefined): SetDrop[] | null {
+  if (!Array.isArray(drops) || drops.length === 0) return null;
+  return drops.map((d) => ({ reps: toNumber(d?.reps), weight: toNumber(d?.weight) }));
 }
 
 function minutesSince(date: string) {

@@ -1,6 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
-import { Coins, Flame, Heart, Settings, ShieldAlert, Skull, Sparkles, Zap } from 'lucide-react-native';
+import { Coins, Flame, Heart, ShieldAlert, Skull, Sparkles, Zap } from 'lucide-react-native';
 import { useState } from 'react';
 import { ActivityIndicator, Image, Pressable, StyleSheet, View } from 'react-native';
 
@@ -47,7 +46,6 @@ import { initialsFromName, levelProgress } from '@/utils/leveling';
  */
 export default function DashboardScreen() {
   const qc = useQueryClient();
-  const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
   const { summary, dismiss } = useDailySummary();
 
@@ -115,14 +113,6 @@ export default function DashboardScreen() {
             {name}
           </Text>
         </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Ajustes"
-          onPress={() => router.push('/(app)/settings')}
-          style={styles.iconBtn}
-        >
-          <Settings color={theme.colors.textMuted} size={20} />
-        </Pressable>
       </View>
 
       <View style={styles.heroPanel}>
@@ -321,16 +311,6 @@ const styles = StyleSheet.create({
     gap: theme.spacing.md,
   },
   topCopy: { flex: 1, minWidth: 0 },
-  iconBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: theme.radius.md,
-    borderWidth: 1,
-    borderColor: 'rgba(248,250,252,0.12)',
-    backgroundColor: theme.colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   heroPanel: {
     gap: theme.spacing.lg,
     borderRadius: 24,
