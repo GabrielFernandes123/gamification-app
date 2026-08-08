@@ -84,6 +84,17 @@ número fica preso ao dia.
 - **habit_logs** ✅ — `habit_id`, `user_id`, `occurred_on`, `success`, `is_auto`,
   `xp_gained`, `gold_gained`, `damage_taken`, `streak_at_log`. (Auditoria; o ledger
   passa a ser a fonte canônica de XP/ouro — ver §12.)
+  🆕 (2026-08-08) add: `damage_nominal` (quanto o golpe VALIA, antes dos tetos) e
+  `capped_by_day`. `damage_taken` continua sendo o HP realmente perdido — é o que
+  o desfazer devolve. Os dois juntos são o que permite a tela dizer "eram 12, o
+  teto do dia absorveu" em vez de mostrar um zero sem causa.
+
+- **habit_settings** 🆕 (2026-08-08) — `user_id` (PK), `daily_damage_cap_positive_pct`,
+  `daily_damage_cap_negative_pct`, `period_damage_cap_pct`, `streak_tiers` (int[5]),
+  `updated_at`. Tetos de dano **por tipo de hábito** e os limiares das cinco faixas
+  visuais de sequência. Sem linha = os defaults das colunas (25/25/80 e
+  {7,15,30,60,100}), que são as constantes que viviam no `reward.ts` — ver
+  [02 §5.20](./02-economia.md).
 
 ## 5. Corpo e Treino
 - **body_parts** ✅🔄 — `user_id`, `name`, `color`, `xp`; GENERATED `level`; `is_active`.

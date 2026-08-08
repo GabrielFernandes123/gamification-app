@@ -535,10 +535,24 @@ Fonte da regra: `habits/period-negative.ts` · fechamento em
 
 Duas frases, uma constante para cada:
 
-| Regra | Constante | Valor |
+| Regra | Onde mora | Padrão |
 |---|---|---|
-| Um hábito sozinho não te mata num período | `PERIOD_DAMAGE_CAP_RATIO` | 80% do HP máx |
-| **Um dia ruim não te mata** | `DAILY_HABIT_DAMAGE_CAP_RATIO` | **25%** do HP máx |
+| Um hábito sozinho não te mata num período | `habit_settings.period_damage_cap_pct` | 80% do HP máx |
+| **Um dia ruim não te mata (positivos)** | `habit_settings.daily_damage_cap_positive_pct` | **25%** do HP máx |
+| **Um dia ruim não te mata (negativos)** | `habit_settings.daily_damage_cap_negative_pct` | **25%** do HP máx |
+
+🆕 (2026-08-08) Os três **saíram do código e viraram configuração por usuário**
+(`habit_settings`, tela Configurações › Dano dos hábitos). Os defaults são as
+constantes antigas, então quem não mexer não sente diferença — exceto pela
+correção abaixo, que é o motivo da mudança.
+
+**O teto do dia agora é UM POR TIPO.** Enquanto era um orçamento único, quem
+gastava era quem chegava primeiro — e quem chega primeiro é sempre a recaída
+(registrada ao vivo, durante o dia) contra o fechamento do positivo (00:05 do dia
+seguinte, gravando no dia que já acabou). Medido em 7 dias de uso real: **84% do
+dano nominal dos negativos chegava ao HP, contra 31% dos positivos**. A margem do
+positivo era calculada certa e morria no clamp; da tela, faltar a semana inteira
+parecia de graça. Balanceamento que depende de ordem de chegada não é regra.
 
 O teto do DIA é o último modificador a rodar, depois de escudo e cicatrizes: ele
 limita o HP **realmente perdido**, não o golpe nominal. Rodasse antes das
@@ -618,13 +632,20 @@ Era a leitura que faltava: contar dias resistidos contra uma meta produzia
 #### 7.2.2 OS DOIS TETOS DE DANO ✅ 🆕 (2026-08-04)
 Duas frases que dá para dizer em voz alta, e uma constante para cada:
 
-| Regra | Constante | Valor |
+| Regra | Onde mora | Padrão |
 |---|---|---|
-| Um hábito sozinho não te mata num período | `PERIOD_DAMAGE_CAP_RATIO` | 80% do HP máx |
-| Um dia ruim não te mata | `DAILY_HABIT_DAMAGE_CAP_RATIO` | **25%** do HP máx |
+| Um hábito sozinho não te mata num período | `habit_settings.period_damage_cap_pct` | 80% do HP máx |
+| Um dia ruim não te mata (positivos) | `habit_settings.daily_damage_cap_positive_pct` | **25%** do HP máx |
+| Um dia ruim não te mata (negativos) | `habit_settings.daily_damage_cap_negative_pct` | **25%** do HP máx |
 
 O teto DIÁRIO era o que faltava: os golpes do dia eram independentes, então cinco
 hábitos estourados somavam cinco golpes de até 80% cada e nada olhava o total.
+
+🆕 (2026-08-08) **Um orçamento por tipo, e configurável** — ver §5.20 para o
+porquê (a fila fazia o positivo chegar sempre por último). Junto disso,
+`habit_logs` passou a guardar `damage_nominal` e `capped_by_day`: sem eles um
+"−0 HP" no histórico era indistinguível de "não havia dano a cobrar", e número
+sem causa é o que 08 §0.2 proíbe.
 
 Os 25% saíram de **medição, não de intuição** — 26 dias, 58 golpes, 849 de HP no
 banco em 2026-07-30: mediana do dano diário 36% do HP, p75 44%, p90 55%, pior dia
