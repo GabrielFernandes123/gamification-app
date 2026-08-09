@@ -1523,6 +1523,15 @@ charge-start passa `0` e **não tem throttle nenhum**. Agravante: o gate é um �
 3. Piso de valor: não avisar abaixo de ~10 de ouro (1 de ouro não é notícia)
 4. Gate **por tipo** de alerta, não um `last_push_at` global
 
+**Corrigido em 2026-08-01** (1, 2 e 4) e em **2026-08-09** (3): o piso de valor era
+comparado com o ouro do **lote**, e a extensão manda um lote por minuto — a 10
+ouro/hora o delta por lote é 0 ou 1, então o lembrete "Queimando ouro" só
+dispararia com taxa ≥ 600/h. Na prática nunca tocou. Agora a comparação é com o
+acumulado do **dia**, que é o número que a própria mensagem dizia estar mostrando.
+Na mesma passagem entrou o alerta que faltava: **"franquia acabando"**
+(`free_warning_seconds`, 1×/fonte/dia) — todos os outros contam uma perda que já
+aconteceu; este é o único que chega enquanto a decisão de parar ainda existe.
+
 ### 12.2b Cinco banners de uma vez — o problema que passou despercebido
 
 `scheduleForHabit` agenda **uma notificação por hábito, por horário, por dia da semana**.
@@ -1565,7 +1574,8 @@ o boss cobrando.
 | 1 | Lembrete de hábito | local | `DAILY`/`WEEKLY` fixo | ❌ só o horário no próprio hábito |
 | 2 | Alerta corporal | local | `DAILY` 09:00 fixo | ❌ |
 | 3 | "Começou a cobrar" | push | todo lote de ingestão | `notify_charge_start` |
-| 4 | "Queimando ouro" | push | todo lote, gate de 30 min | `alert_interval_minutes` |
+| 4 | "Queimando ouro" | push | gate de 30 min, piso de 10 ouro **no dia** | `alert_interval_minutes` |
+| 4b | "Franquia acabando" | push | dentro da franquia, 1×/fonte/dia | `free_warning_seconds` |
 | 5 | Meta de foco atingida | desktop | fim da sessão | ❌ |
 | 6 | Badge da barra de tarefas | desktop | hábitos pendentes | ❌ |
 

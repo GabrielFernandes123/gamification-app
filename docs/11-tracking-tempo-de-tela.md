@@ -20,11 +20,13 @@ um domínio (`youtube.com`), um executável (`steam.exe`) ou um app do iPhone
 | Campo | Significado | Default |
 |---|---|---|
 | `daily_free_seconds` | Zona 1: uso legítimo, sem custo | 3600 (1h) |
+| `daily_free_target_seconds` / `free_step_seconds_per_week` | Ratchet: a franquia desce sozinha até o alvo | null / 0 |
+| `weekly_free_seconds` / `weekly_overflow_mult` | Teto da semana e o quanto o preço sobe depois dele | null / 1.5 |
 | `gold_per_hour` | Zona 2: preço do excedente, pró-rata POR SEGUNDO | 0 |
 | `boss_threshold_seconds` | Início da zona 3 (null = fonte nunca alimenta o boss) | null |
 | `block_after_seconds` | Início da zona 4 (null = nunca bloqueia) | null |
 | `unlock_cost_gold` / `unlock_minutes` | Preço e duração da liberação comprada | 0 / 15 |
-| `hp_per_hour` | Gancho futuro: dano direto de HP por hora excedida | 0 (desligado) |
+| `hp_per_hour` | Dano de HP por hora ACIMA da zona 3 (não incide na zona 2) | 0 (desligado) |
 
 **Zona 4 — bloqueio com preço.** Nada é proibido: a tela é interceptada e
 continuar custa ouro por tempo limitado (`POST /v1/tracking/unlock`, debitado no
@@ -33,10 +35,73 @@ ledger). Diferente da cobrança automática do tempo — que clampa no saldo —
 bloqueadas (`tracking_blocked_keywords`) seguem a mesma mecânica quando casam
 com a URL ou o título da página.
 
-- **Cobrança por estado acumulado** (idempotente): `devido = ⌊cobrável × taxa/3600⌋;
-  delta = devido − já_cobrado`. Reprocessar o dia nunca cobra duas vezes; hora
-  parcial conta exata (1h38 a 60/h = 98 ouro). Débito via `grant` com ouro
-  negativo (`source_type='tracking'`) — clampa no saldo, nunca negativa.
+- **Cobrança por estado acumulado** (idempotente): `devido = goldForOverage(cobrável);
+  falta = devido − já_pago`. Reprocessar o dia nunca cobra duas vezes; hora
+  parcial conta exata. Débito via `grant` com ouro negativo
+  (`source_type='tracking'`) — o saldo nunca fica negativo.
+- **Excesso ESCALANTE (2026-08-09)**, `overage-pricing.ts`: o preço é uma
+  integral por faixas — 1ª hora de excesso 1,0× a taxa, 2ª 1,5×, daí 2,0×. Antes
+  era linear, e a 3ª hora custava igual à 1ª: estourar muito saía
+  proporcionalmente barato, o oposto do objetivo e incoerente com o dano
+  escalante dos hábitos negativos. Config em dois níveis
+  (`tracking_settings.overage_tiers` → `tracked_sources.overage_tiers`), NULL =
+  padrão do código, config malformada cai no padrão em vez de derrubar a
+  ingestão. **Continua função pura do `billable` acumulado** — é isso que
+  preserva a idempotência; uma escalada dependente da ordem dos lotes a
+  quebraria.
+- **Dívida (2026-08-09)**: o ledger clampa no saldo, então `gold_charged` guarda
+  o que REALMENTE saiu e `usage_daily.gold_owed` o resto —
+  `pago = min(devido, saldo)`, `dívida = devido − pago`. A próxima ingestão do
+  mesmo dia retenta sozinha (o estado acumulado já cuida disso); dia fechado sem
+  uso novo é recolhido pela penhora sobre ganhos futuros. Antes o rollup gravava
+  `devido` mesmo sem saldo: quem zerava o ouro usava de graça o resto do dia e a
+  diferença sumia. **Módulo desligado não cobra E não endivida** — o dia é
+  quitado, senão religar cobraria todo o período em que ficou off.
+- **Penhora (2026-08-09)**, `economy/tracking-debt.ts`: a retentativa por
+  ingestão só alcança dia com uso NOVO. Dia fechado, a dívida ficava parada — por
+  isso todo GANHO de ouro passa `debt_seize_pct` (50%) para quitá-la antes de
+  creditar, mais velha primeiro, e ela expira em `debt_expire_days` (7). Fica no
+  `GrantService` porque são 15 chamadores e quem esquecesse pagaria integral em
+  silêncio. **Ordem dos locks importa**: a penhora roda ANTES do `for update` em
+  `characters`, porque a ingestão trava `usage_daily → characters` — invertida,
+  as duas transações deadlockariam. O extrato explica o ganho reduzido via
+  `meta.trackingDebtSeized`.
+- **Dano da zona 3 (2026-08-09)**: `hp_per_hour` saiu do papel depois de um ano
+  como gancho morto. `hp = ⌊(contado − limite_boss) × hp_per_hour / 3600⌋`, com
+  `usage_daily.hp_charged` de acumulador (mesma idempotência do ouro). Incide só
+  na zona 3: a zona 2 já tem preço, e cobrar ouro E HP pelo mesmo segundo puniria
+  duas vezes. `DamageService.applyDamage` ganhou `source: 'habit' | 'tracking'` —
+  reusar o caminho de hábito herdaria três coisas erradas (gate do módulo de
+  hábitos, trégua e o teto diário DELES). Teto próprio em
+  `habit_settings.daily_damage_cap_tracking_pct` (15%), pela lição de 2026-08-08:
+  orçamento compartilhado vira disputa por ordem de chegada. O que o teto corta é
+  perdido, não vira dívida — teto que adia o golpe não é teto.
+- **Ratchet da franquia (2026-08-09)**: `efetiva = least(base, greatest(alvo,
+  base − passo × semanas))`, dentro de `effective-limits.ts` e ANTES do
+  multiplicador da marca do dia (senão um dia "tranquilo" dobraria a franquia
+  VELHA). O `least(base, …)` cobre a borda real: sobrescrita de dia da semana
+  menor que o alvo seria puxada para cima pelo `greatest`, e o ratchet
+  AFROUXARIA justo o dia que você apertou à mão. Âncora (`free_ratchet_from`)
+  nasce quando o ratchet é ligado e **não se move nas edições seguintes** —
+  recontar do zero faria a franquia voltar ao topo a cada ajuste.
+- **Bônus diário proporcional (2026-08-09)**: `bônus × max(piso, 1 − usado/franquia)`
+  (`tracking_settings.daily_bonus_floor_pct`, 20%). Antes pagava igual para quem
+  usou 1 segundo e para quem raspou a franquia. O piso existe porque quem raspou
+  ainda respeitou o limite — zerar ensinaria que chegar perto é o mesmo que
+  estourar.
+- **Teto SEMANAL (2026-08-09)**, `weekly-budget.ts`: segundo teto por cima do
+  diário, em `tracked_sources` E `tracking_sets` (o mais APERTADO manda). Semana
+  domingo..sábado, a mesma de `weekBoundsIso`. Ele **não cobra sozinho** —
+  multiplica o preço/hora do diário no resto da semana (`weekly_overflow_mult`,
+  1,5×): cobrar o mesmo segundo duas vezes poluiria o extrato e quebraria a
+  leitura "o total do dia é o último valor acumulado". Duas restrições que
+  sustentam o desenho: (a) o fator sai dos dias **anteriores** da semana e fica
+  CONGELADO durante o dia — variando no meio do dia, a cobrança deixaria de ser
+  função do estado acumulado e reprocessar daria outro valor; (b) o teto é
+  **imune às marcas de dia** — se valessem, marcar a semana toda como tranquila
+  furaria o teto. Teto de CONJUNTO é o que resiste a substituição (cortar YouTube
+  e migrar para Twitter não burla). Bônus semanal no fechamento, com
+  `tracking_weekly_bonus` de trava de idempotência (o cron roda de hora em hora).
 - **Zona 3**: `feed = Σ max(0, segundos_do_dia − limite)` por fonte ativa. No
   julgamento diário do boss: `dano_contra-ataque × (1 + min(0.50, ⌊feed/300s⌋ × 0.01))`,
   e `feed ≥ 3600s` torna o dia ruim por si só. Fontes iPhone (`youtube`) e PC
@@ -165,10 +230,61 @@ a chave descartada na inicialização. O app Expo usa `EXPO_PUBLIC_API_URL`.
   ([05 §3.2](./05-temporadas-boss.md)). Beat narrativo `tracking_feed` quando o
   amplificador dispara.
 
+## 7b. Painel individual da fonte (2026-08-09)
+
+`GET /tracking/sources/:id/analytics?days=` (`SourceAnalyticsService`). Existia
+série diária GLOBAL e agregado por fonte no período, mas nunca a série de UMA
+fonte com o próprio limite ao lado — então calibrar franquia e preço era chute.
+
+- **Série diária × franquia efetiva**: o limite vem de `effectiveColumnsSql` com
+  o dia da SÉRIE (não da linha de uso), porque dia sem uso também tem franquia e
+  é a sequência de dias abaixo da linha que diz se ela está no lugar certo.
+- **Por dia da semana** → é o formulário do `tracked_source_day_overrides`.
+- **Por hora do dia** → é o formulário das janelas. Sai de `usage_intervals`, que
+  é purgado aos 45 dias: a resposta declara a janela REAL em vez de fingir cobrir
+  o período pedido. Cada intervalo conta na hora em que começou (erro de poucos
+  minutos, já que os clientes fatiam a cada 5 min).
+- **Placar**: tempo contado, ouro pago, dívida, dias dentro × fora da franquia,
+  feed do boss, desbloqueios comprados.
+
+**Config versionada** (`tracked_source_levels`, `SourceLevelsService`): uma linha
+por versão, `effective_to` nulo na corrente (índice único garante que só exista
+uma). Sem isso o gráfico mostra um degrau sem causa e ninguém consegue responder
+"subir o preço funcionou?". Duas edições no mesmo dia colapsam num nível só —
+abrir outro criaria janela de duração zero. Divergência proposital em relação a
+`habit_levels`: a config é **snapshot JSONB**, não colunas espelhadas, porque
+`tracked_sources` tem ~15 campos de regra e vai ganhar mais.
+
+## 7c. Motor de sugestões (2026-08-09)
+
+`SourceSuggestionsService`, espelhando `HabitSuggestionsService`: analisa,
+propõe, você aplica ou dispensa. Cron `10 7 * * 1` (uma hora depois do de
+hábitos, para não disputarem a mesma janela). Índice único garante **uma
+pendente por fonte e diagnóstico** — sem ele o cron semanal empilharia a mesma
+recomendação até a tela virar uma lista de repetições.
+
+| Diagnóstico | Sinal | Ação proposta |
+|---|---|---|
+| `price_ineffective` | estoura ≥70% dos dias, PAGA, e o tempo não cai | ligar `hp_per_hour` (ouro não é a alavanca) |
+| `limit_ineffective` | estoura ≥70% dos dias | baixar a franquia |
+| `limit_loose` | pico abaixo de 40% da franquia | apertar |
+| `weekday_skew` | um dia da semana ≥1,8× a média | criar override daquele dia |
+| `drifting` | 2ª metade do mês ≥1,3× a 1ª | só avisa |
+| `insufficient_data` | menos de 7 dias com uso | nada a dizer |
+
+**Sugestão nunca afrouxa** — `min(…, franquia_atual × 0,8)` em todo cálculo. O
+primeiro teste com dados reais expôs o oposto: Dota 2, franquia de 80 min,
+mediana de 112, e a sugestão saía "sua franquia não segura nada, aumente para
+85". Aplicar passa pelo `SourcesService.update`, então grava nível novo em
+`tracked_source_levels` e a sugestão aceita vira marco no gráfico do painel —
+fecha o ciclo medir → sugerir → conferir.
+
 ## 8. Telas
 
 - **Web/Desktop**: `Tempo` (Hoje · Fontes · Dispositivos) — custo do dia ao vivo,
-  barra de franquia, badge "Boss +Xmin" na zona 3, CRUD de fontes, pareamento
-  (com 1-clique no Electron via `window.desktop.pair`).
+  barra de franquia, badge "Boss +Xmin" na zona 3, badge "Devendo N" quando o
+  saldo não cobriu, CRUD de fontes, pareamento (com 1-clique no Electron via
+  `window.desktop.pair`). O ícone de gráfico em cada fonte cadastrada abre o
+  **painel individual** (§7b) — a mesma modal nas abas Diário e Fontes.
 - **App Expo**: mesma tela em `src/app/(app)/tracking/` (card na Central via
   `module_registry`).
