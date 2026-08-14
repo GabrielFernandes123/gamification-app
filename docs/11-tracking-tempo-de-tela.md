@@ -247,6 +247,32 @@ fonte com o próprio limite ao lado — então calibrar franquia e preço era ch
 - **Placar**: tempo contado, ouro pago, dívida, dias dentro × fora da franquia,
   feed do boss, desbloqueios comprados.
 
+**O histórico NÃO é reescrito quando a regra muda (2026-08-09).** O painel lê o
+NÍVEL VIGENTE de cada dia; o motor de sugestões lê a regra de HOJE. Não é
+inconsistência — são perguntas diferentes: o gráfico conta o que aconteceu, o
+motor pergunta "o limite que vale agora aguenta meu padrão?". O modo é o 4º
+parâmetro de `analytics()` (`'historical'` | `'current'`).
+
+- Truque que evita duplicar a fórmula: os laterais do trecho histórico se chamam
+  `s` e `o`, os MESMOS aliases que `effectiveColumnsSql` espera. O fragmento de
+  `effective-limits.ts` é literalmente o mesmo texto nos dois modos; só muda para
+  onde os aliases apontam.
+- O **nível 1 vale para trás** (`'-infinity'`): existe uso medido antes de a
+  fonte ser cadastrada, e sem isso esses dias sumiam do placar (medido: 21 dias
+  com uso viravam 20).
+- **Sobrescritas de dia da semana entram no snapshot** do nível, não em tabela
+  de histórico própria — mudam junto com a fonte, e dois históricos separados se
+  desincronizariam na primeira edição que tocasse só um. `DayProfilesService`
+  chama `levels.recordById` ao gravar.
+- **Marcas de dia congelam o multiplicador** vigente (`limit_multiplier`,
+  `goal_multiplier`). A marca já era histórica; o que mutava era o significado
+  dela — mexer em "tranquilo = 2×" reescrevia todo dia tranquilo do passado,
+  inclusive dias já cobrados. `tracking_day_multiplier()` prefere o congelado.
+- **Ouro e HP nunca foram afetados**: `gold_charged`/`gold_owed`/`hp_charged` são
+  estado acumulado, gravados quando aconteceram. O que se reescrevia era só o
+  derivado. Borda que permanece: intervalo atrasado para um dia passado (até 7
+  dias) recalcula aquele dia com a regra vigente NELE, agora corretamente.
+
 **Config versionada** (`tracked_source_levels`, `SourceLevelsService`): uma linha
 por versão, `effective_to` nulo na corrente (índice único garante que só exista
 uma). Sem isso o gráfico mostra um degrau sem causa e ninguém consegue responder
