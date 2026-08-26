@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5"
-  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -460,6 +455,33 @@ export type Database = {
         }
         Relationships: []
       }
+      body_profile: {
+        Row: {
+          birth_date: string | null
+          created_at: string
+          height_cm: number | null
+          sex: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          birth_date?: string | null
+          created_at?: string
+          height_cm?: number | null
+          sex?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          birth_date?: string | null
+          created_at?: string
+          height_cm?: number | null
+          sex?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       boss_charges: {
         Row: {
           amount: number
@@ -782,6 +804,86 @@ export type Database = {
           },
         ]
       }
+      bucket_items: {
+        Row: {
+          category: string
+          cost_essencia: number | null
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          needs_image: boolean
+          needs_story: boolean
+          nudged_at: string | null
+          realized_on: string | null
+          reference_url: string | null
+          state: string
+          story_description: string | null
+          story_model: string | null
+          story_title: string | null
+          target_on: string | null
+          title: string
+          unlocked_at: string | null
+          unlocked_by_boss_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string
+          cost_essencia?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          needs_image?: boolean
+          needs_story?: boolean
+          nudged_at?: string | null
+          realized_on?: string | null
+          reference_url?: string | null
+          state?: string
+          story_description?: string | null
+          story_model?: string | null
+          story_title?: string | null
+          target_on?: string | null
+          title: string
+          unlocked_at?: string | null
+          unlocked_by_boss_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          cost_essencia?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          needs_image?: boolean
+          needs_story?: boolean
+          nudged_at?: string | null
+          realized_on?: string | null
+          reference_url?: string | null
+          state?: string
+          story_description?: string | null
+          story_model?: string | null
+          story_title?: string | null
+          target_on?: string | null
+          title?: string
+          unlocked_at?: string | null
+          unlocked_by_boss_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bucket_items_unlocked_by_boss_id_fkey"
+            columns: ["unlocked_by_boss_id"]
+            isOneToOne: false
+            referencedRelation: "bosses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       character_attribute_point_grants: {
         Row: {
           allocated_points: number
@@ -961,6 +1063,104 @@ export type Database = {
           },
         ]
       }
+      character_scar_offers: {
+        Row: {
+          chosen_key: string | null
+          created_at: string
+          death_mode: string
+          death_number: number
+          id: string
+          options: Json
+          resolved_at: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          chosen_key?: string | null
+          created_at?: string
+          death_mode: string
+          death_number: number
+          id?: string
+          options: Json
+          resolved_at?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          chosen_key?: string | null
+          created_at?: string
+          death_mode?: string
+          death_number?: number
+          id?: string
+          options?: Json
+          resolved_at?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      character_scars: {
+        Row: {
+          created_at: string
+          death_number: number
+          description: string | null
+          effects: Json
+          id: string
+          is_active: boolean
+          label: string
+          needs_story: boolean
+          offer_id: string | null
+          removed_at: string | null
+          scar_key: string
+          story_description: string | null
+          story_model: string | null
+          story_title: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          death_number: number
+          description?: string | null
+          effects?: Json
+          id?: string
+          is_active?: boolean
+          label: string
+          needs_story?: boolean
+          offer_id?: string | null
+          removed_at?: string | null
+          scar_key: string
+          story_description?: string | null
+          story_model?: string | null
+          story_title?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          death_number?: number
+          description?: string | null
+          effects?: Json
+          id?: string
+          is_active?: boolean
+          label?: string
+          needs_story?: boolean
+          offer_id?: string | null
+          removed_at?: string | null
+          scar_key?: string
+          story_description?: string | null
+          story_model?: string | null
+          story_title?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "character_scars_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "character_scar_offers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       characters: {
         Row: {
           class: Database["public"]["Enums"]["character_class"] | null
@@ -970,6 +1170,8 @@ export type Database = {
           daily_xp_goal: number
           death_count: number
           death_mode: string
+          emergency_potion_charges: number
+          emergency_potion_purchases: number
           essencia: number
           gold: number
           id: string
@@ -990,6 +1192,8 @@ export type Database = {
           daily_xp_goal?: number
           death_count?: number
           death_mode?: string
+          emergency_potion_charges?: number
+          emergency_potion_purchases?: number
           essencia?: number
           gold?: number
           id?: string
@@ -1010,6 +1214,8 @@ export type Database = {
           daily_xp_goal?: number
           death_count?: number
           death_mode?: string
+          emergency_potion_charges?: number
+          emergency_potion_purchases?: number
           essencia?: number
           gold?: number
           id?: string
@@ -1299,6 +1505,42 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_plans: {
+        Row: {
+          accuracy: number | null
+          actual_habits: number | null
+          closed_at: string | null
+          created_at: string
+          id: string
+          note: string | null
+          plan_on: string
+          planned_habits: number
+          user_id: string
+        }
+        Insert: {
+          accuracy?: number | null
+          actual_habits?: number | null
+          closed_at?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          plan_on: string
+          planned_habits: number
+          user_id: string
+        }
+        Update: {
+          accuracy?: number | null
+          actual_habits?: number | null
+          closed_at?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          plan_on?: string
+          planned_habits?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       device_pairing_codes: {
         Row: {
           code: string
@@ -1437,6 +1679,36 @@ export type Database = {
           source_type?: Database["public"]["Enums"]["economy_source_type"]
           user_id?: string
           xp_delta?: number
+        }
+        Relationships: []
+      }
+      effort_price_cycles: {
+        Row: {
+          created_at: string
+          cycle_start: string
+          gold_per_day: number
+          id: string
+          raw_gold_per_day: number
+          user_id: string
+          window_days: number
+        }
+        Insert: {
+          created_at?: string
+          cycle_start: string
+          gold_per_day: number
+          id?: string
+          raw_gold_per_day: number
+          user_id: string
+          window_days: number
+        }
+        Update: {
+          created_at?: string
+          cycle_start?: string
+          gold_per_day?: number
+          id?: string
+          raw_gold_per_day?: number
+          user_id?: string
+          window_days?: number
         }
         Relationships: []
       }
@@ -1681,6 +1953,104 @@ export type Database = {
           },
         ]
       }
+      food_portions: {
+        Row: {
+          created_at: string
+          food_id: string
+          grams: number
+          id: string
+          is_default: boolean
+          label: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          food_id: string
+          grams: number
+          id?: string
+          is_default?: boolean
+          label: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          food_id?: string
+          grams?: number
+          id?: string
+          is_default?: boolean
+          label?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "food_portions_food_id_fkey"
+            columns: ["food_id"]
+            isOneToOne: false
+            referencedRelation: "foods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      foods: {
+        Row: {
+          barcode: string | null
+          brand: string | null
+          carb_g: number
+          category: string | null
+          created_at: string
+          external_id: string
+          fat_g: number
+          fiber_g: number | null
+          id: string
+          kcal: number
+          name: string
+          protein_g: number
+          search_name: string
+          serving_size_g: number | null
+          sodium_mg: number | null
+          source: string
+          user_id: string | null
+        }
+        Insert: {
+          barcode?: string | null
+          brand?: string | null
+          carb_g: number
+          category?: string | null
+          created_at?: string
+          external_id: string
+          fat_g: number
+          fiber_g?: number | null
+          id?: string
+          kcal: number
+          name: string
+          protein_g: number
+          search_name: string
+          serving_size_g?: number | null
+          sodium_mg?: number | null
+          source?: string
+          user_id?: string | null
+        }
+        Update: {
+          barcode?: string | null
+          brand?: string | null
+          carb_g?: number
+          category?: string | null
+          created_at?: string
+          external_id?: string
+          fat_g?: number
+          fiber_g?: number | null
+          id?: string
+          kcal?: number
+          name?: string
+          protein_g?: number
+          search_name?: string
+          serving_size_g?: number | null
+          sodium_mg?: number | null
+          source?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       generated_images: {
         Row: {
           attempts: number
@@ -1822,8 +2192,10 @@ export type Database = {
       }
       habit_logs: {
         Row: {
+          capped_by_day: boolean
           caused_death: boolean
           created_at: string
+          damage_nominal: number | null
           damage_taken: number
           gold_gained: number
           habit_id: string
@@ -1837,8 +2209,10 @@ export type Database = {
           xp_gained: number
         }
         Insert: {
+          capped_by_day?: boolean
           caused_death?: boolean
           created_at?: string
+          damage_nominal?: number | null
           damage_taken?: number
           gold_gained?: number
           habit_id: string
@@ -1852,8 +2226,10 @@ export type Database = {
           xp_gained?: number
         }
         Update: {
+          capped_by_day?: boolean
           caused_death?: boolean
           created_at?: string
+          damage_nominal?: number | null
           damage_taken?: number
           gold_gained?: number
           habit_id?: string
@@ -1875,6 +2251,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      habit_settings: {
+        Row: {
+          daily_damage_cap_negative_pct: number
+          daily_damage_cap_positive_pct: number
+          daily_damage_cap_tracking_pct: number
+          period_damage_cap_pct: number
+          streak_tiers: number[]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          daily_damage_cap_negative_pct?: number
+          daily_damage_cap_positive_pct?: number
+          daily_damage_cap_tracking_pct?: number
+          period_damage_cap_pct?: number
+          streak_tiers?: number[]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          daily_damage_cap_negative_pct?: number
+          daily_damage_cap_positive_pct?: number
+          daily_damage_cap_tracking_pct?: number
+          period_damage_cap_pct?: number
+          streak_tiers?: number[]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       habit_suggestions: {
         Row: {
@@ -1944,6 +2350,7 @@ export type Database = {
       }
       habits: {
         Row: {
+          best_period_streak: number
           best_streak: number
           created_at: string
           current_streak: number
@@ -1957,6 +2364,7 @@ export type Database = {
           monthly_target: number | null
           name: string
           needs_story: boolean
+          period_streak: number
           primary_skill_id: string | null
           reminder_times: string[]
           schedule: Database["public"]["Enums"]["schedule_type"]
@@ -1971,6 +2379,7 @@ export type Database = {
           weekly_target: number | null
         }
         Insert: {
+          best_period_streak?: number
           best_streak?: number
           created_at?: string
           current_streak?: number
@@ -1984,6 +2393,7 @@ export type Database = {
           monthly_target?: number | null
           name: string
           needs_story?: boolean
+          period_streak?: number
           primary_skill_id?: string | null
           reminder_times?: string[]
           schedule: Database["public"]["Enums"]["schedule_type"]
@@ -1998,6 +2408,7 @@ export type Database = {
           weekly_target?: number | null
         }
         Update: {
+          best_period_streak?: number
           best_streak?: number
           created_at?: string
           current_streak?: number
@@ -2011,6 +2422,7 @@ export type Database = {
           monthly_target?: number | null
           name?: string
           needs_story?: boolean
+          period_streak?: number
           primary_skill_id?: string | null
           reminder_times?: string[]
           schedule?: Database["public"]["Enums"]["schedule_type"]
@@ -2092,6 +2504,60 @@ export type Database = {
           },
         ]
       }
+      journal_entries: {
+        Row: {
+          audio_url: string | null
+          created_at: string
+          id: string
+          mood: number | null
+          needs_transcription: boolean
+          occurred_at: string
+          occurred_on: string
+          photo_url: string | null
+          text: string | null
+          transcription: string | null
+          transcription_attempts: number
+          transcription_failed_reason: string | null
+          transcription_model: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          audio_url?: string | null
+          created_at?: string
+          id?: string
+          mood?: number | null
+          needs_transcription?: boolean
+          occurred_at?: string
+          occurred_on: string
+          photo_url?: string | null
+          text?: string | null
+          transcription?: string | null
+          transcription_attempts?: number
+          transcription_failed_reason?: string | null
+          transcription_model?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          audio_url?: string | null
+          created_at?: string
+          id?: string
+          mood?: number | null
+          needs_transcription?: boolean
+          occurred_at?: string
+          occurred_on?: string
+          photo_url?: string | null
+          text?: string | null
+          transcription?: string | null
+          transcription_attempts?: number
+          transcription_failed_reason?: string | null
+          transcription_model?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       module_registry: {
         Row: {
           ativo: boolean
@@ -2125,8 +2591,10 @@ export type Database = {
       narrative_beats: {
         Row: {
           boss_id: string | null
+          chips: Json
           content: string
           created_at: string
+          day_key: string | null
           id: string
           image_url: string | null
           kind: string
@@ -2134,14 +2602,18 @@ export type Database = {
           meta: Json
           needs_image: boolean
           needs_narration: boolean
+          permanent: boolean | null
+          read_at: string | null
           season_id: string
           title: string | null
           user_id: string
         }
         Insert: {
           boss_id?: string | null
+          chips?: Json
           content: string
           created_at?: string
+          day_key?: string | null
           id?: string
           image_url?: string | null
           kind: string
@@ -2149,14 +2621,18 @@ export type Database = {
           meta?: Json
           needs_image?: boolean
           needs_narration?: boolean
+          permanent?: boolean | null
+          read_at?: string | null
           season_id: string
           title?: string | null
           user_id: string
         }
         Update: {
           boss_id?: string | null
+          chips?: Json
           content?: string
           created_at?: string
+          day_key?: string | null
           id?: string
           image_url?: string | null
           kind?: string
@@ -2164,6 +2640,8 @@ export type Database = {
           meta?: Json
           needs_image?: boolean
           needs_narration?: boolean
+          permanent?: boolean | null
+          read_at?: string | null
           season_id?: string
           title?: string | null
           user_id?: string
@@ -2247,6 +2725,603 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      notification_rules: {
+        Row: {
+          enabled: boolean
+          kind: string
+          times: string[]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          enabled?: boolean
+          kind: string
+          times?: string[]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          enabled?: boolean
+          kind?: string
+          times?: string[]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      notification_settings: {
+        Row: {
+          daily_cap: number
+          push_enabled: boolean
+          quiet_end: string
+          quiet_start: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          daily_cap?: number
+          push_enabled?: boolean
+          quiet_end?: string
+          quiet_start?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          daily_cap?: number
+          push_enabled?: boolean
+          quiet_end?: string
+          quiet_start?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      nutrition_days: {
+        Row: {
+          carb_g: number
+          closed_at: string
+          criteria_met: Json
+          fat_g: number
+          fiber_g: number
+          id: string
+          kcal: number
+          meals: number
+          occurred_on: string
+          protein_g: number
+          sodium_mg: number | null
+          targets_snapshot: Json
+          user_id: string
+          water_ml: number
+        }
+        Insert: {
+          carb_g: number
+          closed_at?: string
+          criteria_met?: Json
+          fat_g: number
+          fiber_g?: number
+          id?: string
+          kcal: number
+          meals: number
+          occurred_on: string
+          protein_g: number
+          sodium_mg?: number | null
+          targets_snapshot?: Json
+          user_id: string
+          water_ml?: number
+        }
+        Update: {
+          carb_g?: number
+          closed_at?: string
+          criteria_met?: Json
+          fat_g?: number
+          fiber_g?: number
+          id?: string
+          kcal?: number
+          meals?: number
+          occurred_on?: string
+          protein_g?: number
+          sodium_mg?: number | null
+          targets_snapshot?: Json
+          user_id?: string
+          water_ml?: number
+        }
+        Relationships: []
+      }
+      nutrition_entries: {
+        Row: {
+          carb_g: number
+          created_at: string
+          fat_g: number
+          fiber_g: number
+          id: string
+          kcal: number
+          logged_at: string
+          meal_name: string
+          note: string | null
+          occurred_on: string
+          protein_g: number
+          slot_id: string | null
+          sodium_mg: number | null
+          source: string
+          user_id: string
+        }
+        Insert: {
+          carb_g?: number
+          created_at?: string
+          fat_g?: number
+          fiber_g?: number
+          id?: string
+          kcal?: number
+          logged_at?: string
+          meal_name: string
+          note?: string | null
+          occurred_on: string
+          protein_g?: number
+          slot_id?: string | null
+          sodium_mg?: number | null
+          source?: string
+          user_id: string
+        }
+        Update: {
+          carb_g?: number
+          created_at?: string
+          fat_g?: number
+          fiber_g?: number
+          id?: string
+          kcal?: number
+          logged_at?: string
+          meal_name?: string
+          note?: string | null
+          occurred_on?: string
+          protein_g?: number
+          slot_id?: string | null
+          sodium_mg?: number | null
+          source?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nutrition_entries_slot_id_fkey"
+            columns: ["slot_id"]
+            isOneToOne: false
+            referencedRelation: "nutrition_meal_slots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      nutrition_items: {
+        Row: {
+          carb_g: number
+          entry_id: string
+          fat_g: number
+          fiber_g: number | null
+          food_id: string | null
+          id: string
+          kcal: number
+          name: string
+          protein_g: number
+          quantity_g: number
+          sodium_mg: number | null
+        }
+        Insert: {
+          carb_g: number
+          entry_id: string
+          fat_g: number
+          fiber_g?: number | null
+          food_id?: string | null
+          id?: string
+          kcal: number
+          name: string
+          protein_g: number
+          quantity_g: number
+          sodium_mg?: number | null
+        }
+        Update: {
+          carb_g?: number
+          entry_id?: string
+          fat_g?: number
+          fiber_g?: number | null
+          food_id?: string | null
+          id?: string
+          kcal?: number
+          name?: string
+          protein_g?: number
+          quantity_g?: number
+          sodium_mg?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nutrition_items_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "nutrition_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nutrition_items_food_id_fkey"
+            columns: ["food_id"]
+            isOneToOne: false
+            referencedRelation: "foods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      nutrition_meal_slots: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          name: string
+          position: number
+          share_pct: number
+          target_at: string | null
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name: string
+          position?: number
+          share_pct?: number
+          target_at?: string | null
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name?: string
+          position?: number
+          share_pct?: number
+          target_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      nutrition_pending: {
+        Row: {
+          created_at: string
+          entry_id: string | null
+          expires_at: string
+          id: string
+          model: string | null
+          payload: Json
+          resolved_at: string | null
+          status: string
+          transcript: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          entry_id?: string | null
+          expires_at?: string
+          id?: string
+          model?: string | null
+          payload: Json
+          resolved_at?: string | null
+          status?: string
+          transcript?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          entry_id?: string | null
+          expires_at?: string
+          id?: string
+          model?: string | null
+          payload?: Json
+          resolved_at?: string | null
+          status?: string
+          transcript?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nutrition_pending_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "nutrition_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      nutrition_recipe_items: {
+        Row: {
+          food_id: string
+          id: string
+          position: number
+          quantity_g: number
+          recipe_id: string
+        }
+        Insert: {
+          food_id: string
+          id?: string
+          position?: number
+          quantity_g: number
+          recipe_id: string
+        }
+        Update: {
+          food_id?: string
+          id?: string
+          position?: number
+          quantity_g?: number
+          recipe_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nutrition_recipe_items_food_id_fkey"
+            columns: ["food_id"]
+            isOneToOne: false
+            referencedRelation: "foods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nutrition_recipe_items_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "nutrition_recipes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      nutrition_recipes: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          slot_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          slot_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          slot_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nutrition_recipes_slot_id_fkey"
+            columns: ["slot_id"]
+            isOneToOne: false
+            referencedRelation: "nutrition_meal_slots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      nutrition_targets: {
+        Row: {
+          activity_level: string | null
+          carb_enabled: boolean
+          carb_max_g: number | null
+          carb_min_g: number | null
+          carb_per_kg: number | null
+          difficulty: Database["public"]["Enums"]["difficulty"]
+          fat_enabled: boolean
+          fat_max_g: number | null
+          fat_min_g: number | null
+          fat_per_kg: number | null
+          fiber_enabled: boolean
+          fiber_max_g: number | null
+          fiber_min_g: number | null
+          goal: string | null
+          kcal_enabled: boolean
+          kcal_max: number | null
+          kcal_min: number | null
+          meals_enabled: boolean
+          meals_min: number
+          protein_enabled: boolean
+          protein_max_g: number | null
+          protein_min_g: number | null
+          protein_per_kg: number | null
+          sodium_enabled: boolean
+          sodium_max_mg: number | null
+          sodium_min_mg: number | null
+          updated_at: string
+          user_id: string
+          water_enabled: boolean
+          water_min_ml: number | null
+        }
+        Insert: {
+          activity_level?: string | null
+          carb_enabled?: boolean
+          carb_max_g?: number | null
+          carb_min_g?: number | null
+          carb_per_kg?: number | null
+          difficulty?: Database["public"]["Enums"]["difficulty"]
+          fat_enabled?: boolean
+          fat_max_g?: number | null
+          fat_min_g?: number | null
+          fat_per_kg?: number | null
+          fiber_enabled?: boolean
+          fiber_max_g?: number | null
+          fiber_min_g?: number | null
+          goal?: string | null
+          kcal_enabled?: boolean
+          kcal_max?: number | null
+          kcal_min?: number | null
+          meals_enabled?: boolean
+          meals_min?: number
+          protein_enabled?: boolean
+          protein_max_g?: number | null
+          protein_min_g?: number | null
+          protein_per_kg?: number | null
+          sodium_enabled?: boolean
+          sodium_max_mg?: number | null
+          sodium_min_mg?: number | null
+          updated_at?: string
+          user_id: string
+          water_enabled?: boolean
+          water_min_ml?: number | null
+        }
+        Update: {
+          activity_level?: string | null
+          carb_enabled?: boolean
+          carb_max_g?: number | null
+          carb_min_g?: number | null
+          carb_per_kg?: number | null
+          difficulty?: Database["public"]["Enums"]["difficulty"]
+          fat_enabled?: boolean
+          fat_max_g?: number | null
+          fat_min_g?: number | null
+          fat_per_kg?: number | null
+          fiber_enabled?: boolean
+          fiber_max_g?: number | null
+          fiber_min_g?: number | null
+          goal?: string | null
+          kcal_enabled?: boolean
+          kcal_max?: number | null
+          kcal_min?: number | null
+          meals_enabled?: boolean
+          meals_min?: number
+          protein_enabled?: boolean
+          protein_max_g?: number | null
+          protein_min_g?: number | null
+          protein_per_kg?: number | null
+          sodium_enabled?: boolean
+          sodium_max_mg?: number | null
+          sodium_min_mg?: number | null
+          updated_at?: string
+          user_id?: string
+          water_enabled?: boolean
+          water_min_ml?: number | null
+        }
+        Relationships: []
+      }
+      nutrition_water_logs: {
+        Row: {
+          created_at: string
+          id: string
+          ml: number
+          occurred_on: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ml: number
+          occurred_on: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ml?: number
+          occurred_on?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      nutrition_weekly_targets: {
+        Row: {
+          carb_enabled: boolean
+          carb_max_g: number | null
+          carb_min_g: number | null
+          difficulty: string
+          fat_enabled: boolean
+          fat_max_g: number | null
+          fat_min_g: number | null
+          kcal_enabled: boolean
+          kcal_max: number | null
+          kcal_min: number | null
+          min_days: number
+          protein_enabled: boolean
+          protein_max_g: number | null
+          protein_min_g: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          carb_enabled?: boolean
+          carb_max_g?: number | null
+          carb_min_g?: number | null
+          difficulty?: string
+          fat_enabled?: boolean
+          fat_max_g?: number | null
+          fat_min_g?: number | null
+          kcal_enabled?: boolean
+          kcal_max?: number | null
+          kcal_min?: number | null
+          min_days?: number
+          protein_enabled?: boolean
+          protein_max_g?: number | null
+          protein_min_g?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          carb_enabled?: boolean
+          carb_max_g?: number | null
+          carb_min_g?: number | null
+          difficulty?: string
+          fat_enabled?: boolean
+          fat_max_g?: number | null
+          fat_min_g?: number | null
+          kcal_enabled?: boolean
+          kcal_max?: number | null
+          kcal_min?: number | null
+          min_days?: number
+          protein_enabled?: boolean
+          protein_max_g?: number | null
+          protein_min_g?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      nutrition_weeks: {
+        Row: {
+          avg_carb_g: number | null
+          avg_fat_g: number | null
+          avg_kcal: number | null
+          avg_protein_g: number | null
+          closed_at: string
+          criteria_met: Json | null
+          days_closed: number
+          id: string
+          targets_snapshot: Json | null
+          user_id: string
+          week_start: string
+        }
+        Insert: {
+          avg_carb_g?: number | null
+          avg_fat_g?: number | null
+          avg_kcal?: number | null
+          avg_protein_g?: number | null
+          closed_at?: string
+          criteria_met?: Json | null
+          days_closed: number
+          id?: string
+          targets_snapshot?: Json | null
+          user_id: string
+          week_start: string
+        }
+        Update: {
+          avg_carb_g?: number | null
+          avg_fat_g?: number | null
+          avg_kcal?: number | null
+          avg_protein_g?: number | null
+          closed_at?: string
+          criteria_met?: Json | null
+          days_closed?: number
+          id?: string
+          targets_snapshot?: Json | null
+          user_id?: string
+          week_start?: string
+        }
+        Relationships: []
       }
       objective_claims: {
         Row: {
@@ -2407,6 +3482,92 @@ export type Database = {
         }
         Relationships: []
       }
+      people: {
+        Row: {
+          cadence_days: number | null
+          created_at: string
+          id: string
+          is_active: boolean
+          met_on: string | null
+          name: string
+          notes: string | null
+          relation: string | null
+          stage: string
+          stage_changed_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cadence_days?: number | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          met_on?: string | null
+          name: string
+          notes?: string | null
+          relation?: string | null
+          stage?: string
+          stage_changed_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cadence_days?: number | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          met_on?: string | null
+          name?: string
+          notes?: string | null
+          relation?: string | null
+          stage?: string
+          stage_changed_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      people_contacts: {
+        Row: {
+          created_at: string
+          id: string
+          is_first: boolean
+          kind: string
+          note: string | null
+          occurred_on: string
+          person_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_first?: boolean
+          kind?: string
+          note?: string | null
+          occurred_on: string
+          person_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_first?: boolean
+          kind?: string
+          note?: string | null
+          occurred_on?: string
+          person_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "people_contacts_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -2445,7 +3606,7 @@ export type Database = {
           kind: string
           name: string
           purchased_at: string
-          reference_id: string
+          reference_id: string | null
           user_id: string
         }
         Insert: {
@@ -2455,7 +3616,7 @@ export type Database = {
           kind: string
           name: string
           purchased_at?: string
-          reference_id: string
+          reference_id?: string | null
           user_id: string
         }
         Update: {
@@ -2465,7 +3626,31 @@ export type Database = {
           kind?: string
           name?: string
           purchased_at?: string
-          reference_id?: string
+          reference_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      push_gates: {
+        Row: {
+          day: string | null
+          gate_key: string
+          last_at: string
+          sent_today: number
+          user_id: string
+        }
+        Insert: {
+          day?: string | null
+          gate_key: string
+          last_at?: string
+          sent_today?: number
+          user_id: string
+        }
+        Update: {
+          day?: string | null
+          gate_key?: string
+          last_at?: string
+          sent_today?: number
           user_id?: string
         }
         Relationships: []
@@ -2488,6 +3673,169 @@ export type Database = {
           token?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      reading_logs: {
+        Row: {
+          created_at: string
+          gold_gained: number
+          id: string
+          minutes: number | null
+          note: string | null
+          occurred_on: string
+          reading_id: string
+          units_delta: number
+          user_id: string
+          xp_gained: number
+        }
+        Insert: {
+          created_at?: string
+          gold_gained?: number
+          id?: string
+          minutes?: number | null
+          note?: string | null
+          occurred_on: string
+          reading_id: string
+          units_delta: number
+          user_id: string
+          xp_gained?: number
+        }
+        Update: {
+          created_at?: string
+          gold_gained?: number
+          id?: string
+          minutes?: number | null
+          note?: string | null
+          occurred_on?: string
+          reading_id?: string
+          units_delta?: number
+          user_id?: string
+          xp_gained?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reading_logs_reading_id_fkey"
+            columns: ["reading_id"]
+            isOneToOne: false
+            referencedRelation: "readings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      readings: {
+        Row: {
+          author: string | null
+          cover_url: string | null
+          created_at: string
+          current_units: number
+          difficulty: Database["public"]["Enums"]["difficulty"]
+          finished_on: string | null
+          id: string
+          kind: string
+          needs_story: boolean
+          notes: string | null
+          primary_skill_id: string | null
+          started_on: string | null
+          status: string
+          story_description: string | null
+          story_model: string | null
+          story_title: string | null
+          title: string
+          total_units: number | null
+          unit: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          author?: string | null
+          cover_url?: string | null
+          created_at?: string
+          current_units?: number
+          difficulty?: Database["public"]["Enums"]["difficulty"]
+          finished_on?: string | null
+          id?: string
+          kind?: string
+          needs_story?: boolean
+          notes?: string | null
+          primary_skill_id?: string | null
+          started_on?: string | null
+          status?: string
+          story_description?: string | null
+          story_model?: string | null
+          story_title?: string | null
+          title: string
+          total_units?: number | null
+          unit?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          author?: string | null
+          cover_url?: string | null
+          created_at?: string
+          current_units?: number
+          difficulty?: Database["public"]["Enums"]["difficulty"]
+          finished_on?: string | null
+          id?: string
+          kind?: string
+          needs_story?: boolean
+          notes?: string | null
+          primary_skill_id?: string | null
+          started_on?: string | null
+          status?: string
+          story_description?: string | null
+          story_model?: string | null
+          story_title?: string | null
+          title?: string
+          total_units?: number | null
+          unit?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "readings_primary_skill_id_fkey"
+            columns: ["primary_skill_id"]
+            isOneToOne: false
+            referencedRelation: "skills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      regularity_bonuses: {
+        Row: {
+          active_days: number
+          created_at: string
+          gold_bonus: number
+          gold_earned: number
+          id: string
+          score: number
+          user_id: string
+          week_end: string
+          week_start: string
+        }
+        Insert: {
+          active_days: number
+          created_at?: string
+          gold_bonus: number
+          gold_earned: number
+          id?: string
+          score: number
+          user_id: string
+          week_end: string
+          week_start: string
+        }
+        Update: {
+          active_days?: number
+          created_at?: string
+          gold_bonus?: number
+          gold_earned?: number
+          id?: string
+          score?: number
+          user_id?: string
+          week_end?: string
+          week_start?: string
         }
         Relationships: []
       }
@@ -2665,6 +4013,8 @@ export type Database = {
           ends_on: string | null
           id: string
           preset: string
+          retrospective_enabled: boolean
+          retrospective_uses_journal: boolean
           season_id: string
           starts_on: string | null
           theme_seed: string | null
@@ -2678,6 +4028,8 @@ export type Database = {
           ends_on?: string | null
           id?: string
           preset?: string
+          retrospective_enabled?: boolean
+          retrospective_uses_journal?: boolean
           season_id: string
           starts_on?: string | null
           theme_seed?: string | null
@@ -2691,6 +4043,8 @@ export type Database = {
           ends_on?: string | null
           id?: string
           preset?: string
+          retrospective_enabled?: boolean
+          retrospective_uses_journal?: boolean
           season_id?: string
           starts_on?: string | null
           theme_seed?: string | null
@@ -2709,6 +4063,7 @@ export type Database = {
       }
       seasons: {
         Row: {
+          arc_glossary: Json | null
           arc_lore: string | null
           created_at: string
           ends_on: string
@@ -2725,6 +4080,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          arc_glossary?: Json | null
           arc_lore?: string | null
           created_at?: string
           ends_on: string
@@ -2741,6 +4097,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          arc_glossary?: Json | null
           arc_lore?: string | null
           created_at?: string
           ends_on?: string
@@ -2845,6 +4202,7 @@ export type Database = {
           icon_name: string | null
           id: string
           image_url: string | null
+          last_xp_at: string | null
           level: number | null
           name: string
           needs_image: boolean
@@ -2860,6 +4218,7 @@ export type Database = {
           icon_name?: string | null
           id?: string
           image_url?: string | null
+          last_xp_at?: string | null
           level?: number | null
           name: string
           needs_image?: boolean
@@ -2875,6 +4234,7 @@ export type Database = {
           icon_name?: string | null
           id?: string
           image_url?: string | null
+          last_xp_at?: string | null
           level?: number | null
           name?: string
           needs_image?: boolean
@@ -2893,7 +4253,10 @@ export type Database = {
           external_id: string | null
           id: string
           night_on: string
+          score: number | null
           source: string
+          targets: Json | null
+          tz: string | null
           user_id: string
           wake_time: string
         }
@@ -2905,7 +4268,10 @@ export type Database = {
           external_id?: string | null
           id?: string
           night_on: string
+          score?: number | null
           source?: string
+          targets?: Json | null
+          tz?: string | null
           user_id: string
           wake_time: string
         }
@@ -2917,7 +4283,10 @@ export type Database = {
           external_id?: string | null
           id?: string
           night_on?: string
+          score?: number | null
           source?: string
+          targets?: Json | null
+          tz?: string | null
           user_id?: string
           wake_time?: string
         }
@@ -3010,6 +4379,12 @@ export type Database = {
           reward_quantity: number
           reward_system_item_id: string | null
           reward_user_item_id: string | null
+          stake_item_kind:
+            | Database["public"]["Enums"]["objective_reward_item_kind"]
+            | null
+          stake_quantity: number
+          stake_system_item_id: string | null
+          stake_user_item_id: string | null
           starts_on: string
           status: string
           story_description: string | null
@@ -3035,6 +4410,12 @@ export type Database = {
           reward_quantity?: number
           reward_system_item_id?: string | null
           reward_user_item_id?: string | null
+          stake_item_kind?:
+            | Database["public"]["Enums"]["objective_reward_item_kind"]
+            | null
+          stake_quantity?: number
+          stake_system_item_id?: string | null
+          stake_user_item_id?: string | null
           starts_on: string
           status?: string
           story_description?: string | null
@@ -3060,6 +4441,12 @@ export type Database = {
           reward_quantity?: number
           reward_system_item_id?: string | null
           reward_user_item_id?: string | null
+          stake_item_kind?:
+            | Database["public"]["Enums"]["objective_reward_item_kind"]
+            | null
+          stake_quantity?: number
+          stake_system_item_id?: string | null
+          stake_user_item_id?: string | null
           starts_on?: string
           status?: string
           story_description?: string | null
@@ -3079,6 +4466,20 @@ export type Database = {
           {
             foreignKeyName: "temporary_challenges_reward_user_item_id_fkey"
             columns: ["reward_user_item_id"]
+            isOneToOne: false
+            referencedRelation: "user_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "temporary_challenges_stake_system_item_id_fkey"
+            columns: ["stake_system_item_id"]
+            isOneToOne: false
+            referencedRelation: "system_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "temporary_challenges_stake_user_item_id_fkey"
+            columns: ["stake_user_item_id"]
             isOneToOne: false
             referencedRelation: "user_items"
             referencedColumns: ["id"]
@@ -3123,6 +4524,50 @@ export type Database = {
           },
         ]
       }
+      tracked_source_levels: {
+        Row: {
+          change_reason: string
+          config: Json
+          created_at: string
+          effective_from: string
+          effective_to: string | null
+          id: string
+          level_number: number
+          source_id: string
+          user_id: string
+        }
+        Insert: {
+          change_reason?: string
+          config: Json
+          created_at?: string
+          effective_from: string
+          effective_to?: string | null
+          id?: string
+          level_number: number
+          source_id: string
+          user_id: string
+        }
+        Update: {
+          change_reason?: string
+          config?: Json
+          created_at?: string
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          level_number?: number
+          source_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tracked_source_levels_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "tracked_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tracked_sources: {
         Row: {
           block_after_seconds: number | null
@@ -3131,6 +4576,9 @@ export type Database = {
           created_at: string
           daily_bonus_gold: number
           daily_free_seconds: number
+          daily_free_target_seconds: number | null
+          free_ratchet_from: string | null
+          free_step_seconds_per_week: number
           gold_per_hour: number
           hp_per_hour: number
           id: string
@@ -3139,12 +4587,16 @@ export type Database = {
           kind: string
           label: string
           matcher: string
+          overage_tiers: Json | null
           unlock_cooldown_minutes: number | null
           unlock_cost_gold: number
           unlock_minutes: number
           unlock_price_cap_mult: number | null
           unlock_price_step_pct: number | null
           user_id: string
+          weekly_bonus_gold: number
+          weekly_free_seconds: number | null
+          weekly_overflow_mult: number
         }
         Insert: {
           block_after_seconds?: number | null
@@ -3153,6 +4605,9 @@ export type Database = {
           created_at?: string
           daily_bonus_gold?: number
           daily_free_seconds?: number
+          daily_free_target_seconds?: number | null
+          free_ratchet_from?: string | null
+          free_step_seconds_per_week?: number
           gold_per_hour?: number
           hp_per_hour?: number
           id?: string
@@ -3161,12 +4616,16 @@ export type Database = {
           kind: string
           label: string
           matcher: string
+          overage_tiers?: Json | null
           unlock_cooldown_minutes?: number | null
           unlock_cost_gold?: number
           unlock_minutes?: number
           unlock_price_cap_mult?: number | null
           unlock_price_step_pct?: number | null
           user_id: string
+          weekly_bonus_gold?: number
+          weekly_free_seconds?: number | null
+          weekly_overflow_mult?: number
         }
         Update: {
           block_after_seconds?: number | null
@@ -3175,6 +4634,9 @@ export type Database = {
           created_at?: string
           daily_bonus_gold?: number
           daily_free_seconds?: number
+          daily_free_target_seconds?: number | null
+          free_ratchet_from?: string | null
+          free_step_seconds_per_week?: number
           gold_per_hour?: number
           hp_per_hour?: number
           id?: string
@@ -3183,12 +4645,85 @@ export type Database = {
           kind?: string
           label?: string
           matcher?: string
+          overage_tiers?: Json | null
           unlock_cooldown_minutes?: number | null
           unlock_cost_gold?: number
           unlock_minutes?: number
           unlock_price_cap_mult?: number | null
           unlock_price_step_pct?: number | null
           user_id?: string
+          weekly_bonus_gold?: number
+          weekly_free_seconds?: number | null
+          weekly_overflow_mult?: number
+        }
+        Relationships: []
+      }
+      tracked_sources_bkp_20260809: {
+        Row: {
+          block_after_seconds: number | null
+          boss_threshold_seconds: number | null
+          charge_mode: string | null
+          created_at: string | null
+          daily_bonus_gold: number | null
+          daily_free_seconds: number | null
+          gold_per_hour: number | null
+          hp_per_hour: number | null
+          id: string | null
+          ios_measure: string | null
+          is_active: boolean | null
+          kind: string | null
+          label: string | null
+          matcher: string | null
+          unlock_cooldown_minutes: number | null
+          unlock_cost_gold: number | null
+          unlock_minutes: number | null
+          unlock_price_cap_mult: number | null
+          unlock_price_step_pct: number | null
+          user_id: string | null
+        }
+        Insert: {
+          block_after_seconds?: number | null
+          boss_threshold_seconds?: number | null
+          charge_mode?: string | null
+          created_at?: string | null
+          daily_bonus_gold?: number | null
+          daily_free_seconds?: number | null
+          gold_per_hour?: number | null
+          hp_per_hour?: number | null
+          id?: string | null
+          ios_measure?: string | null
+          is_active?: boolean | null
+          kind?: string | null
+          label?: string | null
+          matcher?: string | null
+          unlock_cooldown_minutes?: number | null
+          unlock_cost_gold?: number | null
+          unlock_minutes?: number | null
+          unlock_price_cap_mult?: number | null
+          unlock_price_step_pct?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          block_after_seconds?: number | null
+          boss_threshold_seconds?: number | null
+          charge_mode?: string | null
+          created_at?: string | null
+          daily_bonus_gold?: number | null
+          daily_free_seconds?: number | null
+          gold_per_hour?: number | null
+          hp_per_hour?: number | null
+          id?: string | null
+          ios_measure?: string | null
+          is_active?: boolean | null
+          kind?: string | null
+          label?: string | null
+          matcher?: string | null
+          unlock_cooldown_minutes?: number | null
+          unlock_cost_gold?: number | null
+          unlock_minutes?: number | null
+          unlock_price_cap_mult?: number | null
+          unlock_price_step_pct?: number | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -3226,6 +4761,8 @@ export type Database = {
         Row: {
           created_at: string
           day: string
+          goal_multiplier: number | null
+          limit_multiplier: number | null
           mode: string
           note: string | null
           user_id: string
@@ -3233,6 +4770,8 @@ export type Database = {
         Insert: {
           created_at?: string
           day: string
+          goal_multiplier?: number | null
+          limit_multiplier?: number | null
           mode: string
           note?: string | null
           user_id: string
@@ -3240,6 +4779,8 @@ export type Database = {
         Update: {
           created_at?: string
           day?: string
+          goal_multiplier?: number | null
+          limit_multiplier?: number | null
           mode?: string
           note?: string | null
           user_id?: string
@@ -3303,18 +4844,27 @@ export type Database = {
           id: string
           name: string
           user_id: string
+          weekly_bonus_gold: number
+          weekly_free_seconds: number | null
+          weekly_overflow_mult: number
         }
         Insert: {
           created_at?: string
           id?: string
           name: string
           user_id: string
+          weekly_bonus_gold?: number
+          weekly_free_seconds?: number | null
+          weekly_overflow_mult?: number
         }
         Update: {
           created_at?: string
           id?: string
           name?: string
           user_id?: string
+          weekly_bonus_gold?: number
+          weekly_free_seconds?: number | null
+          weekly_overflow_mult?: number
         }
         Relationships: []
       }
@@ -3323,14 +4873,19 @@ export type Database = {
           alert_interval_minutes: number
           calm_goal_multiplier: number
           calm_limit_multiplier: number
+          daily_bonus_floor_pct: number
+          debt_expire_days: number
+          debt_seize_pct: number
           focus_abandon_cost_gold: number
           focus_default_minutes: number
           focus_reward_gold: number
           focus_set_id: string | null
+          free_warning_seconds: number
           heavy_goal_multiplier: number
           heavy_limit_multiplier: number
           last_push_at: string | null
           notify_charge_start: boolean
+          overage_tiers: Json | null
           push_enabled: boolean
           sabotage_fine_gold: number
           unlock_cooldown_minutes: number
@@ -3343,14 +4898,19 @@ export type Database = {
           alert_interval_minutes?: number
           calm_goal_multiplier?: number
           calm_limit_multiplier?: number
+          daily_bonus_floor_pct?: number
+          debt_expire_days?: number
+          debt_seize_pct?: number
           focus_abandon_cost_gold?: number
           focus_default_minutes?: number
           focus_reward_gold?: number
           focus_set_id?: string | null
+          free_warning_seconds?: number
           heavy_goal_multiplier?: number
           heavy_limit_multiplier?: number
           last_push_at?: string | null
           notify_charge_start?: boolean
+          overage_tiers?: Json | null
           push_enabled?: boolean
           sabotage_fine_gold?: number
           unlock_cooldown_minutes?: number
@@ -3363,14 +4923,19 @@ export type Database = {
           alert_interval_minutes?: number
           calm_goal_multiplier?: number
           calm_limit_multiplier?: number
+          daily_bonus_floor_pct?: number
+          debt_expire_days?: number
+          debt_seize_pct?: number
           focus_abandon_cost_gold?: number
           focus_default_minutes?: number
           focus_reward_gold?: number
           focus_set_id?: string | null
+          free_warning_seconds?: number
           heavy_goal_multiplier?: number
           heavy_limit_multiplier?: number
           last_push_at?: string | null
           notify_charge_start?: boolean
+          overage_tiers?: Json | null
           push_enabled?: boolean
           sabotage_fine_gold?: number
           unlock_cooldown_minutes?: number
@@ -3388,6 +4953,69 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tracking_settings_bkp_20260809: {
+        Row: {
+          alert_interval_minutes: number | null
+          calm_goal_multiplier: number | null
+          calm_limit_multiplier: number | null
+          focus_abandon_cost_gold: number | null
+          focus_default_minutes: number | null
+          focus_reward_gold: number | null
+          focus_set_id: string | null
+          heavy_goal_multiplier: number | null
+          heavy_limit_multiplier: number | null
+          last_push_at: string | null
+          notify_charge_start: boolean | null
+          push_enabled: boolean | null
+          sabotage_fine_gold: number | null
+          unlock_cooldown_minutes: number | null
+          unlock_price_cap_mult: number | null
+          unlock_price_step_pct: number | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          alert_interval_minutes?: number | null
+          calm_goal_multiplier?: number | null
+          calm_limit_multiplier?: number | null
+          focus_abandon_cost_gold?: number | null
+          focus_default_minutes?: number | null
+          focus_reward_gold?: number | null
+          focus_set_id?: string | null
+          heavy_goal_multiplier?: number | null
+          heavy_limit_multiplier?: number | null
+          last_push_at?: string | null
+          notify_charge_start?: boolean | null
+          push_enabled?: boolean | null
+          sabotage_fine_gold?: number | null
+          unlock_cooldown_minutes?: number | null
+          unlock_price_cap_mult?: number | null
+          unlock_price_step_pct?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          alert_interval_minutes?: number | null
+          calm_goal_multiplier?: number | null
+          calm_limit_multiplier?: number | null
+          focus_abandon_cost_gold?: number | null
+          focus_default_minutes?: number | null
+          focus_reward_gold?: number | null
+          focus_set_id?: string | null
+          heavy_goal_multiplier?: number | null
+          heavy_limit_multiplier?: number | null
+          last_push_at?: string | null
+          notify_charge_start?: boolean | null
+          push_enabled?: boolean | null
+          sabotage_fine_gold?: number | null
+          unlock_cooldown_minutes?: number | null
+          unlock_price_cap_mult?: number | null
+          unlock_price_step_pct?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
       }
       tracking_source_icons: {
         Row: {
@@ -3436,6 +5064,53 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      tracking_suggestions: {
+        Row: {
+          created_at: string
+          decided_at: string | null
+          diagnosis: string
+          id: string
+          metrics: Json
+          primary_action: Json
+          source_id: string
+          status: Database["public"]["Enums"]["tracking_suggestion_status"]
+          summary: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          decided_at?: string | null
+          diagnosis: string
+          id?: string
+          metrics?: Json
+          primary_action: Json
+          source_id: string
+          status?: Database["public"]["Enums"]["tracking_suggestion_status"]
+          summary: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          decided_at?: string | null
+          diagnosis?: string
+          id?: string
+          metrics?: Json
+          primary_action?: Json
+          source_id?: string
+          status?: Database["public"]["Enums"]["tracking_suggestion_status"]
+          summary?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tracking_suggestions_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "tracked_sources"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tracking_unlock_receipts: {
         Row: {
@@ -3488,6 +5163,33 @@ export type Database = {
           gold_paid?: number
           target_key?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      tracking_weekly_bonus: {
+        Row: {
+          created_at: string
+          gold: number
+          scope: string
+          scope_id: string
+          user_id: string
+          week_start: string
+        }
+        Insert: {
+          created_at?: string
+          gold: number
+          scope: string
+          scope_id: string
+          user_id: string
+          week_start: string
+        }
+        Update: {
+          created_at?: string
+          gold?: number
+          scope?: string
+          scope_id?: string
+          user_id?: string
+          week_start?: string
         }
         Relationships: []
       }
@@ -3564,11 +5266,49 @@ export type Database = {
           },
         ]
       }
+      truce_periods: {
+        Row: {
+          created_at: string
+          ended_at: string | null
+          ends_on: string | null
+          essencia_paid: number
+          id: string
+          is_retroactive: boolean
+          reason: string | null
+          started_on: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          ended_at?: string | null
+          ends_on?: string | null
+          essencia_paid?: number
+          id?: string
+          is_retroactive?: boolean
+          reason?: string | null
+          started_on: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          ended_at?: string | null
+          ends_on?: string | null
+          essencia_paid?: number
+          id?: string
+          is_retroactive?: boolean
+          reason?: string | null
+          started_on?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       usage_daily: {
         Row: {
           audio_seconds: number
           day: string
           gold_charged: number
+          gold_owed: number
+          hp_charged: number
           kind: string
           matcher: string
           parallel_seconds: number
@@ -3583,6 +5323,8 @@ export type Database = {
           audio_seconds?: number
           day: string
           gold_charged?: number
+          gold_owed?: number
+          hp_charged?: number
           kind: string
           matcher: string
           parallel_seconds?: number
@@ -3597,6 +5339,8 @@ export type Database = {
           audio_seconds?: number
           day?: string
           gold_charged?: number
+          gold_owed?: number
+          hp_charged?: number
           kind?: string
           matcher?: string
           parallel_seconds?: number
@@ -3616,6 +5360,96 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      usage_daily_bkp_20260809: {
+        Row: {
+          audio_seconds: number | null
+          day: string | null
+          gold_charged: number | null
+          kind: string | null
+          matcher: string | null
+          parallel_seconds: number | null
+          seconds: number | null
+          seconds_charged: number | null
+          settled_at: string | null
+          source_id: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          audio_seconds?: number | null
+          day?: string | null
+          gold_charged?: number | null
+          kind?: string | null
+          matcher?: string | null
+          parallel_seconds?: number | null
+          seconds?: number | null
+          seconds_charged?: number | null
+          settled_at?: string | null
+          source_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          audio_seconds?: number | null
+          day?: string | null
+          gold_charged?: number | null
+          kind?: string | null
+          matcher?: string | null
+          parallel_seconds?: number | null
+          seconds?: number | null
+          seconds_charged?: number | null
+          settled_at?: string | null
+          source_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      usage_daily_bkp_ghost_20260806: {
+        Row: {
+          audio_seconds: number | null
+          day: string | null
+          gold_charged: number | null
+          kind: string | null
+          matcher: string | null
+          parallel_seconds: number | null
+          seconds: number | null
+          seconds_charged: number | null
+          settled_at: string | null
+          source_id: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          audio_seconds?: number | null
+          day?: string | null
+          gold_charged?: number | null
+          kind?: string | null
+          matcher?: string | null
+          parallel_seconds?: number | null
+          seconds?: number | null
+          seconds_charged?: number | null
+          settled_at?: string | null
+          source_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          audio_seconds?: number | null
+          day?: string | null
+          gold_charged?: number | null
+          kind?: string | null
+          matcher?: string | null
+          parallel_seconds?: number | null
+          seconds?: number | null
+          seconds_charged?: number | null
+          settled_at?: string | null
+          source_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
       }
       usage_intervals: {
         Row: {
@@ -3666,6 +5500,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      usage_intervals_bkp_ghost_20260806: {
+        Row: {
+          day_local: string | null
+          device_id: string | null
+          ended_at: string | null
+          id: string | null
+          kind: string | null
+          matcher: string | null
+          mode: string | null
+          received_at: string | null
+          seconds: number | null
+          started_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          day_local?: string | null
+          device_id?: string | null
+          ended_at?: string | null
+          id?: string | null
+          kind?: string | null
+          matcher?: string | null
+          mode?: string | null
+          received_at?: string | null
+          seconds?: number | null
+          started_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          day_local?: string | null
+          device_id?: string | null
+          ended_at?: string | null
+          id?: string | null
+          kind?: string | null
+          matcher?: string | null
+          mode?: string | null
+          received_at?: string | null
+          seconds?: number | null
+          started_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
       }
       usage_open_events: {
         Row: {
@@ -3779,6 +5655,7 @@ export type Database = {
           category: string
           cooldown_minutes: number | null
           cost: number | null
+          cost_effort_days: number | null
           cost_essencia: number | null
           created_at: string
           current_stock: number | null
@@ -3810,6 +5687,7 @@ export type Database = {
           category?: string
           cooldown_minutes?: number | null
           cost?: number | null
+          cost_effort_days?: number | null
           cost_essencia?: number | null
           created_at?: string
           current_stock?: number | null
@@ -3841,6 +5719,7 @@ export type Database = {
           category?: string
           cooldown_minutes?: number | null
           cost?: number | null
+          cost_effort_days?: number | null
           cost_essencia?: number | null
           created_at?: string
           current_stock?: number | null
@@ -3878,121 +5757,259 @@ export type Database = {
           },
         ]
       }
-      weekly_contracts: {
+      user_module_off_periods: {
         Row: {
-          created_at: string
-          description: string | null
           id: string
-          metadata: Json
-          name: string
-          needs_story: boolean
-          reward_item_kind:
-            | Database["public"]["Enums"]["objective_reward_item_kind"]
-            | null
-          reward_quantity: number
-          reward_system_item_id: string | null
-          reward_user_item_id: string | null
-          stake_item_kind:
-            | Database["public"]["Enums"]["objective_reward_item_kind"]
-            | null
-          stake_quantity: number
-          stake_system_item_id: string | null
-          stake_user_item_id: string | null
-          status: Database["public"]["Enums"]["weekly_contract_status"]
-          story_description: string | null
-          story_model: string | null
-          story_title: string | null
-          updated_at: string
+          module_key: Database["public"]["Enums"]["economy_source_type"]
+          off_from: string
+          off_to: string | null
           user_id: string
-          week_end: string
-          week_start: string
         }
         Insert: {
-          created_at?: string
-          description?: string | null
           id?: string
-          metadata?: Json
-          name: string
-          needs_story?: boolean
-          reward_item_kind?:
-            | Database["public"]["Enums"]["objective_reward_item_kind"]
-            | null
-          reward_quantity?: number
-          reward_system_item_id?: string | null
-          reward_user_item_id?: string | null
-          stake_item_kind?:
-            | Database["public"]["Enums"]["objective_reward_item_kind"]
-            | null
-          stake_quantity?: number
-          stake_system_item_id?: string | null
-          stake_user_item_id?: string | null
-          status?: Database["public"]["Enums"]["weekly_contract_status"]
-          story_description?: string | null
-          story_model?: string | null
-          story_title?: string | null
-          updated_at?: string
+          module_key: Database["public"]["Enums"]["economy_source_type"]
+          off_from?: string
+          off_to?: string | null
           user_id: string
-          week_end: string
-          week_start: string
         }
         Update: {
-          created_at?: string
-          description?: string | null
           id?: string
-          metadata?: Json
-          name?: string
-          needs_story?: boolean
-          reward_item_kind?:
-            | Database["public"]["Enums"]["objective_reward_item_kind"]
-            | null
-          reward_quantity?: number
-          reward_system_item_id?: string | null
-          reward_user_item_id?: string | null
-          stake_item_kind?:
-            | Database["public"]["Enums"]["objective_reward_item_kind"]
-            | null
-          stake_quantity?: number
-          stake_system_item_id?: string | null
-          stake_user_item_id?: string | null
-          status?: Database["public"]["Enums"]["weekly_contract_status"]
-          story_description?: string | null
-          story_model?: string | null
-          story_title?: string | null
-          updated_at?: string
+          module_key?: Database["public"]["Enums"]["economy_source_type"]
+          off_from?: string
+          off_to?: string | null
           user_id?: string
-          week_end?: string
-          week_start?: string
         }
         Relationships: [
           {
-            foreignKeyName: "weekly_contracts_reward_system_item_id_fkey"
-            columns: ["reward_system_item_id"]
+            foreignKeyName: "user_module_off_periods_module_key_fkey"
+            columns: ["module_key"]
             isOneToOne: false
-            referencedRelation: "system_items"
-            referencedColumns: ["id"]
+            referencedRelation: "module_registry"
+            referencedColumns: ["key"]
           },
+        ]
+      }
+      user_modules: {
+        Row: {
+          disabled_at: string | null
+          enabled: boolean
+          module_key: Database["public"]["Enums"]["economy_source_type"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          disabled_at?: string | null
+          enabled?: boolean
+          module_key: Database["public"]["Enums"]["economy_source_type"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          disabled_at?: string | null
+          enabled?: boolean
+          module_key?: Database["public"]["Enums"]["economy_source_type"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
           {
-            foreignKeyName: "weekly_contracts_reward_user_item_id_fkey"
-            columns: ["reward_user_item_id"]
+            foreignKeyName: "user_modules_module_key_fkey"
+            columns: ["module_key"]
             isOneToOne: false
-            referencedRelation: "user_items"
-            referencedColumns: ["id"]
+            referencedRelation: "module_registry"
+            referencedColumns: ["key"]
           },
+        ]
+      }
+      wip_limits: {
+        Row: {
+          base_limit: number
+          kind: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          base_limit: number
+          kind: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          base_limit?: number
+          kind?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      wip_slot_grants: {
+        Row: {
+          allocated_points: number
+          boss_id: string | null
+          created_at: string
+          id: string
+          points: number
+          source: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          allocated_points?: number
+          boss_id?: string | null
+          created_at?: string
+          id?: string
+          points: number
+          source?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          allocated_points?: number
+          boss_id?: string | null
+          created_at?: string
+          id?: string
+          points?: number
+          source?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
           {
-            foreignKeyName: "weekly_contracts_stake_system_item_id_fkey"
-            columns: ["stake_system_item_id"]
+            foreignKeyName: "wip_slot_grants_boss_id_fkey"
+            columns: ["boss_id"]
             isOneToOne: false
-            referencedRelation: "system_items"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "weekly_contracts_stake_user_item_id_fkey"
-            columns: ["stake_user_item_id"]
-            isOneToOne: false
-            referencedRelation: "user_items"
+            referencedRelation: "bosses"
             referencedColumns: ["id"]
           },
         ]
+      }
+      wip_slots: {
+        Row: {
+          kind: string
+          slots: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          kind: string
+          slots?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          kind?: string
+          slots?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      work_project_skills: {
+        Row: {
+          project_id: string
+          project_name: string | null
+          skill_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          project_id: string
+          project_name?: string | null
+          skill_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          project_id?: string
+          project_name?: string | null
+          skill_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_project_skills_skill_id_fkey"
+            columns: ["skill_id"]
+            isOneToOne: false
+            referencedRelation: "skills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      work_settings: {
+        Row: {
+          max_minutes_per_day: number
+          max_minutes_per_task: number
+          minutes_per_unit: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          max_minutes_per_day?: number
+          max_minutes_per_task?: number
+          minutes_per_unit?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          max_minutes_per_day?: number
+          max_minutes_per_task?: number
+          minutes_per_unit?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      work_tasks: {
+        Row: {
+          completed_at: string
+          created_at: string
+          external_id: string
+          gold_gained: number
+          id: string
+          measured_minutes: number
+          name: string
+          occurred_on: string
+          paid_minutes: number | null
+          priority: string
+          project_id: string | null
+          project_name: string | null
+          user_id: string
+          xp_gained: number
+        }
+        Insert: {
+          completed_at: string
+          created_at?: string
+          external_id: string
+          gold_gained?: number
+          id?: string
+          measured_minutes?: number
+          name: string
+          occurred_on: string
+          paid_minutes?: number | null
+          priority?: string
+          project_id?: string | null
+          project_name?: string | null
+          user_id: string
+          xp_gained?: number
+        }
+        Update: {
+          completed_at?: string
+          created_at?: string
+          external_id?: string
+          gold_gained?: number
+          id?: string
+          measured_minutes?: number
+          name?: string
+          occurred_on?: string
+          paid_minutes?: number | null
+          priority?: string
+          project_id?: string | null
+          project_name?: string | null
+          user_id?: string
+          xp_gained?: number
+        }
+        Relationships: []
       }
       workout_personal_records: {
         Row: {
@@ -4394,6 +6411,13 @@ export type Database = {
         | "sleep"
         | "cardio"
         | "reading"
+        | "journal"
+        | "nutrition"
+        | "plan"
+        | "bucket"
+        | "relationship"
+        | "work"
+        | "regularity"
       equipment_slot: "arma" | "armadura" | "acessorio"
       equipment_source: "loja" | "boss_drop"
       equipment_tier: "mensal" | "trimestral" | "semestral" | "anual"
@@ -4445,12 +6469,7 @@ export type Database = {
       schedule_type: "weekdays" | "weekly_count" | "monthly"
       season_status: "ativa" | "concluida" | "encerrada"
       system_item_type: "heal" | "damage_reduction" | "streak_recovery"
-      weekly_contract_status:
-        | "draft"
-        | "active"
-        | "completed"
-        | "failed"
-        | "cancelled"
+      tracking_suggestion_status: "pending" | "applied" | "dismissed"
       workout_session_status: "active" | "completed" | "cancelled"
       workout_set_type:
         | "warmup"
@@ -4613,6 +6632,13 @@ export const Constants = {
         "sleep",
         "cardio",
         "reading",
+        "journal",
+        "nutrition",
+        "plan",
+        "bucket",
+        "relationship",
+        "work",
+        "regularity",
       ],
       equipment_slot: ["arma", "armadura", "acessorio"],
       equipment_source: ["loja", "boss_drop"],
@@ -4670,13 +6696,7 @@ export const Constants = {
       schedule_type: ["weekdays", "weekly_count", "monthly"],
       season_status: ["ativa", "concluida", "encerrada"],
       system_item_type: ["heal", "damage_reduction", "streak_recovery"],
-      weekly_contract_status: [
-        "draft",
-        "active",
-        "completed",
-        "failed",
-        "cancelled",
-      ],
+      tracking_suggestion_status: ["pending", "applied", "dismissed"],
       workout_session_status: ["active", "completed", "cancelled"],
       workout_set_type: [
         "warmup",
@@ -4689,3 +6709,4 @@ export const Constants = {
     },
   },
 } as const
+

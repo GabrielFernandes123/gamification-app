@@ -28,6 +28,8 @@ function syntheticLog(habitId: string, today: string, success: boolean, salt: nu
     xp_gained: 0,
     gold_gained: 0,
     damage_taken: 0,
+    damage_nominal: null,
+    capped_by_day: false,
     streak_at_log: 0,
     // Log otimista nunca matou ninguém: a morte é decidida no servidor, e este
     // registro é substituído pela resposta real assim que ela chega.

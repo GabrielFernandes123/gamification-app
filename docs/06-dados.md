@@ -570,8 +570,13 @@ por trás dela.
 ### Objetivos e requisitos (5)
 
 - **temporary_challenges** — o desafio com prazo (`starts_on`/`ends_on`,
-  `repeatable`, recompensa em item). Tem as colunas de batismo narrativo
-  (`story_title` etc.) como os demais.
+  `repeatable`, recompensa em item) e **aposta opcional** (`stake_item_kind`/
+  `stake_*_item_id`/`stake_quantity`). Com stake o desafio nasce `status='draft'`
+  e ativar consome o item; cumprir devolve, falhar/cancelar perde. É a fusão de
+  2026-08-26: a antiga `weekly_contracts` foi absorvida aqui e dropada
+  (migration `20260826120000`) — "Contrato" virou rótulo visual do desafio com
+  aposta. Tem as colunas de batismo narrativo (`story_title` etc.) como os
+  demais.
 - **requirement_groups** — `owner_type`/`owner_id`, `mode`, `required_count`.
   Agrupa requisitos de um objetivo com a regra de quantos precisam bater
   ("3 de 5").
