@@ -9,8 +9,11 @@ import { apiFetch } from '@/lib/api';
 import { qk } from '@/lib/queryKeys';
 import type {
   BodyMeasurement,
+  CardioSession,
   CompletedBodyGoal,
   CompleteWorkoutResult,
+  QuickWorkoutPayload,
+  QuickWorkoutResult,
   SetDrop,
   WorkoutSetType,
   WorkoutSession,
@@ -260,6 +263,46 @@ export function useCompleteWorkoutSession() {
       qc.invalidateQueries({ queryKey: qk.workoutRecords, refetchType: 'inactive' });
       qc.invalidateQueries({ queryKey: qk.skills, refetchType: 'inactive' });
       qc.invalidateQueries({ queryKey: qk.habitLogsRoot, refetchType: 'inactive' });
+      qc.invalidateQueries({ queryKey: qk.currentSeason, refetchType: 'inactive' });
+    },
+  });
+}
+
+/** Histórico da aba Cardio: tempo e distância já somados das séries. */
+export function useCardioSessions() {
+  return useQuery({
+    queryKey: qk.cardioSessions,
+    queryFn: async (): Promise<CardioSession[]> => {
+      return apiFetch<CardioSession[]>('/workout-sessions/cardio');
+    },
+  });
+}
+
+/**
+ * REGISTRO RÁPIDO — "eu treinei", sem série a série.
+ *
+ * Mesmo `_grant` do treino ao vivo, logo mesmo dano de boss: por isso mostra o
+ * toast de progresso do boss igual ao `complete`. Treino que não passa por aqui
+ * não fere nada, que era exatamente o buraco de quem treina sem o celular.
+ */
+export function useQuickWorkout() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  return useMutation({
+    mutationFn: async (payload: QuickWorkoutPayload) => {
+      return apiFetch<QuickWorkoutResult>('/workout-sessions/quick', { method: 'POST', body: payload });
+    },
+    onSuccess: (data) => {
+      showBossProgressToast(toast, data.bossProgress);
+      addCharacterReward(qc, data);
+      addAchievements(qc, data.newAchievements);
+      for (const completed of data.completedGoals ?? []) addAchievements(qc, completed.newAchievements);
+      qc.invalidateQueries({ queryKey: qk.workoutSessions });
+      qc.invalidateQueries({ queryKey: qk.cardioSessions });
+      qc.invalidateQueries({ queryKey: qk.completedSessions, refetchType: 'inactive' });
+      qc.invalidateQueries({ queryKey: qk.bodyParts, refetchType: 'inactive' });
+      qc.invalidateQueries({ queryKey: qk.bodyGoals });
+      qc.invalidateQueries({ queryKey: qk.skills, refetchType: 'inactive' });
       qc.invalidateQueries({ queryKey: qk.currentSeason, refetchType: 'inactive' });
     },
   });

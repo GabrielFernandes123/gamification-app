@@ -26,6 +26,7 @@ export const qk = {
   fitnessExercises: ['fitnessExercises'] as const,
   workoutSessions: ['workoutSessions'] as const,
   completedSessions: ['completedSessions'] as const,
+  cardioSessions: ['cardioSessions'] as const,
   workoutSession: (id: string) => ['workoutSession', id] as const,
   workoutTemplates: ['workoutTemplates'] as const,
   workoutTemplatesAll: ['workoutTemplatesAll'] as const,

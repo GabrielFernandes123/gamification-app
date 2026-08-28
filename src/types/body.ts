@@ -22,6 +22,34 @@ export type FitnessExercise = Tables['fitness_exercises']['Row'] & {
 
 export type WorkoutSession = Tables['workout_sessions']['Row'] & {
   template_id?: string | null;
+  /**
+   * Como o treino entrou: `live` = cronometrado série a série, `quick` =
+   * registrado depois ("eu treinei"). Colunas novas ficam opcionais aqui porque
+   * `db.ts` é gerado do banco e só as conhece na próxima geração.
+   */
+  entry_mode?: 'live' | 'quick';
+  avg_heart_rate?: number | null;
+  perceived_effort?: 'leve' | 'normal' | 'puxado' | null;
+};
+
+/** Sessão de cardio com tempo/distância já somados das séries (rota /cardio). */
+export type CardioSession = WorkoutSession & {
+  set_seconds?: number | null;
+  set_meters?: number | null;
+  /** Nome do exercício por trás — "Corrida", "Bicicleta". */
+  activity?: string | null;
+};
+
+export type QuickWorkoutPayload = {
+  modality: 'forca' | 'cardio';
+  minutes: number;
+  date?: string;
+  name?: string;
+  activity?: string;
+  distanceMeters?: number;
+  avgHeartRate?: number;
+  effort?: 'leve' | 'normal' | 'puxado';
+  notes?: string;
 };
 
 export type WorkoutSetType = Database['public']['Enums']['workout_set_type'];
@@ -81,6 +109,23 @@ export type CompleteWorkoutResult = {
   newLevel?: number;
   newAchievements?: string[];
   newRecords?: number;
+  completedGoals?: CompletedBodyGoal[];
+  bossProgress?: BossProgressResult;
+};
+
+/** Resposta do registro rápido — mesma forma do grant que o treino ao vivo devolve. */
+export type QuickWorkoutResult = {
+  id: string;
+  modality: 'forca' | 'cardio';
+  date: string;
+  durationMinutes: number;
+  difficulty: string;
+  xpGained: number;
+  goldGained: number;
+  leveledUp?: boolean;
+  newLevel?: number;
+  newAchievements?: string[];
+  moduleDisabled?: boolean;
   completedGoals?: CompletedBodyGoal[];
   bossProgress?: BossProgressResult;
 };

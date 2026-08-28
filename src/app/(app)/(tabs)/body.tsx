@@ -1,4 +1,4 @@
-import { ChevronRight, Dumbbell, ExternalLink, Play, Plus, Ruler, Utensils, X } from 'lucide-react-native';
+import { ChevronRight, Dumbbell, ExternalLink, HeartPulse, Play, Plus, Ruler, Utensils, X } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
@@ -21,6 +21,7 @@ import {
   useWorkoutTemplates,
 } from '@/features/body/hooks/useBody';
 import { MediaThumb } from '@/components/ui/MediaThumb';
+import { CardioPanel, QuickStrengthCard } from '@/features/body/CardioPanel';
 import { NutritionPanel } from '@/features/nutrition/NutritionPanel';
 import { useToday } from '@/hooks/useToday';
 import { openWeb } from '@/lib/openWeb';
@@ -28,7 +29,7 @@ import { theme } from '@/theme/theme';
 import type { BodyMeasurement, WorkoutSession, WorkoutSet, WorkoutTemplate } from '@/types/body';
 import { formatErrorMessage } from '@/utils/errors';
 
-type Mode = 'workouts' | 'measurements' | 'nutrition';
+type Mode = 'workouts' | 'cardio' | 'measurements' | 'nutrition';
 
 const MEASUREMENT_SCALE_WIDTH = 10;
 
@@ -100,12 +101,14 @@ export default function BodyScreen() {
         onChange={setMode}
         options={[
           { value: 'workouts', label: 'Treinos', icon: Dumbbell, color: theme.colors.skill },
+          { value: 'cardio', label: 'Cardio', icon: HeartPulse, color: theme.colors.hp },
           { value: 'measurements', label: 'Medidas', icon: Ruler, color: theme.colors.success },
           { value: 'nutrition', label: 'Comida', icon: Utensils, color: theme.colors.poison },
         ]}
       />
 
       {mode === 'workouts' ? <WorkoutsPanel /> : null}
+      {mode === 'cardio' ? <CardioPanel /> : null}
       {mode === 'measurements' ? <MeasurementsPanel /> : null}
       {mode === 'nutrition' ? <NutritionPanel /> : null}
     </Screen>
@@ -266,6 +269,11 @@ function WorkoutsPanel() {
           </Pressable>
         ) : null}
       </Card>
+
+      {/* O treino que já aconteceu. Fica depois da lista de treinos e antes
+          do histórico: é o último recurso de quem não cronometrou, não a
+          primeira opção de quem está de pé na academia. */}
+      <QuickStrengthCard />
 
       <Card style={styles.panel}>
         <SectionHeader title="Histórico recente" />
