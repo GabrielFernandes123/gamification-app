@@ -10,6 +10,23 @@
 
 ---
 
+## 0. PREÇOS INDEXADOS (2026-09-22)
+
+A renda do usuário mais que dobrou em dois meses enquanto os preços ficavam
+parados. O "preço que respira" (14 §5.5⑬) já existia, mas só `user_items` usava
+a régua.
+
+- Poção, escudo, amuleto, equipamento e recompensas passam a ter
+  `cost_effort_days`: o ouro sai da sua média do ciclo, não de um número fixo.
+- **Item de cura escala o EFEITO também** (`system_items.effect_pct`): ele curava
+  valor absoluto enquanto o HP máximo cresce por nível, então indexar só o preço
+  faria pagar mais por cada vez menos.
+- O **amuleto de sequência** tem piso e preço proporcional à corrente que
+  remenda — remendar 3 dias e 40 dias não podem custar o mesmo.
+- Não mudaram: poção de emergência e desbloqueio de tela, que já escalavam.
+
+---
+
 ## 1. Moedas
 
 Duas moedas, com **fronteiras de ganho distintas** (ver [00 §6](./00-visao.md)):

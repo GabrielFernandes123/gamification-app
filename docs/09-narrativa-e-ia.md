@@ -9,6 +9,69 @@
 
 ---
 
+## 0. O DIÁRIO DE MASMORRA (2026-09-22) — o formato vigente
+
+> Esta seção manda no que vem abaixo. As seções 1 a 7 descrevem o desenho
+> anterior (crônica em segunda pessoa, capítulos avulsos, retrospectiva
+> semanal) e seguem aqui porque explicam decisões que continuam valendo —
+> hierarquia de bosses, camadas de IA, recalibração. O que mudou está aqui.
+
+### Por que mudou
+
+Em 26 crônicas de um mês, "você avança" apareceu 12 vezes e 10 delas abriam o
+segundo parágrafo com o nome do chefe. As causas eram estruturais:
+
+1. o prompt obrigava o chefe do mês — o mesmo por 30 dias — a estar em toda cena;
+2. o molde era fixo: dois parágrafos, 120 a 180 palavras, todo dia;
+3. a memória entre dias tinha um dia de profundidade e era só negativa ("não
+   repita estas palavras");
+4. nenhum dia terminava mal: até o dia em que a sequência de 20 dias caiu
+   fechou com "a criatura recua".
+
+E a história era escrita às 03h50, quatro minutos depois de o sistema
+adivinhar o que não fora marcado — a correção do usuário chegava sempre tarde.
+
+### O formato
+
+- **Uma entrada por dia**, em primeira pessoa, escrita no FECHAMENTO DO DIA
+  (04 §fechamento), depois do veredito. Substitui a crônica.
+- **O mês é um ESTRATO de 10 andares**, com o chefe no andar 10. O andar sai do
+  dano acumulado nele (10% por andar), é calculado pelo código e **nunca volta**
+  — o enrave aparece como caminho mais longo, não como escada de volta.
+- **O andar é batizado na chegada** (nome, ambiente, fauna, habitante) e fica.
+  A fauna é o que impede o narrador de inventar um bicho novo a cada dia.
+- **O modo do dia decide a FORMA**: silencio (20-60 palavras), limpo (100-200),
+  conflito (250-350), queda e virada (300-450), chefe (450-700), epilogo
+  (120-250). Variar o comprimento é o que mais rápido tira a sensação de
+  repetição.
+- **Ficção livre com âncora**: o mundo pode ser inventado desde que cada
+  invenção declare a qual fato do digest se apoia (`ancoras`, validadas contra
+  as chaves). O que aconteceu não se inventa — e nada sobre a vida real de quem
+  escreve.
+- **Marcos** viram registro (selo, arte, push) sem prosa própria; a história
+  deles é contada na entrada do dia. A **retrospectiva semanal saiu** do fio.
+
+### O elenco
+
+- Hábito positivo é **ritual**; hábito negativo é **nêmese** no Codex, e a
+  sequência é a luta (7/30 dias, ou 2/8 períodos para hábito de limite
+  semanal). Derrotada vira troféu, recaída faz escapar, três fugas dão nome
+  próprio, meio ano bane. Nada nasce no lugar de quem cai.
+- Fonte de tela cadastrada como distração vira **criatura**; `story_role`
+  separa distração, trabalho e neutro; `sensitive` marca o que a história nunca
+  cita pelo nome real.
+- Cada elemento tem **nome completo** (bestiário) e **apelido** (`story_short`),
+  porque "Consultar os Murais de Mensagens do Labirinto" não cabe numa frase.
+
+### Onde está
+
+`narrative/diary.service.ts` (entrada, modos, âncoras), `narrative/floor.service.ts`
+(andares e `story_state`), `codex/nemesis-sync.service.ts` (elenco),
+`day-close/` (quando tudo isso roda). Prévia sem gravar:
+`scripts/diario-preview.ts`.
+
+---
+
 ## 1. Conceito: a Temporada é um arco narrativo
 
 Uma **Temporada** é um **arco com uma lore própria** (default: 1 ano; configurável —

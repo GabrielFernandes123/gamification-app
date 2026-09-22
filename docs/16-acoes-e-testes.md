@@ -13,6 +13,53 @@
 
 ---
 
+## 0. O DIÁRIO DE MASMORRA (2026-09-22) — o que espera você
+
+### 0.1 🔴 Ler a prévia antes de virar a chave
+
+```
+cd gamificacao-api
+npx ts-node -r tsconfig-paths/register scripts/diario-preview.ts 7
+```
+
+Gera sete dias reais **sem gravar nada** e imprime andar, modo, texto, chips e
+âncoras. É o único jeito de julgar o formato contra os seus próprios dias. A
+primeira prévia já pegou dois defeitos que nenhum teste pegaria: o serviço lia
+o estado ATUAL do chefe (e por isso matava a Syreth em dias anteriores à morte
+dela) e o modelo copiava as aspas da lista branca de números.
+
+### 0.2 🔴 Ligar o modo por evento
+
+Nada mudou de comportamento ainda: `day_close_settings.event_driven` nasce
+`false` e os fechamentos seguem no relógio. Para virar a chave:
+
+```
+POST /day-close/settings { "event_driven": true }
+```
+
+Sugestão: ligar primeiro na conta DEMO por um ou dois dias. Desligar é a mesma
+chamada com `false` — sem deploy.
+
+### 0.3 🟡 Revisar o Registro do Mundo
+
+`/codex/registro` na web. É onde se diz que um app medido é **ofício** e não
+distração (o VS Code e o Meet estão fora do cadastro hoje, então não aparecem
+em lugar nenhum da história) e onde se marca uma fonte como **sensível**.
+
+```
+npx ts-node -r tsconfig-paths/register scripts/registro-do-mundo.ts
+```
+
+Sincroniza o elenco, batiza quem nasceu e preenche apelidos.
+
+### 0.4 ❓ Quando o formato estreia
+
+O diário já é escrito em todo fechamento. A decisão que sobra é só narrativa:
+começar o estrato novo em 26/09 (mês novo) ou esperar 25/10, quando o Labirinto
+de Cristal termina e o volume vira naturalmente.
+
+---
+
 ## 1. Testes que nenhum `tsc` pega
 
 O `tsc`, o `nest build` e os 63 testes cobrem o que é verificável em máquina.

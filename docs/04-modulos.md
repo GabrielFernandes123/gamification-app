@@ -8,6 +8,37 @@
 
 ---
 
+## 0. O FECHAMENTO DO DIA (2026-09-22)
+
+> Manda sobre quando cada módulo fecha. O contrato abaixo continua valendo.
+
+**Registro vale na hora; VEREDITO espera o fechamento.** Registro é o que o
+sistema sabe sozinho (você marcou, o app mediu). Veredito é julgamento sobre
+como o dia foi — e até aqui ele era adivinhado às 03h locais, presumindo que o
+que não foi marcado não foi feito.
+
+| continua em tempo real | espera o fechamento |
+|---|---|
+| tempo de tela inteiro (cobrança, bloqueio, desbloqueio, bônus, dívida) | o veredito do hábito não marcado |
+| XP e ouro de cada registro, compras, nível | contra-ataque do chefe |
+| | sequências, fechamento de semana e de mês |
+| | prazos de desafio, incursão, regularidade |
+| | dano, morte, cicatriz e a entrada do diário |
+
+- Estados do dia: **aberto** (ausência de linha em `day_closures`), **fechado
+  por você**, **fechado pelo prazo**. Reabrir só até a meia-noite do próprio dia.
+- O prazo é configurável (`day_close_settings`, padrão meio-dia do dia
+  seguinte); a varredura fecha quem não fechou.
+- A guarda `autoSettleAllowed` (`day-close/settle-gate.ts`) é a porta única:
+  com `event_driven = false` (o padrão) nada muda e os crons seguem no relógio.
+- **Ligação módulo ↔ hábito** (`habits.fulfilled_by`): registrar no módulo
+  cumpre o hábito ligado a ele. O módulo julga; o caminho inverso só existe no
+  fechamento, que pergunta o mínimo (treino: modalidade e minutos) e cria os
+  dois registros de uma vez. O critério (`fulfillment_spec.min`) é do DIA, e
+  quem soma é o módulo.
+
+---
+
 ## 1. O contrato de módulo
 
 Para um módulo existir no sistema, ele cumpre **três coisas — e só**:
