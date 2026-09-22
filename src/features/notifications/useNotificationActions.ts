@@ -10,7 +10,8 @@ import { HABIT_ACTION_DONE } from './categories';
  * TRATA O BOTÃO "FEITO" DA NOTIFICAÇÃO (análise de simplificação do app (2026-07-30) §4.4).
  *
  * ── A guarda de DIA, que é o coração disto ───────────────────────────────
- * Com `opensAppToForeground: false`, o JS só roda se o processo estiver vivo. Se o
+ * O botão agora abre o app (ver categories.ts), então a resposta chega na hora.
+ * A guarda continua valendo para o caso raro: com `opensAppToForeground: false`, o JS só roda se o processo estiver vivo. Se o
  * app tiver sido encerrado, a resposta é entregue na PRÓXIMA abertura — que pode
  * ser na manhã seguinte. Marcar o hábito ali gravaria o dia errado: o registro
  * cairia em hoje, sobre um aviso de ontem.

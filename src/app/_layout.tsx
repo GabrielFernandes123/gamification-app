@@ -21,6 +21,10 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
+// Efeito colateral de propósito: registra a tarefa em segundo plano no escopo
+// global, na carga do bundle. Quando o iOS acorda o app em segundo plano,
+// nenhuma tela é montada — definir a tarefa dentro de um componente a perderia.
+import '@/features/background/backgroundRefresh';
 import { AppProviders } from '@/providers/AppProviders';
 import { theme } from '@/theme/theme';
 

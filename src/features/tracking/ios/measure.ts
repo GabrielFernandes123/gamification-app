@@ -83,6 +83,54 @@ export function ladderEvents(
   return events;
 }
 
+/**
+ * Cada degrau AVISA A API na hora, pela própria extensão de monitoramento —
+ * que roda sozinha, com o app fechado.
+ *
+ * Antes o uso do iPhone só chegava ao servidor quando o app abria e montava os
+ * intervalos (`pendingIntervals` abaixo): cobrança, franquia, alerta e o bônus
+ * de disciplina do dia trabalhavam com o dia pela metade. A extensão não roda
+ * código nosso, só ações configuradas; por isso o corpo é FIXO (fonte, degrau,
+ * minutos por degrau) e o servidor data e monta o intervalo — o MESMO que o app
+ * enviaria depois, com o mesmo id, que a ingestão descarta como repetido.
+ *
+ * `skipIfAlreadyTriggeredAfter` = meia-noite de hoje: o rearme a cada sync
+ * redispara os degraus já passados (`includesPastActivity`), e sem a trava
+ * cada sync viraria até 20 chamadas repetidas.
+ */
+export function armLadderReports(
+  source: PolicySource,
+  selectionId: string,
+  activityName: string,
+  report: { apiUrl: string; token: string },
+) {
+  const step = stepMinutesFor(source);
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  for (let i = 1; i <= MAX_STEPS; i++) {
+    DeviceActivity.configureActions({
+      activityName,
+      callbackName: 'eventDidReachThreshold',
+      eventName: stepEventName(selectionId, i),
+      actions: [
+        {
+          type: 'sendHttpRequest',
+          url: `${report.apiUrl}/tracking/ios-step`,
+          options: {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${report.token}`,
+              'Content-Type': 'application/json',
+            },
+            body: { matcher: source.matcher, step: i, step_minutes: step },
+          },
+          skipIfAlreadyTriggeredAfter: hoje,
+        },
+      ],
+    });
+  }
+}
+
 export type PendingInterval = {
   id: string;
   kind: 'app';

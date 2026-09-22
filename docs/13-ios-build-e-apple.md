@@ -235,6 +235,38 @@ introspect em §2), então isto só adiciona a variante `.development`.
 
 ---
 
+## 6.1 A extensão de notificação (2026-09-22)
+
+A extensão `targets/NotificationService` grava no widget o retrato que chega
+dentro de cada push — é o que atualiza o widget com o app FECHADO. Como toda
+extensão, ela precisa de App ID e perfil próprios, e as credenciais do
+`preview` são **locais** (`credentialsSource: local`), então o EAS não cria
+nada sozinho. Uma vez só:
+
+1. **developer.apple.com → Identifiers → +** → App IDs → App → identificador
+   `com.gabriel.evolve.notification`, descrição "Evolve Notification".
+   Marque **App Groups** e, em Configure, escolha `group.com.gabriel.evolve`.
+2. **Profiles → +** → Ad Hoc → App ID `com.gabriel.evolve.notification` →
+   o mesmo certificado de distribuição das outras → o seu iPhone → nome
+   "Evolve Notification Ad Hoc". Baixe.
+3. Salve como `certs/NotificationService.mobileprovision`.
+4. Em `credentials.json`, ao lado das outras extensões:
+
+   ```json
+   "NotificationService": {
+     "provisioningProfilePath": "certs/NotificationService.mobileprovision",
+     "distributionCertificate": { ...o MESMO bloco das outras... }
+   }
+   ```
+
+Sem isto a build falha na assinatura do alvo `NotificationService`.
+
+**Como conferir que funciona:** com o app fechado (deslizado para cima),
+marque um hábito pela web e espere um push do Evolve (um aviso de dano ou o
+lembrete do fechamento): os números do widget mudam sem abrir o app.
+
+---
+
 ## 7. O que vem depois da build
 
 > **✅ Atualizado em 2026-08-04.** Esta seção dizia que "o app ainda não usa" o

@@ -59,6 +59,12 @@ function TodayJourneyWidget(
     bossHp: rawProps.bossHp ?? 0,
     bossMaxHp: rawProps.bossMaxHp ?? 0,
     actions: rawProps.actions ?? [],
+    screenLabel: rawProps.screenLabel ?? '',
+    screenUsedMin: rawProps.screenUsedMin ?? 0,
+    screenFreeMin: rawProps.screenFreeMin ?? 0,
+    screenTotalMin: rawProps.screenTotalMin ?? 0,
+    dayCloseLabel: rawProps.dayCloseLabel ?? '',
+    dayCloseState: rawProps.dayCloseState ?? 'none',
   };
 
   const ratio = (value: number) => {
@@ -77,14 +83,29 @@ function TodayJourneyWidget(
         : pending > 0
           ? `${pending} ações pendentes`
           : 'Sem rotina hoje';
-  const statusColor =
-    props.atRiskObjectives > 0 || props.failedToday > 0
+  // À noite (ou com ontem em aberto), o que importa é fechar o dia: ele vira
+  // a manchete do widget, com a lua, em vez do próximo hábito.
+  const closeUrgent = props.dayCloseState === 'now' || props.dayCloseState === 'late';
+  const headline = closeUrgent ? props.dayCloseLabel : mainFocus;
+  const screenValue =
+    props.screenFreeMin > 0 ? `${props.screenUsedMin}/${props.screenFreeMin}` : `${props.screenTotalMin}`;
+  const screenColor =
+    props.screenFreeMin > 0 && props.screenUsedMin >= props.screenFreeMin
+      ? c.danger
+      : props.screenFreeMin > 0 && props.screenUsedMin >= props.screenFreeMin * 0.8
+        ? c.warning
+        : c.blue;
+  const hpColor = props.hp <= props.maxHp * 0.3 ? c.danger : c.success;
+  const statusColor = closeUrgent
+    ? c.magic
+    : props.atRiskObjectives > 0 || props.failedToday > 0
       ? c.danger
       : pending === 0 && props.dueHabits > 0
         ? c.success
         : c.orange;
-  const statusIcon =
-    props.atRiskObjectives > 0 || props.failedToday > 0
+  const statusIcon = closeUrgent
+    ? 'moon.fill'
+    : props.atRiskObjectives > 0 || props.failedToday > 0
       ? 'exclamationmark.triangle.fill'
       : pending === 0 && props.dueHabits > 0
         ? 'checkmark.seal.fill'
@@ -97,28 +118,6 @@ function TodayJourneyWidget(
     if (value >= 1000) return `${Math.floor(value / 100) / 10}k`;
     return `${value}`;
   };
-  const objectiveStat =
-    props.failedToday > 0
-      ? {
-          icon: 'exclamationmark.triangle.fill' as const,
-          value: `${props.failedToday}`,
-          label: 'Falhas',
-          color: c.danger,
-        }
-      : props.atRiskObjectives > 0
-        ? {
-            icon: 'exclamationmark.triangle.fill' as const,
-            value: `${props.atRiskObjectives}`,
-            label: 'Em risco',
-            color: c.danger,
-          }
-        : {
-            icon: 'target' as const,
-            value: `${props.claimableObjectives}`,
-            label: 'Resgates',
-            color: c.success,
-          };
-
   const shell = (pad: number) => [
     containerBackground(c.bg, 'widget'),
     padding({ all: pad }),
@@ -144,7 +143,9 @@ function TodayJourneyWidget(
       | 'heart.fill'
       | 'flame.fill'
       | 'star.fill'
-      | 'target';
+      | 'target'
+      | 'hourglass'
+      | 'moon.fill';
     value: string;
     label: string;
     color: string;
@@ -180,7 +181,7 @@ function TodayJourneyWidget(
           JORNADA DE HOJE
         </Text>
         <Text modifiers={[font({ size: compact ? 13 : 16, weight: 'bold' }), foregroundStyle(c.text), lineLimit(1), truncationMode('tail')]}>
-          {mainFocus}
+          {headline}
         </Text>
       </VStack>
       <Spacer />
@@ -223,7 +224,9 @@ function TodayJourneyWidget(
   if (environment.widgetFamily === 'accessoryInline') {
     return (
       <Text>
-        Hoje {percent}% - {pending} pendentes
+        {closeUrgent
+          ? `${props.dayCloseLabel} · HP ${props.hp}`
+          : `HP ${props.hp} · ${props.screenLabel || `Hoje ${percent}%`}`}
       </Text>
     );
   }
@@ -231,11 +234,11 @@ function TodayJourneyWidget(
   if (environment.widgetFamily === 'accessoryCircular') {
     return (
       <VStack alignment="center" spacing={2} modifiers={shell(2)}>
-        <Image systemName={statusIcon} size={16} color={statusColor} />
-        <Text modifiers={[font({ size: 17, weight: 'bold' }), foregroundStyle(c.text), monospacedDigit()]}>
-          {percent}%
+        <Image systemName={closeUrgent ? 'moon.fill' : 'heart.fill'} size={14} color={closeUrgent ? c.magic : hpColor} />
+        <Text modifiers={[font({ size: 16, weight: 'bold' }), foregroundStyle(c.text), monospacedDigit()]}>
+          {props.hp}
         </Text>
-        <Text modifiers={[font({ size: 8, weight: 'semibold' }), foregroundStyle(c.muted)]}>{pending}</Text>
+        <Text modifiers={[font({ size: 8, weight: 'semibold' }), foregroundStyle(c.muted)]}>HP</Text>
       </VStack>
     );
   }
@@ -244,12 +247,14 @@ function TodayJourneyWidget(
     return (
       <VStack alignment="leading" spacing={4} modifiers={shell(2)}>
         <HStack spacing={5}>
-          <Image systemName={statusIcon} size={12} color={statusColor} />
-          <Text modifiers={[font({ size: 12, weight: 'bold' }), foregroundStyle(c.text), lineLimit(1)]}>
-            Hoje {percent}%
+          <Image systemName="heart.fill" size={12} color={hpColor} />
+          <Text modifiers={[font({ size: 12, weight: 'bold' }), foregroundStyle(c.text), lineLimit(1), monospacedDigit()]}>
+            {props.hp}/{props.maxHp} · Hoje {percent}%
           </Text>
         </HStack>
-        <Text modifiers={[font({ size: 11 }), foregroundStyle(c.muted), lineLimit(1)]}>{mainFocus}</Text>
+        <Text modifiers={[font({ size: 11 }), foregroundStyle(closeUrgent ? c.magic : c.muted), lineLimit(1)]}>
+          {closeUrgent ? props.dayCloseLabel : props.screenLabel || mainFocus}
+        </Text>
       </VStack>
     );
   }
@@ -260,8 +265,8 @@ function TodayJourneyWidget(
         <Header compact />
         <Progress />
         <HStack spacing={7}>
-          <Stat icon="bolt.fill" value={formatAmount(props.xpToday)} label="XP" color={c.warning} width={64} />
-          <Stat icon="flame.fill" value={`${props.streak}`} label="Seq." color={c.orange} width={64} />
+          <Stat icon="heart.fill" value={`${props.hp}`} label="HP" color={hpColor} width={64} />
+          <Stat icon="hourglass" value={screenValue} label="Tela" color={screenColor} width={64} />
         </HStack>
       </VStack>
     );
@@ -291,17 +296,18 @@ function TodayJourneyWidget(
           <Text modifiers={[font({ size: 16, weight: 'bold' }), foregroundStyle(c.text), lineLimit(1), truncationMode('tail')]}>
             {mainFocus}
           </Text>
-          <Text modifiers={[font({ size: 11 }), foregroundStyle(c.subtle), lineLimit(1)]}>
-            {bossPercent !== null ? `Boss com ${bossPercent}% de HP` : `${props.atRiskObjectives} objetivos em risco`}
+          <Text modifiers={[font({ size: 11 }), foregroundStyle(closeUrgent || props.dayCloseLabel ? c.magic : c.subtle), lineLimit(1)]}>
+            {props.dayCloseLabel ||
+              (bossPercent !== null ? `Boss com ${bossPercent}% de HP` : `${props.atRiskObjectives} objetivos em risco`)}
           </Text>
         </VStack>
         <HStack spacing={10}>
-          <Stat icon="heart.fill" value={`${props.hp}/${props.maxHp}`} label="HP" color={c.danger} width={136} />
+          <Stat icon="heart.fill" value={`${props.hp}/${props.maxHp}`} label="HP" color={hpColor} width={136} />
           <Stat
-            icon={objectiveStat.icon}
-            value={objectiveStat.value}
-            label={objectiveStat.label}
-            color={objectiveStat.color}
+            icon="hourglass"
+            value={props.screenLabel ? screenValue : `${props.screenTotalMin}`}
+            label={props.screenLabel ? props.screenLabel.split(' ')[0] : 'Min de tela'}
+            color={screenColor}
             width={136}
           />
         </HStack>
@@ -314,9 +320,15 @@ function TodayJourneyWidget(
       <Header compact />
       <Progress />
       <HStack spacing={8}>
-        <Stat icon="bolt.fill" value={formatAmount(props.xpToday)} label="XP hoje" color={c.warning} width={96} />
-        <Stat icon="creditcard.fill" value={formatAmount(props.goldToday)} label="Ouro" color={c.warning} width={96} />
-        <Stat icon="flame.fill" value={`${props.streak}`} label="Seq." color={c.orange} width={96} />
+        <Stat icon="heart.fill" value={`${props.hp}/${props.maxHp}`} label="HP" color={hpColor} width={96} />
+        <Stat
+          icon="hourglass"
+          value={screenValue}
+          label={props.screenLabel ? props.screenLabel.split(' ')[0] : 'Tela'}
+          color={screenColor}
+          width={96}
+        />
+        <Stat icon="creditcard.fill" value={formatAmount(props.goldToday)} label="Ouro hoje" color={c.warning} width={96} />
       </HStack>
     </VStack>
   );

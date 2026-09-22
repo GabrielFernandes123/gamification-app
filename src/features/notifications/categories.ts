@@ -39,8 +39,14 @@ export async function registerNotificationCategories(): Promise<void> {
       {
         identifier: HABIT_ACTION_DONE,
         buttonTitle: 'Feito',
-        // O ponto inteiro do recurso: marcar sem abrir o app.
-        options: { opensAppToForeground: false },
+        // ABRE o app, por um instante. Era `false` ("marcar sem abrir"), mas no
+        // iOS o toque com o app FECHADO não chega a código nenhum nosso: o
+        // expo-notifications só entrega a resposta na próxima abertura (a
+        // tarefa de notificação em segundo plano recebe ações só no Android —
+        // docs do SDK 56). Na manhã seguinte, a guarda de dia descartava o
+        // toque, e o hábito que você marcou tomava dano. Abrir é um passo a
+        // mais, mas o registro cai na hora e no dia certo.
+        options: { opensAppToForeground: true },
       },
       {
         identifier: HABIT_ACTION_SNOOZE,

@@ -1,7 +1,9 @@
-import { useEffect } from 'react';
-
 import TodayJourneyWidget from './TodayJourneyWidget';
-import { EMPTY_TODAY_JOURNEY_WIDGET, type TodayJourneyWidgetProps } from './todayJourney';
+import {
+  EMPTY_TODAY_JOURNEY_WIDGET,
+  type TodayJourneyTimelineEntry,
+  type TodayJourneyWidgetProps,
+} from './todayJourney';
 
 export function updateTodayJourneyWidgetSnapshot(snapshot: TodayJourneyWidgetProps) {
   try {
@@ -14,13 +16,26 @@ export function updateTodayJourneyWidgetSnapshot(snapshot: TodayJourneyWidgetPro
   }
 }
 
-export function clearTodayJourneyWidgetSnapshot() {
-  updateTodayJourneyWidgetSnapshot(EMPTY_TODAY_JOURNEY_WIDGET);
+/**
+ * Grava a LINHA DO TEMPO que a API montou (agora, hora de fechar o dia,
+ * meia-noite). Entradas do passado saem: a primeira fica sendo a do agora.
+ */
+export function writeTodayJourneyTimeline(entries: TodayJourneyTimelineEntry[]) {
+  const agora = Date.now();
+  const futuras = entries.filter((entry) => entry.timestamp > agora);
+  const atual = [...entries].reverse().find((entry) => entry.timestamp <= agora) ?? entries[0];
+  const linha = [atual, ...futuras.filter((entry) => entry !== atual)];
+  try {
+    TodayJourneyWidget.updateTimeline(
+      linha.map((entry) => ({ date: new Date(entry.timestamp), props: entry.props })),
+    );
+  } catch (err) {
+    console.warn('[widget] updateTimeline falhou:', err);
+    // Sem linha do tempo, ao menos o retrato de agora.
+    updateTodayJourneyWidgetSnapshot(atual.props);
+  }
 }
 
-export function useTodayJourneyWidget(snapshot: TodayJourneyWidgetProps | null) {
-  useEffect(() => {
-    if (!snapshot) return;
-    updateTodayJourneyWidgetSnapshot(snapshot);
-  }, [snapshot]);
+export function clearTodayJourneyWidgetSnapshot() {
+  updateTodayJourneyWidgetSnapshot(EMPTY_TODAY_JOURNEY_WIDGET);
 }

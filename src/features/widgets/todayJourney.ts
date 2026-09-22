@@ -32,6 +32,24 @@ export type TodayJourneyWidgetProps = {
   bossMaxHp: number;
   actions: TodayJourneyAction[];
   updatedAt: string;
+  /**
+   * A distração mais perto da franquia ("Instagram 22/35 min"). Montado pela
+   * API (`GET /today/widget`), que é a mesma fonte do retrato que viaja dentro
+   * dos pushes — o app não recalcula nada disto.
+   */
+  screenLabel: string;
+  screenUsedMin: number;
+  screenFreeMin: number;
+  screenTotalMin: number;
+  /** O fechamento do dia em uma linha ('' = desligado). */
+  dayCloseLabel: string;
+  dayCloseState: 'none' | 'wait' | 'now' | 'closed' | 'late';
+};
+
+/** Uma entrada da linha do tempo, como a API devolve. */
+export type TodayJourneyTimelineEntry = {
+  timestamp: number;
+  props: TodayJourneyWidgetProps;
 };
 
 export const EMPTY_TODAY_JOURNEY_WIDGET: TodayJourneyWidgetProps = {
@@ -58,6 +76,12 @@ export const EMPTY_TODAY_JOURNEY_WIDGET: TodayJourneyWidgetProps = {
   bossMaxHp: 0,
   actions: [],
   updatedAt: new Date(0).toISOString(),
+  screenLabel: '',
+  screenUsedMin: 0,
+  screenFreeMin: 0,
+  screenTotalMin: 0,
+  dayCloseLabel: '',
+  dayCloseState: 'none',
 };
 
 export function clampRatio(value: number) {

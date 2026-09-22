@@ -12,6 +12,7 @@ import {
   type PolicySource,
 } from './policy';
 import {
+  armLadderReports,
   ladderEvents,
   measuresByDeviceActivity,
   pendingIntervals,
@@ -489,6 +490,11 @@ export async function syncShield(): Promise<SyncResult> {
         // de atividades monitoradas, então não se gasta uma só para medir).
         if (measuresByDeviceActivity(source)) {
           events.push(...ladderEvents(source, selectionId, selection));
+          // cada degrau avisa a API sozinho, com o app fechado
+          armLadderReports(source, selectionId, activityName, {
+            apiUrl: env.API_URL,
+            token,
+          });
           // o que já disparou virou uso: traduz em intervalos para a ingestão
           measured.push(...pendingIntervals(source, selectionId, activityName));
         }

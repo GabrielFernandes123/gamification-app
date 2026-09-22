@@ -1,6 +1,7 @@
 import { Redirect, Stack } from 'expo-router';
 import { ActivityIndicator, View } from 'react-native';
 
+import { useBackgroundRefresh } from '@/features/background/backgroundRefresh';
 import { useHealthSyncRunner } from '@/features/health/useHealthSync';
 import { useShieldSyncRunner } from '@/features/tracking/ios/useShieldSync';
 import { useAuth } from '@/providers/AuthProvider';
@@ -17,6 +18,9 @@ export default function AppLayout() {
   // Sono: o HealthKit é lido na abertura e a cada volta ao primeiro plano. Sem
   // o módulo nativo (build anterior ao HealthKit) isto é um no-op silencioso.
   useHealthSyncRunner(Boolean(session));
+
+  // Segundo plano: widget, bloqueio e sono em dia sem abrir o app.
+  useBackgroundRefresh(Boolean(session));
 
   if (loading) {
     return (

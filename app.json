@@ -95,7 +95,8 @@
         }
       ],
       "@kingstinct/react-native-healthkit",
-      "expo-image"
+      "expo-image",
+      "expo-background-task"
     ],
     "experiments": {
       "typedRoutes": true,
