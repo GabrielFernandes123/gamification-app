@@ -118,6 +118,7 @@ function TodayJourneyWidget(
     if (value >= 1000) return `${Math.floor(value / 100) / 10}k`;
     return `${value}`;
   };
+  const FILL = 1000;
   const shell = (pad: number) => [
     containerBackground(c.bg, 'widget'),
     padding({ all: pad }),
@@ -125,7 +126,7 @@ function TodayJourneyWidget(
   ];
   const largeShell = [
     containerBackground(c.bg, 'widget'),
-    padding({ top: 18, bottom: 18, leading: 24, trailing: 12 }),
+    padding({ vertical: 18, horizontal: 16 }),
     widgetURL('evolve:///(app)/(tabs)/dashboard'),
   ];
 
@@ -134,7 +135,6 @@ function TodayJourneyWidget(
     value,
     label,
     color,
-    width,
   }: {
     icon:
       | 'bolt.fill'
@@ -149,18 +149,20 @@ function TodayJourneyWidget(
     value: string;
     label: string;
     color: string;
-    width: number;
   }) => (
     <HStack
       spacing={8}
       modifiers={[
         padding({ horizontal: 11, vertical: 8 }),
-        frame({ width, height: 46, alignment: 'leading' }),
+        // Largura flexível: os cartões lado a lado dividem o espaço que houver
+        // (o widget muda de tamanho entre modelos de iPhone). 1000 faz o papel
+        // de .infinity — o pai sempre propõe menos que isso.
+        frame({ maxWidth: FILL, height: 46, alignment: 'leading' }),
         background(c.card),
         cornerRadius(12),
       ]}>
       <Image systemName={icon} size={16} color={color} />
-      <VStack alignment="leading" spacing={1} modifiers={[frame({ maxWidth: width - 44, alignment: 'leading' })]}>
+      <VStack alignment="leading" spacing={1} modifiers={[frame({ maxWidth: FILL, alignment: 'leading' })]}>
         <Text modifiers={[font({ size: 13, weight: 'bold' }), foregroundStyle(c.text), monospacedDigit(), lineLimit(1), truncationMode('tail')]}>
           {value}
         </Text>
@@ -265,8 +267,8 @@ function TodayJourneyWidget(
         <Header compact />
         <Progress />
         <HStack spacing={7}>
-          <Stat icon="heart.fill" value={`${props.hp}`} label="HP" color={hpColor} width={64} />
-          <Stat icon="hourglass" value={screenValue} label="Tela" color={screenColor} width={64} />
+          <Stat icon="heart.fill" value={`${props.hp}`} label="HP" color={hpColor} />
+          <Stat icon="hourglass" value={screenValue} label="Tela" color={screenColor} />
         </HStack>
       </VStack>
     );
@@ -278,15 +280,15 @@ function TodayJourneyWidget(
         <Header />
         <Progress />
         <HStack spacing={10}>
-          <Stat icon="bolt.fill" value={formatAmount(props.xpToday)} label="XP hoje" color={c.warning} width={136} />
-          <Stat icon="flame.fill" value={`${props.streak}`} label="Sequência" color={c.orange} width={136} />
+          <Stat icon="bolt.fill" value={formatAmount(props.xpToday)} label="XP hoje" color={c.warning} />
+          <Stat icon="flame.fill" value={`${props.streak}`} label="Sequência" color={c.orange} />
         </HStack>
         <VStack
           alignment="leading"
           spacing={7}
           modifiers={[
             padding({ horizontal: 14, vertical: 12 }),
-            frame({ width: 282, alignment: 'leading' }),
+            frame({ maxWidth: FILL, alignment: 'leading' }),
             background(c.card),
             cornerRadius(14),
           ]}>
@@ -302,13 +304,13 @@ function TodayJourneyWidget(
           </Text>
         </VStack>
         <HStack spacing={10}>
-          <Stat icon="heart.fill" value={`${props.hp}/${props.maxHp}`} label="HP" color={hpColor} width={136} />
+          <Stat icon="heart.fill" value={`${props.hp}/${props.maxHp}`} label="HP" color={hpColor} />
           <Stat
             icon="hourglass"
             value={props.screenLabel ? screenValue : `${props.screenTotalMin}`}
             label={props.screenLabel ? props.screenLabel.split(' ')[0] : 'Min de tela'}
             color={screenColor}
-            width={136}
+           
           />
         </HStack>
       </VStack>
@@ -320,15 +322,15 @@ function TodayJourneyWidget(
       <Header compact />
       <Progress />
       <HStack spacing={8}>
-        <Stat icon="heart.fill" value={`${props.hp}/${props.maxHp}`} label="HP" color={hpColor} width={96} />
+        <Stat icon="heart.fill" value={`${props.hp}/${props.maxHp}`} label="HP" color={hpColor} />
         <Stat
           icon="hourglass"
           value={screenValue}
           label={props.screenLabel ? props.screenLabel.split(' ')[0] : 'Tela'}
           color={screenColor}
-          width={96}
+         
         />
-        <Stat icon="creditcard.fill" value={formatAmount(props.goldToday)} label="Ouro hoje" color={c.warning} width={96} />
+        <Stat icon="creditcard.fill" value={formatAmount(props.goldToday)} label="Ouro hoje" color={c.warning} />
       </HStack>
     </VStack>
   );
