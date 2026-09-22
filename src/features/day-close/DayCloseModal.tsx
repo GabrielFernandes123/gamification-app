@@ -87,7 +87,10 @@ export function DayCloseModal({
       },
       {
         onSuccess: () => {
-          toast.success('Dia fechado', 'O que você respondeu já foi aplicado');
+          toast.success(
+            'Dia fechado',
+            'O veredito já foi aplicado; a página do diário está sendo escrita',
+          );
           setRespostas({});
           setHumor(null);
           setNota('');
