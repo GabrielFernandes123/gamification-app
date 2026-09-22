@@ -37,6 +37,41 @@ que não foi marcado não foi feito.
   dois registros de uma vez. O critério (`fulfillment_spec.min`) é do DIA, e
   quem soma é o módulo.
 
+**Depois do diagnóstico de uso (2026-09-22, segunda leva):**
+
+- **O interruptor não reabre o passado.** `event_driven_since` guarda o dia em
+  que ele ligou; dia anterior segue com o cron, e o prazo só fecha dias a
+  partir dali. Sem isso, ligar fechava a semana anterior inteira e escrevia
+  páginas "enevoadas" de dias vividos normalmente.
+- **Ontem aberto é pergunta, não correção.** Com o fechamento mandando, ontem
+  nada foi decidido: a tela de ontem pergunta "fiz / não fiz" como a de hoje, e
+  as respostas caem em ONTEM (`complete`/`relapse`/`settleToday` aceitam
+  `day`, só pelo fechamento). A correção do cron ficou para o modo antigo.
+- **Recaídas contadas (3.3).** O negativo fica na tela enquanto o dia dele não
+  fecha, mostrando as recaídas já marcadas, e "recaí" aceita quantidade
+  (`relapseCount`, até 10) — cada unidade é uma recaída com o dano escalante
+  da regra.
+- **Evidência do rastreador (3.2).** Fonte ou palavra bloqueada pode apontar
+  para um hábito negativo (`evidence_habit_id`). Com 5 min ou mais de uso (ou
+  um desbloqueio) no dia, o item mostra o aviso; sem resposta, o dia fecha
+  **neutro** (nem "resistiu", nem recaída). "Evitei" dito por você paga.
+  Regra em `habits/evidence.ts`.
+- **Um texto só.** A linha do fechamento é o diário do dia: a tela abre com o
+  diário preenchido e salvar grava nele (cumprindo o hábito ligado). A
+  história lê o diário quando o fechamento veio sem linha.
+- **Diário vira às 4h** (`JOURNAL_DAY_CUTOFF_HOURS`): a página das 00h30 é
+  do dia que acabou. E o salvamento do app (`upsert`) passou a cumprir o
+  hábito — antes, escrever pelo celular nunca contava.
+- **Transcrição automática** é opção (`journal_settings.auto_transcribe`,
+  desligada): mídia nova entra na fila da IA; o resultado fica no campo da
+  transcrição, nunca no seu texto.
+- **Avisos de dano** (`day-close/damage-alerts.service.ts`): a cada 10 de HP
+  (acumula no horário de silêncio e vira resumo depois), HP em 30% ou menos
+  (toca a qualquer hora, 1×/dia) e previsão letal no horário do lembrete. Usa
+  o nome de história do hábito — a notificação aparece na tela de bloqueio.
+- **Chefe:** objetivo pendente de módulo desligado depois da semeadura some do
+  quadro (o loot já o ignorava).
+
 ---
 
 ## 1. O contrato de módulo

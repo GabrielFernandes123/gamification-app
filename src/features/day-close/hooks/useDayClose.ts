@@ -33,6 +33,13 @@ export type DayClosePendingHabit = {
   allowed: HabitAnswer[];
   /** Módulo que cumpre este hábito — com 'workout', a tela pede os minutos. */
   fulfilledBy: string | null;
+  /** Negativo: recaídas já marcadas no dia. */
+  relapses: number;
+  /**
+   * O que o rastreador viu nas fontes/palavras ligadas a este hábito. Não
+   * decide nada: sem resposta, o dia fica neutro (nem paga nem cobra).
+   */
+  evidence: { minutes: number; unlocks: number } | null;
 };
 
 export type WorkoutAnswer = {
@@ -52,6 +59,8 @@ export type DayClosePending = DayCloseStatus & {
     lethal: boolean;
     hp: { current: number; max: number };
   } | null;
+  /** O diário do dia — o modal abre com ele preenchido (é o mesmo texto). */
+  journal: { text: string | null; mood: number | null } | null;
 };
 
 export const dayCloseOpenKey = ['dayCloseOpen'] as const;
@@ -88,6 +97,8 @@ export function useCloseDay() {
     mutationFn: (body: {
       day?: string;
       habits?: Record<string, HabitAnswer>;
+      /** Quantas recaídas por hábito respondido com "recaí" (padrão 1). */
+      relapseCount?: Record<string, number>;
       workout?: WorkoutAnswer | null;
       mood?: number | null;
       note?: string | null;

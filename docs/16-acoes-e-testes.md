@@ -40,6 +40,17 @@ POST /day-close/settings { "event_driven": true }
 Sugestão: ligar primeiro na conta DEMO por um ou dois dias. Desligar é a mesma
 chamada com `false` — sem deploy.
 
+Agora também pela web: **Configurações › Fechamento do dia**. Ligar vale de
+hoje em diante (`event_driven_since`) — nada do passado é reaberto.
+
+Teste de fumaça da segunda leva (recaídas contadas, evidência neutra, opção B,
+linha virando diário, guarda do interruptor e ontem aberto), na DEMO, com
+limpeza completa:
+
+```
+npx ts-node -r tsconfig-paths/register scripts/smoke-lote-fechamento.ts
+```
+
 ### 0.3 🟡 Revisar o Registro do Mundo
 
 `/codex/registro` na web. É onde se diz que um app medido é **ofício** e não

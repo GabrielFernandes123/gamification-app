@@ -27,7 +27,7 @@ import {
   Trash2,
 } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Switch, View } from 'react-native';
 
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -37,10 +37,13 @@ import { Text } from '@/components/ui/Text';
 import { useToast } from '@/components/ui/Toast';
 import {
   uploadJournalMedia,
+  JOURNAL_DAY_CUTOFF_FALLBACK,
   useClearTranscription,
   useJournal,
+  useJournalSettings,
   useSaveJournal,
   useTranscribeJournal,
+  useUpdateJournalSettings,
   type JournalEntry,
 } from '@/features/health/hooks/useJournal';
 import { theme } from '@/theme/theme';
@@ -76,8 +79,15 @@ const MOODS = [
 
 export default function DiarioScreen() {
   const toast = useToast();
-  const today = localISODate(0);
-  const start = localISODate(-HISTORY_DAYS);
+  const settings = useJournalSettings();
+  const updateSettings = useUpdateJournalSettings();
+  const corte = settings.data?.dayCutoffHours ?? JOURNAL_DAY_CUTOFF_FALLBACK;
+  // O DIA DO DIÁRIO vira às 4h, não à meia-noite: a página escrita à 00h30
+  // sobre o dia que acabou pertence a ele. Antes, ela caía no dia seguinte e
+  // o dia vivido ficava sem diário (e o hábito ligado tomava dano).
+  const today = journalDay(0, corte);
+  const start = journalDay(-HISTORY_DAYS, corte);
+  const madrugada = new Date().getHours() < corte;
 
   const { data: entries, isLoading, refetch, isRefetching } = useJournal(start, today);
   const save = useSaveJournal();
@@ -202,6 +212,11 @@ export default function DiarioScreen() {
 
       <Card style={styles.card}>
         <Text variant="label">{formatFullDay(today)}</Text>
+        {madrugada ? (
+          <Text variant="bodyMuted">
+            Até as {corte}h, o que você escreve vale para o dia que acabou.
+          </Text>
+        ) : null}
 
         {/* 1. Humor — um toque, salva na hora. É o registro mínimo do dia. */}
         <View style={styles.moodRow}>
@@ -251,6 +266,21 @@ export default function DiarioScreen() {
             active={recorderState.isRecording}
             loading={busy === 'audio'}
             onPress={() => void (recorderState.isRecording ? stopRecording() : startRecording())}
+          />
+        </View>
+
+        <View style={styles.autoRow}>
+          <View style={styles.flex}>
+            <Text variant="bodyMedium">Transcrever automaticamente</Text>
+            <Text variant="bodyMuted">
+              Foto e áudio vão sozinhos para a IA. O resultado fica separado do seu texto.
+            </Text>
+          </View>
+          <Switch
+            value={settings.data?.autoTranscribe ?? false}
+            disabled={!settings.data || updateSettings.isPending}
+            onValueChange={(valor) => updateSettings.mutate({ autoTranscribe: valor })}
+            trackColor={{ true: theme.colors.primary, false: theme.colors.surfaceSoft }}
           />
         </View>
 
@@ -436,8 +466,12 @@ function PastRow({ entry }: { entry: JournalEntry }) {
 }
 
 /** Data local em `YYYY-MM-DD` — a mesma que a tela mostra, sem passar por UTC. */
-function localISODate(offsetDays: number) {
-  const date = new Date();
+/**
+ * O dia do diário, deslocado `offsetDays`: a data local com a virada em
+ * `cutoffHours` (a mesma regra do servidor — ver JOURNAL_DAY_CUTOFF_HOURS).
+ */
+function journalDay(offsetDays: number, cutoffHours: number) {
+  const date = new Date(Date.now() - cutoffHours * 3_600_000);
   date.setDate(date.getDate() + offsetDays);
   const month = `${date.getMonth() + 1}`.padStart(2, '0');
   const day = `${date.getDate()}`.padStart(2, '0');
@@ -479,6 +513,12 @@ function message(error: unknown) {
 }
 
 const styles = StyleSheet.create({
+  autoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    marginTop: theme.spacing.xs,
+  },
   content: { paddingBottom: theme.sizes.tabBarClearance, gap: theme.spacing.md },
   header: { gap: theme.spacing.xs },
   flex: { flex: 1, minWidth: 0 },

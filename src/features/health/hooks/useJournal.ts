@@ -54,7 +54,39 @@ export function useSaveJournal() {
   });
 }
 
-/** Transcrição é SEMPRE a pedido: mandar o diário para a IA é escolha sua. */
+export type JournalSettings = {
+  /** Foto/áudio entram sozinhos na fila de transcrição. Nasce desligado. */
+  autoTranscribe: boolean;
+  /** A hora em que o "dia do diário" vira (a página das 00h30 é de ontem). */
+  dayCutoffHours: number;
+};
+
+/** Hora em que o dia do diário vira, se o servidor ainda não respondeu. */
+export const JOURNAL_DAY_CUTOFF_FALLBACK = 4;
+
+export const journalSettingsKey = ['journalSettings'] as const;
+
+export function useJournalSettings() {
+  return useQuery({
+    queryKey: journalSettingsKey,
+    queryFn: () => apiFetch<JournalSettings>('/journal/settings'),
+  });
+}
+
+export function useUpdateJournalSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (patch: { autoTranscribe?: boolean }) =>
+      apiFetch<JournalSettings>('/journal/settings', { method: 'PUT', body: patch }),
+    onSuccess: (data) => qc.setQueryData(journalSettingsKey, data),
+  });
+}
+
+/**
+ * Transcrição é escolha sua: por padrão, a pedido (este botão). Ligando a
+ * transcrição automática, a mídia nova entra sozinha na fila — o resultado vai
+ * sempre para o campo da IA, nunca para o seu texto.
+ */
 export function useTranscribeJournal() {
   const qc = useQueryClient();
   return useMutation({

@@ -1,4 +1,4 @@
-import { Angry, Frown, Laugh, Meh, Smile } from 'lucide-react-native';
+import { Angry, Eye, Frown, Laugh, Meh, Smile } from 'lucide-react-native';
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -31,6 +31,16 @@ const ROTULO: Record<HabitAnswer, string> = {
   relapsed: 'recaí',
 };
 
+function evidenciaTexto(e: { minutes: number; unlocks: number }) {
+  const partes: string[] = [];
+  if (e.minutes > 0) partes.push(`${e.minutes} min nas fontes ligadas`);
+  if (e.unlocks > 0)
+    partes.push(
+      `${e.unlocks} ${e.unlocks === 1 ? 'desbloqueio' : 'desbloqueios'} de palavra ligada`,
+    );
+  return `O rastreador viu ${partes.join(' e ')}. Sem resposta, o dia fica neutro.`;
+}
+
 function horas(minutos: number) {
   const h = Math.floor(minutos / 60);
   const m = minutos % 60;
@@ -60,8 +70,11 @@ export function DayCloseModal({
   const close = useCloseDay();
   const toast = useToast();
   const [respostas, setRespostas] = useState<Record<string, HabitAnswer>>({});
+  const [quantas, setQuantas] = useState<Record<string, number>>({});
   const [humor, setHumor] = useState<number | null>(null);
   const [nota, setNota] = useState('');
+  // Abre com o DIÁRIO do dia — escrito na aba Diário ou aqui, é o mesmo texto.
+  const [preenchidoPara, setPreenchidoPara] = useState<string | null>(null);
   const [treino, setTreino] = useState<WorkoutAnswer>({
     modality: 'forca',
     minutes: 40,
@@ -69,6 +82,14 @@ export function DayCloseModal({
 
   const dados = pending.data;
   const habitos = dados?.habits ?? [];
+
+  // Ajuste durante a renderização, não em efeito: o efeito pintaria o campo
+  // vazio antes do texto do diário.
+  if (dados && preenchidoPara !== dados.day) {
+    setPreenchidoPara(dados.day);
+    setNota(dados.journal?.text ?? '');
+    setHumor(dados.journal?.mood ?? null);
+  }
 
   // Uma pergunta só para os dois registros: sem os minutos, o hábito fecharia
   // e o treino não existiria nem para a história nem para o chefe.
@@ -81,6 +102,11 @@ export function DayCloseModal({
       {
         day,
         habits: respostas,
+        relapseCount: Object.fromEntries(
+          Object.entries(respostas)
+            .filter(([, resposta]) => resposta === 'relapsed')
+            .map(([id]) => [id, quantas[id] ?? 1]),
+        ),
         workout: pedeTreino ? treino : null,
         mood: humor,
         note: nota.trim() || null,
@@ -92,8 +118,10 @@ export function DayCloseModal({
             'O veredito já foi aplicado; a página do diário está sendo escrita',
           );
           setRespostas({});
+          setQuantas({});
           setHumor(null);
           setNota('');
+          setPreenchidoPara(null);
           onClose();
         },
         onError: (error) =>
@@ -134,12 +162,30 @@ export function DayCloseModal({
                           −{habito.damageIfMissed} HP
                         </Text>
                       ) : null}
+                      {habito.relapses > 0 ? (
+                        <Text variant="bodyMuted">
+                          {habito.relapses} já marcada
+                          {habito.relapses === 1 ? '' : 's'}
+                        </Text>
+                      ) : null}
                     </View>
+                    {habito.evidence ? (
+                      <View style={styles.evidencia}>
+                        <Eye size={14} color={theme.colors.textMuted} />
+                        <Text variant="bodyMuted" style={styles.evidenciaTexto}>
+                          {evidenciaTexto(habito.evidence)}
+                        </Text>
+                      </View>
+                    ) : null}
                     <View style={styles.respostas}>
                       {habito.allowed.map((resposta) => (
                         <Button
                           key={resposta}
-                          label={ROTULO[resposta]}
+                          label={
+                            habito.relapses > 0 && resposta === 'relapsed'
+                              ? 'recaí mais'
+                              : ROTULO[resposta]
+                          }
                           size="sm"
                           variant={
                             respostas[habito.id] === resposta
@@ -154,6 +200,35 @@ export function DayCloseModal({
                           }
                         />
                       ))}
+                      {respostas[habito.id] === 'relapsed' ? (
+                        <View style={styles.contador}>
+                          <Button
+                            label="−"
+                            size="sm"
+                            variant="ghost"
+                            disabled={(quantas[habito.id] ?? 1) <= 1}
+                            onPress={() =>
+                              setQuantas((atual) => ({
+                                ...atual,
+                                [habito.id]: Math.max(1, (atual[habito.id] ?? 1) - 1),
+                              }))
+                            }
+                          />
+                          <Text variant="bodyMedium">×{quantas[habito.id] ?? 1}</Text>
+                          <Button
+                            label="+"
+                            size="sm"
+                            variant="ghost"
+                            disabled={(quantas[habito.id] ?? 1) >= 10}
+                            onPress={() =>
+                              setQuantas((atual) => ({
+                                ...atual,
+                                [habito.id]: Math.min(10, (atual[habito.id] ?? 1) + 1),
+                              }))
+                            }
+                          />
+                        </View>
+                      ) : null}
                     </View>
                   </View>
                 ))}
@@ -235,13 +310,16 @@ export function DayCloseModal({
               ))}
             </View>
             <Input
-              label="Uma linha sobre o dia (opcional)"
+              label="O diário do dia (opcional)"
               value={nota}
               onChangeText={setNota}
               placeholder="dia puxado, reunião até tarde"
               multiline
               maxLength={2000}
             />
+            <Text variant="bodyMuted">
+              É o mesmo texto da aba Diário: o que estiver aqui vai para ele.
+            </Text>
 
             {dados?.danger ? (
               <>
@@ -312,7 +390,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: theme.spacing.xs,
   },
-  respostas: { flexDirection: 'row', gap: theme.spacing.xs },
+  respostas: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+  },
+  contador: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  evidencia: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
+  evidenciaTexto: { flex: 1 },
   humor: { flexDirection: 'row', gap: theme.spacing.xs },
   humorBotao: {
     width: 44,

@@ -25,6 +25,23 @@ a régua.
   remenda — remendar 3 dias e 40 dias não podem custar o mesmo.
 - Não mudaram: poção de emergência e desbloqueio de tela, que já escalavam.
 
+**Renda passiva cortada na fonte (2026-09-22, segunda leva).** Medido na conta
+real: dois hábitos negativos eram 69% da renda de hábitos, e os bônus de tela
+pagaram 1.579 de ouro num mês — mais que todos os positivos somados.
+
+- **Negativos (3.1, opção B):** o dia resistido paga 25% do ouro da
+  dificuldade (XP cheio). A semana paga 3× o ouro da dificuldade × fator de
+  limpeza `1 − dias estourados ÷ (teto + 1)` — teto 2: 100% / 66% / 33% / 0.
+  Configurável em `habit_settings` (`negative_day_gold_pct`,
+  `negative_period_gold_mult`) e na web, em Configurações › Regras da
+  recompensa.
+- **Tela (3.4):** os nove bônus por fonte viraram UM bônus de disciplina por
+  dia: `taxa de esforço × 25% × folga`, sobre a soma das franquias das
+  distrações vivas (usadas nos últimos 7 dias; fora sensíveis e conjuntos com
+  teto semanal). Não usar nada paga o máximo — o furo do "1 minuto" acabou.
+  Uma linha por dia em `tracking_discipline_bonus`. Na semana de 15–21/09
+  teria pago 63 contra 462 do antigo.
+
 ---
 
 ## 1. Moedas
