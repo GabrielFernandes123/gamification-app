@@ -267,6 +267,42 @@ lembrete do fechamento): os números do widget mudam sem abrir o app.
 
 ---
 
+## 6.2 A chave da Apple para as Live Activities (2026-09-23)
+
+As Live Activities do dia e do foco são atualizadas pela API direto na Apple
+(push do tipo "liveactivity" — o serviço de push do Expo não entrega esse
+tipo). Para isso a API precisa de uma chave APNs. Uma vez só:
+
+1. **developer.apple.com → Keys → +** → nome "Evolve APNs" → marque **Apple
+   Push Notifications service (APNs)** → Configure: ambiente **Sandbox &
+   Production**, restrição **Team Scoped (All Topics)** → Register.
+2. **Baixe o .p8** (a Apple só deixa baixar uma vez) e anote o **Key ID**.
+3. No VPS, em `/opt/stack/produtos/game-api/.env`:
+
+   ```
+   APNS_KEY_ID=<Key ID>
+   APNS_TEAM_ID=DYT84KCFF7
+   APNS_BUNDLE_ID=com.gabriel.evolve
+   APNS_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----
+...
+-----END PRIVATE KEY-----"
+   ```
+
+   (o conteúdo do .p8 numa linha só, com `
+` no lugar das quebras). Depois,
+   `docker compose up -d`. Não use `APNS_SANDBOX`: a build ad hoc é de
+   produção.
+
+Sem a chave, nada quebra: o app mantém as atividades em dia sozinho enquanto
+roda (aberto ou em segundo plano) — só não há início automático pela manhã nem
+atualização com o app fechado. A tela **Ajustes › Live Activity** mostra os dois
+estados ("o servidor atualiza…" e "pode começar sozinha…").
+
+**No iPhone:** Ajustes › Evolve › **Atividades ao Vivo** ligado, e **Mais
+Atualizações Frequentes** também. Começar sozinha pela manhã exige iOS 17.2+.
+
+---
+
 ## 7. O que vem depois da build
 
 > **✅ Atualizado em 2026-08-04.** Esta seção dizia que "o app ainda não usa" o

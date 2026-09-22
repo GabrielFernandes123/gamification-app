@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { Platform } from 'react-native';
 
 import { syncSleepOnce } from '@/features/health/useHealthSync';
+import { syncLiveActivities } from '@/features/live/liveActivities';
 import { syncShield } from '@/features/tracking/ios/shieldSync';
 import { fetchTodayWidgetTimeline } from '@/features/widgets/useTodayJourney';
 import { writeTodayJourneyTimeline } from '@/features/widgets/useTodayJourneyWidget';
@@ -43,6 +44,9 @@ TaskManager.defineTask(BACKGROUND_REFRESH_TASK, async () => {
       // bloqueio ou o sono tropecem.
       await syncShield().catch(() => undefined);
       await syncSleepOnce().catch(() => undefined);
+      // Atualiza o conteúdo das Live Activities (começar, só a API ou o app
+      // em primeiro plano conseguem — regra do iOS).
+      await syncLiveActivities().catch(() => undefined);
     }
     return BackgroundTask.BackgroundTaskResult.Success;
   } catch (error) {

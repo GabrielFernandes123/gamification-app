@@ -1,4 +1,5 @@
-import { ExternalLink, LogOut } from 'lucide-react-native';
+import { useRouter, type Href } from 'expo-router';
+import { ExternalLink, LogOut, Radio } from 'lucide-react-native';
 import { StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/ui/Button';
@@ -32,6 +33,7 @@ import { theme } from '@/theme/theme';
  */
 export default function SettingsScreen() {
   const { signOut } = useAuth();
+  const router = useRouter();
 
   return (
     <Screen scroll contentStyle={styles.content}>
@@ -42,6 +44,25 @@ export default function SettingsScreen() {
       <PermissionsPanel />
 
       <ShieldPanel />
+
+      <Card style={styles.webCard}>
+        <View>
+          <Text variant="title">Live Activity</Text>
+          <Text variant="bodyMuted">
+            O seu dia e as sessões de foco na tela de bloqueio e na Dynamic
+            Island: quando começa, quando termina e o que mostra.
+          </Text>
+        </View>
+        <Button
+          label="Configurar"
+          variant="outline"
+          icon={<Radio color={theme.colors.text} size={16} />}
+          // `as Href`: rota nova, e as rotas tipadas do Expo só a conhecem
+          // depois de um `expo start` (mesmo caso de /(app)/livro).
+          onPress={() => router.push('/(app)/live' as Href)}
+          fullWidth
+        />
+      </Card>
 
       <Card style={styles.webCard}>
         <View>

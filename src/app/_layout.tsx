@@ -25,10 +25,16 @@ import { useEffect } from 'react';
 // global, na carga do bundle. Quando o iOS acorda o app em segundo plano,
 // nenhuma tela é montada — definir a tarefa dentro de um componente a perderia.
 import '@/features/background/backgroundRefresh';
+import { attachLiveActivityListeners } from '@/features/live/liveActivities';
 import { AppProviders } from '@/providers/AppProviders';
 import { theme } from '@/theme/theme';
 
 SplashScreen.preventAutoHideAsync();
+
+// Na CARGA do bundle, como a tarefa em segundo plano: quando o iOS começa uma
+// Live Activity por push e acorda o app para entregar o token dela, nenhuma
+// tela é montada — o ouvinte precisa já estar ligado.
+attachLiveActivityListeners();
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({

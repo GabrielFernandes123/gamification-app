@@ -2,6 +2,7 @@ import { Redirect, Stack } from 'expo-router';
 import { ActivityIndicator, View } from 'react-native';
 
 import { useBackgroundRefresh } from '@/features/background/backgroundRefresh';
+import { useLiveActivitiesSync } from '@/features/live/useLiveActivitiesSync';
 import { useHealthSyncRunner } from '@/features/health/useHealthSync';
 import { useShieldSyncRunner } from '@/features/tracking/ios/useShieldSync';
 import { useAuth } from '@/providers/AuthProvider';
@@ -21,6 +22,9 @@ export default function AppLayout() {
 
   // Segundo plano: widget, bloqueio e sono em dia sem abrir o app.
   useBackgroundRefresh(Boolean(session));
+
+  // Live Activities (dia e foco): começa, atualiza e termina ao entrar no app.
+  useLiveActivitiesSync(Boolean(session));
 
   if (loading) {
     return (
