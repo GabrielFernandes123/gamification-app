@@ -10,6 +10,7 @@ import { Text } from '@/components/ui/Text';
 import { ScarOfferCard } from '@/features/character/ScarOfferCard';
 import { useCharacter, useProfile, type Character } from '@/features/character/hooks/useCharacter';
 import { DayCloseCard } from '@/features/day-close/DayCloseCard';
+import { DiaryTeaserCard } from '@/features/story/DiaryTeaserCard';
 import { YesterdayCard } from '@/features/habits/components/YesterdayCard';
 import { ModuleLauncher } from '@/features/modules/ModuleLauncher';
 import { MealVoiceButton } from '@/features/nutrition/MealVoiceButton';
@@ -199,6 +200,9 @@ export default function DashboardScreen() {
       {/* O ritual do fim do dia. Vem depois da correção de ontem pelo mesmo
           critério da ordem acima: fecha-se o passado antes de selar o presente. */}
       <DayCloseCard />
+      {/* A última página do diário, com a porta do livro. Depois do
+          fechamento, é o que a pessoa volta para ler. */}
+      <DiaryTeaserCard />
       <PlanCard />
       <PeopleQuickCard />
       <MealVoiceButton compact />
