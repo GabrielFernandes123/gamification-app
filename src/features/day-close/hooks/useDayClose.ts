@@ -31,6 +31,14 @@ export type DayClosePendingHabit = {
   target: number;
   damageIfMissed: number;
   allowed: HabitAnswer[];
+  /** Módulo que cumpre este hábito — com 'workout', a tela pede os minutos. */
+  fulfilledBy: string | null;
+};
+
+export type WorkoutAnswer = {
+  modality: 'forca' | 'cardio';
+  minutes: number;
+  effort?: 'leve' | 'normal' | 'puxado';
 };
 
 export type DayClosePending = DayCloseStatus & {
@@ -80,6 +88,7 @@ export function useCloseDay() {
     mutationFn: (body: {
       day?: string;
       habits?: Record<string, HabitAnswer>;
+      workout?: WorkoutAnswer | null;
       mood?: number | null;
       note?: string | null;
     }) => apiFetch('/day-close', { method: 'POST', body }),

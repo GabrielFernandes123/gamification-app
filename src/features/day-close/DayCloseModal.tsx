@@ -13,6 +13,7 @@ import {
   useCloseDay,
   useDayClosePending,
   type HabitAnswer,
+  type WorkoutAnswer,
 } from './hooks/useDayClose';
 
 const HUMOR = [
@@ -61,13 +62,29 @@ export function DayCloseModal({
   const [respostas, setRespostas] = useState<Record<string, HabitAnswer>>({});
   const [humor, setHumor] = useState<number | null>(null);
   const [nota, setNota] = useState('');
+  const [treino, setTreino] = useState<WorkoutAnswer>({
+    modality: 'forca',
+    minutes: 40,
+  });
 
   const dados = pending.data;
   const habitos = dados?.habits ?? [];
 
+  // Uma pergunta só para os dois registros: sem os minutos, o hábito fecharia
+  // e o treino não existiria nem para a história nem para o chefe.
+  const pedeTreino = habitos.some(
+    (h) => h.fulfilledBy === 'workout' && respostas[h.id] === 'done',
+  );
+
   function confirmar() {
     close.mutate(
-      { day, habits: respostas, mood: humor, note: nota.trim() || null },
+      {
+        day,
+        habits: respostas,
+        workout: pedeTreino ? treino : null,
+        mood: humor,
+        note: nota.trim() || null,
+      },
       {
         onSuccess: () => {
           toast.success('Dia fechado', 'O que você respondeu já foi aplicado');
@@ -141,6 +158,38 @@ export function DayCloseModal({
             ) : (
               <Text variant="bodyMuted">Nada ficou em aberto hoje.</Text>
             )}
+
+            {pedeTreino ? (
+              <>
+                <Text variant="label" style={styles.secao}>
+                  O treino de hoje
+                </Text>
+                <View style={styles.respostas}>
+                  <Button
+                    label="Força"
+                    size="sm"
+                    variant={treino.modality === 'forca' ? 'primary' : 'outline'}
+                    onPress={() => setTreino({ ...treino, modality: 'forca' })}
+                  />
+                  <Button
+                    label="Cardio"
+                    size="sm"
+                    variant={
+                      treino.modality === 'cardio' ? 'primary' : 'outline'
+                    }
+                    onPress={() => setTreino({ ...treino, modality: 'cardio' })}
+                  />
+                </View>
+                <Input
+                  label="Minutos"
+                  value={String(treino.minutes)}
+                  onChangeText={(valor) =>
+                    setTreino({ ...treino, minutes: Number(valor) || 0 })
+                  }
+                  keyboardType="number-pad"
+                />
+              </>
+            ) : null}
 
             {dados ? (
               <>
