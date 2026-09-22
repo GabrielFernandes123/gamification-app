@@ -198,26 +198,42 @@ export async function armWindows(
   return { activities, blockedNow, skipped };
 }
 
+export type FocusResult = {
+  selectionId: string | null;
+  /** Atividade que mantém o escudo do foco identificável e o desliga no fim. */
+  activity: string | null;
+};
+
 /**
  * Sessão de foco: bloqueia o conjunto até `ends_at`.
  *
  * Sem botão de pagar na tela — abandonar é decisão explícita no app, e custa.
  * Vale para o iPhone mesmo quando a sessão foi iniciada no PC, porque ela viaja
  * na política.
+ *
+ * ── Por que agora há uma atividade monitorada ─────────────────────────────
+ * A extensão do escudo só acha a configuração de uma seleção se existir uma
+ * atividade VIVA com o id dela no nome (a mesma regra das janelas). O foco
+ * bloqueava sem nenhuma, então a tela caía sempre no texto genérico ("Abra o
+ * Evolve…"). E o fim da sessão dependia de o app sincronizar: fechado, o foco
+ * ficava bloqueando depois da hora. A atividade resolve os dois — o
+ * `intervalDidEnd` libera sozinho, com o app fechado.
  */
-export function applyFocus(
+export async function applyFocus(
   focus: PolicyFocus | null,
   appearance: Record<string, unknown>,
   previousId: string | null,
-): string | null {
+): Promise<FocusResult> {
   if (previousId && (!focus || focusSelectionId(focus.id) !== previousId)) {
     DeviceActivity.unblockSelection({ activitySelectionId: previousId }, 'focus');
   }
-  if (!focus || new Date(focus.ends_at).getTime() <= Date.now()) return null;
+  if (!focus || new Date(focus.ends_at).getTime() <= Date.now()) {
+    return { selectionId: null, activity: null };
+  }
 
   const selectionId = focusSelectionId(focus.id);
   const selection = unionSelectionFor(focus.targets);
-  if (!selection) return null;
+  if (!selection) return { selectionId: null, activity: null };
 
   DeviceActivity.setFamilyActivitySelectionId({
     id: selectionId,
@@ -236,5 +252,28 @@ export function applyFocus(
     primary: { behavior: 'close' },
   });
   DeviceActivity.blockSelection({ activitySelectionId: selectionId }, 'focus');
-  return selectionId;
+
+  // A Apple recusa intervalo menor que 15 min: nos minutos finais da sessão a
+  // atividade não nasce, e aí vale o comportamento antigo (o sync libera).
+  const activity = `${selectionId}-foco`;
+  const start = new Date();
+  try {
+    await DeviceActivity.startMonitoring(
+      activity,
+      {
+        intervalStart: { hour: start.getHours(), minute: start.getMinutes() },
+        intervalEnd: { hour: ends.getHours(), minute: ends.getMinutes() },
+        repeats: false,
+      },
+      [],
+    );
+    DeviceActivity.configureActions({
+      activityName: activity,
+      callbackName: 'intervalDidEnd',
+      actions: [{ type: 'unblockSelection', familyActivitySelectionId: selectionId }],
+    });
+    return { selectionId, activity };
+  } catch {
+    return { selectionId, activity: null };
+  }
 }

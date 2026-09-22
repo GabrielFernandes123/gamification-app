@@ -66,6 +66,29 @@ browser.runtime.onMessage.addListener(async (message) => {
     refreshedAt = 0;
     return { ok: true };
   }
+  if (message?.type === 'unlock') {
+    // Quem cobra é o nativo, com o token do aparelho; aqui só se repassa e se
+    // invalida o cache, para a próxima checagem já enxergar a liberação.
+    try {
+      const result = await browser.runtime.sendNativeMessage('application.id', {
+        type: 'unlock',
+        keywordId: message.keywordId,
+        clientId: message.clientId,
+      });
+      if (result?.ok) {
+        fetchedAt = 0;
+        refreshedAt = 0;
+        if (result.policy) {
+          cache = result.policy;
+          fetchedAt = Date.now();
+        }
+      }
+      return result ?? { ok: false, message: 'Sem resposta do Evolve.' };
+    } catch (error) {
+      console.warn('[Evolve] falha ao liberar pelo nativo', error);
+      return { ok: false, message: 'Sem resposta do Evolve.' };
+    }
+  }
   return undefined;
 });
 

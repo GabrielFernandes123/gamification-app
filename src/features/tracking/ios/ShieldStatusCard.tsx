@@ -109,6 +109,7 @@ export function ShieldStatusCard() {
           />
         </>
       ) : null}
+      <FallbackLog />
       <Button
         label="Sincronizar agora"
         variant="outline"
@@ -119,6 +120,69 @@ export function ShieldStatusCard() {
       />
     </Card>
   );
+}
+
+/** Uma queda no escudo genérico, como a extensão do iPhone registrou. */
+type FallbackEntry = {
+  at: string;
+  kind: string;
+  configKey: string;
+  selectionsContaining: string[];
+  selectionsMonitored: string[];
+  liveActivities: number;
+};
+
+/**
+ * As últimas vezes que a tela de bloqueio caiu no texto genérico, e por quê.
+ *
+ * A extensão só acha a configuração de uma seleção que (1) contém o app,
+ * (2) tem uma atividade viva com o id dela no nome e (3) tem a configuração
+ * gravada. O registro diz qual das três faltou — era isso que ninguém
+ * conseguia ver quando o Instagram aparecia com "Abra o Evolve".
+ */
+function FallbackLog() {
+  let entries: FallbackEntry[] = [];
+  try {
+    entries = DeviceActivity.userDefaultsGet<FallbackEntry[]>('evolveShieldFallbackLog') ?? [];
+  } catch {
+    entries = [];
+  }
+  if (entries.length === 0) return null;
+
+  return (
+    <View style={styles.log}>
+      <Text variant="label" color={theme.colors.gold}>
+        Bloqueios sem descrição ({entries.length})
+      </Text>
+      {entries.slice(0, 5).map((entry) => (
+        <Text key={entry.at + entry.kind} variant="bodyMuted">
+          {formatWhen(entry.at)} · {diagnose(entry)}
+        </Text>
+      ))}
+    </View>
+  );
+}
+
+function diagnose(entry: FallbackEntry): string {
+  const onde = entry.kind.startsWith('site') ? 'o site' : 'o app';
+  if (entry.selectionsContaining.length === 0) {
+    return `${onde} não está em nenhuma seleção do Evolve (sobra de um vínculo antigo?)`;
+  }
+  if (entry.selectionsMonitored.length === 0) {
+    return `a seleção existe, mas nenhuma atividade estava viva para ela (${entry.liveActivities} ativas no total)`;
+  }
+  return `a regra foi achada (${entry.selectionsMonitored[0]}), mas a configuração da tela não estava gravada`;
+}
+
+function formatWhen(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 function describe(result: ReturnType<typeof useShieldSync>['result']): string {
@@ -149,4 +213,5 @@ const styles = StyleSheet.create({
   card: { gap: theme.spacing.sm },
   row: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.xs },
   grow: { flex: 1 },
+  log: { gap: 2 },
 });

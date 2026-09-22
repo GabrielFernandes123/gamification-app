@@ -11,6 +11,10 @@ import os.log
 /// A política é escrita pelo app (chave `safariPolicy` do UserDefaults
 /// compartilhado) a cada sincronização.
 ///
+/// `type: "unlock"` PAGA a liberação daqui, com o token do aparelho. Antes a
+/// compra só acontecia na tela /blocked do site, que usa a sessão do navegador —
+/// e a aba privada do Safari não guarda sessão: era login a cada bloqueio.
+///
 /// `refresh: true` busca a política direto na API antes de responder. Sem isto
 /// uma compra feita na tela /blocked só aparecia depois de o usuário abrir o
 /// app Evolve: ele pagava, voltava para a página e caía no bloqueio de novo.
@@ -26,10 +30,19 @@ class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
     let message = item?.userInfo?[SFExtensionMessageKey] as? [String: Any]
     let refresh = message?["refresh"] as? Bool ?? false
 
-    let respond: ([String: Any]) -> Void = { policy in
+    let reply: ([String: Any]) -> Void = { payload in
       let response = NSExtensionItem()
-      response.userInfo = [SFExtensionMessageKey: ["policy": policy]]
+      response.userInfo = [SFExtensionMessageKey: payload]
       context.completeRequest(returningItems: [response], completionHandler: nil)
+    }
+    let respond: ([String: Any]) -> Void = { policy in reply(["policy": policy]) }
+
+    if message?["type"] as? String == "unlock" {
+      Self.unlock(
+        keywordId: message?["keywordId"] as? String ?? "",
+        clientId: message?["clientId"] as? String,
+        completion: reply)
+      return
     }
 
     guard refresh else {
@@ -98,12 +111,21 @@ class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
           !looksLikeDomain(phrase),
           !unlocked.contains("keyword:\(id)")
         else { return nil }
-        return [
+        var entry: [String: Any] = [
           "id": id,
           "phrase": phrase,
-          "cost": keyword["unlock_cost_gold"] ?? 0,
-          "minutes": keyword["unlock_minutes"] ?? 0,
+          // o PRÓXIMO preço (a escalada do dia já aplicada): é o que o servidor
+          // vai cobrar, e a tela não tem como corrigir depois do toque
+          "cost": (keyword["next_unlock_cost"] as? NSNumber)
+            ?? (keyword["unlock_cost_gold"] as? NSNumber) ?? 0,
+          "minutes": (keyword["unlock_minutes"] as? NSNumber) ?? 0,
         ]
+        // Só quando existe: NSNull não é tipo de plist, e gravar a política com
+        // ele no UserDefaults derrubaria a extensão.
+        if let availableAt = keyword["unlock_available_at"] as? String {
+          entry["availableAt"] = availableAt
+        }
+        return entry
       }
 
       var policy = readPolicy()
@@ -111,6 +133,54 @@ class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
       policy["updatedAt"] = ISO8601DateFormatter().string(from: now)
       defaults.set(policy, forKey: policyKey)
       completion(policy)
+    }.resume()
+  }
+
+  /// Compra a liberação de uma palavra na API e já regrava a política.
+  ///
+  /// Devolve `{ ok, message?, reason?, policy? }`. `reason: "noauth"` diz ao JS
+  /// que não há token ainda (o app nunca sincronizou) e que o caminho é o site.
+  /// O `clientId` torna o toque idempotente: repetir não cobra duas vezes.
+  private static func unlock(
+    keywordId: String, clientId: String?, completion: @escaping ([String: Any]) -> Void
+  ) {
+    guard let defaults = UserDefaults(suiteName: appGroup),
+      let auth = defaults.dictionary(forKey: authKey),
+      let apiUrl = auth["apiUrl"] as? String,
+      let token = auth["token"] as? String,
+      let url = URL(string: "\(apiUrl)/tracking/unlock"),
+      !keywordId.isEmpty
+    else {
+      completion(["ok": false, "reason": "noauth"])
+      return
+    }
+
+    var body: [String: Any] = ["target_type": "keyword", "target": keywordId]
+    if let clientId = clientId { body["client_id"] = clientId }
+
+    var request = URLRequest(url: url, timeoutInterval: 8)
+    request.httpMethod = "POST"
+    request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+    URLSession.shared.dataTask(with: request) { data, response, error in
+      let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+      let json = data.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+      guard error == nil, (200..<300).contains(status) else {
+        // A API explica a recusa (sem ouro, em espera…) em `message`.
+        let message = (json?["message"] as? String) ?? "Não deu para liberar agora."
+        os_log("[Evolve] liberação recusada (%d)", status)
+        completion(["ok": false, "message": message, "reason": status == 401 ? "noauth" : "api"])
+        return
+      }
+      // Regrava a política já sem a palavra, para a recarga da página passar.
+      refreshPolicy { policy in
+        var payload: [String: Any] = ["ok": true]
+        if let policy = policy { payload["policy"] = policy }
+        if let paid = json?["gold_paid"] { payload["goldPaid"] = paid }
+        completion(payload)
+      }
     }.resume()
   }
 

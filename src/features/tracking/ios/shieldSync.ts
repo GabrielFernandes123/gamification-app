@@ -242,7 +242,11 @@ function writeFallbackShield(hasIcon: boolean) {
     {
       ...shieldAppearance(hasIcon),
       title: 'Bloqueado pelo Evolve',
-      subtitle: 'Abra o Evolve para ver o limite desta fonte e o preço da liberação.',
+      // Honesto: esta tela só aparece quando a extensão não achou QUAL regra
+      // bloqueou. O motivo fica registrado (Ajustes › Permissões › Bloqueio
+      // no iPhone) em vez de mandar abrir o app para descobrir.
+      subtitle:
+        'Limite, horário ou foco. O Evolve não identificou qual — a ocorrência ficou registrada no app.',
       primaryButtonLabel: 'Voltar',
     },
     { primary: { behavior: 'close' } },
@@ -303,8 +307,12 @@ function writeSafariPolicy(policy: Policy, now: number, token: string): number {
     .map((k) => ({
       id: k.id,
       phrase: k.phrase,
-      cost: k.unlock_cost_gold,
+      // O PRÓXIMO preço, como no escudo: é o que o servidor cobra, e a tela de
+      // bloqueio do Safari agora paga direto daqui.
+      cost: k.next_unlock_cost ?? k.unlock_cost_gold,
       minutes: k.unlock_minutes,
+      // Só quando existe — null vira NSNull no App Group, e NSNull não é plist.
+      ...(k.unlock_available_at ? { availableAt: k.unlock_available_at } : {}),
     }));
 
   DeviceActivity.userDefaultsSet('safariPolicy', {
@@ -546,7 +554,13 @@ export async function syncShield(): Promise<SyncResult> {
     for (const name of windowState.skipped) {
       failures.push(`janela "${name}": nenhum app do conjunto vinculado aqui`);
     }
-    lastFocusSelectionId = applyFocus(policy.focus ?? null, appearance, lastFocusSelectionId);
+    const focusState = await applyFocus(
+      policy.focus ?? null,
+      appearance,
+      lastFocusSelectionId,
+    );
+    lastFocusSelectionId = focusState.selectionId;
+    if (focusState.activity) liveActivities.add(focusState.activity);
     // só acusa se a sessão está VIVA: expirada, o null é o fim normal dela
     if (
       policy.focus &&

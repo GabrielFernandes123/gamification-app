@@ -119,12 +119,67 @@ func buildShield(placeholders: [String: String?], config: [String: Any]?)
   return ShieldConfiguration()
 }
 
+/// Chave do registro de quedas no escudo genérico (lida pelo app, em Permissões).
+let EVOLVE_SHIELD_FALLBACK_LOG_KEY = "evolveShieldFallbackLog"
+let EVOLVE_SHIELD_FALLBACK_LOG_MAX = 10
+
+/// Registra QUANDO e POR QUE a tela caiu no texto genérico ("Abra o Evolve…").
+///
+/// O genérico aparece quando a busca não acha a configuração da seleção — e a
+/// busca só considera seleções com uma atividade VIVA cujo nome contém o id.
+/// Sem este registro, a queda era invisível: a pessoa via o texto genérico e
+/// não havia como saber se faltou a atividade, a configuração ou a seleção.
+///
+/// Guarda três coisas: as seleções que CONTÊM o app (sem o filtro de
+/// atividade), as que passaram no filtro, e quantas atividades estavam vivas.
+/// Com elas dá para dizer qual das três faltou.
+@available(iOS 15.0, *)
+func logFallbackIfNeeded(
+  kind: String,
+  applicationToken: ApplicationToken? = nil,
+  webDomainToken: WebDomainToken? = nil,
+  categoryToken: ActivityCategoryToken? = nil
+) {
+  let configKey = tryGetActivitySelectionIdConfigKey(
+    keyPrefix: SHIELD_CONFIGURATION_FOR_SELECTION_PREFIX,
+    applicationToken: applicationToken,
+    webDomainToken: webDomainToken,
+    categoryToken: categoryToken
+  )
+  if let key = configKey, userDefaults?.dictionary(forKey: key) != nil { return }
+
+  let monitored = getPossibleFamilyActivitySelectionIds(
+    applicationToken: applicationToken,
+    webDomainToken: webDomainToken,
+    categoryToken: categoryToken
+  ).map { $0.id }
+  let containing = getPossibleFamilyActivitySelectionIds(
+    applicationToken: applicationToken,
+    webDomainToken: webDomainToken,
+    categoryToken: categoryToken,
+    onlyFamilySelectionIdsContainingMonitoredActivityNames: false
+  ).map { $0.id }
+
+  let entry: [String: Any] = [
+    "at": ISO8601DateFormatter().string(from: Date()),
+    "kind": kind,
+    "configKey": configKey ?? "",
+    "selectionsContaining": containing,
+    "selectionsMonitored": monitored,
+    "liveActivities": center.activities.count,
+  ]
+  var log = userDefaults?.array(forKey: EVOLVE_SHIELD_FALLBACK_LOG_KEY) ?? []
+  log.insert(entry, at: 0)
+  userDefaults?.set(Array(log.prefix(EVOLVE_SHIELD_FALLBACK_LOG_MAX)), forKey: EVOLVE_SHIELD_FALLBACK_LOG_KEY)
+}
+
 // Override the functions below to customize the shields used in various situations.
 // The system provides a default appearance for any methods that your subclass doesn't override.
 // Make sure that your class name matches the NSExtensionPrincipalClass in your Info.plist.
 class ShieldConfigurationExtension: ShieldConfigurationDataSource {
   override func configuration(shielding application: Application) -> ShieldConfiguration {
     // Customize the shield as needed for applications.
+    logFallbackIfNeeded(kind: "app", applicationToken: application.token)
 
     let config = getActivitySelectionPrefixedConfigFromUserDefaults(
       keyPrefix: SHIELD_CONFIGURATION_FOR_SELECTION_PREFIX,
@@ -151,6 +206,8 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
     -> ShieldConfiguration {
 
     logger.log("shielding application category")
+    logFallbackIfNeeded(
+      kind: "app-categoria", applicationToken: application.token, categoryToken: category.token)
 
     let config = getActivitySelectionPrefixedConfigFromUserDefaults(
       keyPrefix: SHIELD_CONFIGURATION_FOR_SELECTION_PREFIX,
@@ -176,6 +233,7 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
   }
 
   override func configuration(shielding webDomain: WebDomain) -> ShieldConfiguration {
+    logFallbackIfNeeded(kind: "site", webDomainToken: webDomain.token)
     logger.log("shielding web domain")
 
     let config = getActivitySelectionPrefixedConfigFromUserDefaults(
@@ -201,6 +259,8 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
 
   override func configuration(shielding webDomain: WebDomain, in category: ActivityCategory)
     -> ShieldConfiguration {
+    logFallbackIfNeeded(
+      kind: "site-categoria", webDomainToken: webDomain.token, categoryToken: category.token)
 
     logger.log("shielding web domain category")
 
