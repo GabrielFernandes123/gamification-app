@@ -384,7 +384,8 @@ func sendHttpRequest(with url: String, config: [String: Any], placeholders: [Str
   // Now create the URLRequest object using the URL object
   var request = URLRequest(url: url)
 
-  if let httpMethod = config["httpMethod"] as? String {
+  // the TS type documents `method`; `httpMethod` kept for compatibility
+  if let httpMethod = (config["method"] ?? config["httpMethod"]) as? String {
     request.httpMethod = httpMethod
   }
 
@@ -396,9 +397,10 @@ func sendHttpRequest(with url: String, config: [String: Any], placeholders: [Str
 
   if let headers = config["headers"] as? [String: String] {
     let headersWithPlaceholders = replacePlaceholdersInObject(headers, with: placeholders)
-    // merge with existing headers
-    request.allHTTPHeaderFields = request.allHTTPHeaderFields?.merging(
-      headersWithPlaceholders, uniquingKeysWith: { $1 })
+    // a fresh URLRequest has nil header fields: `nil?.merging` dropped every header
+    for (field, value) in headersWithPlaceholders {
+      request.setValue(value, forHTTPHeaderField: field)
+    }
   }
 
   // create dataTask using the session object to send data to the server

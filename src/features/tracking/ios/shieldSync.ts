@@ -291,10 +291,12 @@ function syncWebContentFilter(policy: Policy, now: number): number {
  * de conteúdo, que é mais forte (vale em todos os navegadores). Aqui vai o que
  * só um content script consegue pegar — termo dentro da URL.
  *
- * Nenhum token viaja: a extensão manda o usuário para a tela `/blocked` da web,
- * que cobra usando a sessão do navegador.
+ * Nenhum token chega ao JS da extensão: ela manda o usuário para a tela
+ * `/blocked` da web, que cobra usando a sessão do navegador. O token vai só
+ * para o handler NATIVO (`safariAuth`), que relê a política na API antes de
+ * bloquear — é assim que a compra feita na web libera sem abrir o app.
  */
-function writeSafariPolicy(policy: Policy, now: number): number {
+function writeSafariPolicy(policy: Policy, now: number, token: string): number {
   const keywords = policy.keywords
     .filter((k) => !looksLikeDomain(k.phrase))
     .filter((k) => !isUnlocked(policy, `keyword:${k.id}`, now))
@@ -310,6 +312,7 @@ function writeSafariPolicy(policy: Policy, now: number): number {
     blockedUrl: `${env.WEB_URL}/blocked`,
     updatedAt: new Date().toISOString(),
   });
+  DeviceActivity.userDefaultsSet('safariAuth', { apiUrl: env.API_URL, token });
   return keywords.length;
 }
 
@@ -386,7 +389,7 @@ export async function syncShield(): Promise<SyncResult> {
     // App Group. Por isso a política dela é escrita antes de qualquer checagem
     // de autorização — senão negar o Tempo de Uso derrubaria também o bloqueio
     // por palavra, que é independente.
-    const safariKeywords = writeSafariPolicy(policy, now);
+    const safariKeywords = writeSafariPolicy(policy, now, token);
 
     const status = await resolveAuthorization();
     if (status !== 2) {
@@ -456,8 +459,13 @@ export async function syncShield(): Promise<SyncResult> {
         // atividade viva com esse nome, a tela de bloqueio cai no texto genérico.
         const activityName = activityFor(selectionId);
         const events: DeviceActivity.DeviceActivityEvent[] = [];
+        const unlockedNow = blocks && isUnlocked(policy, `app:${source.matcher}`, now);
 
-        if (blocks) {
+        // Com liberação paga viva o limiar do dia fica de fora: rearmar a
+        // atividade com `includesPastActivity` o dispararia na hora (o uso já
+        // passou do limite) e o callback re-bloquearia o que acabou de ser pago.
+        // Quem re-bloqueia no fim do crédito é a atividade `-unlock`.
+        if (blocks && !unlockedNow) {
           events.push({
             familyActivitySelection: selection,
             // Limite CHEIO com `includesPastActivity`: o iOS conta o dia inteiro
@@ -492,7 +500,7 @@ export async function syncShield(): Promise<SyncResult> {
           continue;
         }
 
-        if (isUnlocked(policy, `app:${source.matcher}`, now)) {
+        if (unlockedNow) {
           DeviceActivity.unblockSelection({ activitySelectionId: selectionId }, 'sync');
           unlockedCount++;
           continue;

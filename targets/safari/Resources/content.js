@@ -35,12 +35,23 @@ function normalize(value) {
   return text.toLowerCase().replace(/\+/g, ' ').normalize('NFD').replace(COMBINING_MARKS, '');
 }
 
+function getPolicy(refresh) {
+  return browser.runtime.sendMessage({ type: 'getPolicy', refresh }).catch(() => null);
+}
+
+/** Primeira palavra da política que casa com a URL, ou `undefined`. */
+function findHit(policy, haystack) {
+  return (policy?.keywords ?? []).find((keyword) =>
+    haystack.includes(normalize(String(keyword.phrase))),
+  );
+}
+
 (async () => {
   if (location.href.length > MAX_URL_LENGTH) return;
 
-  const policy = await browser.runtime.sendMessage({ type: 'getPolicy' }).catch(() => null);
-  const keywords = policy?.keywords ?? [];
-  const blockedUrl = policy?.blockedUrl;
+  const cached = await getPolicy(false);
+  const keywords = cached?.keywords ?? [];
+  const blockedUrl = cached?.blockedUrl;
   if (keywords.length === 0 || !blockedUrl) return;
 
   // NUNCA policiar o próprio Evolve. A tela /blocked carrega a frase nos seus
@@ -55,7 +66,13 @@ function normalize(value) {
   if (location.origin === blockedOrigin) return;
 
   const haystack = normalize(location.href);
-  const hit = keywords.find((keyword) => haystack.includes(normalize(String(keyword.phrase))));
+  if (!findHit(cached, haystack)) return;
+
+  // Casou no cache: confirma no servidor antes de bloquear. A liberação comprada
+  // na tela /blocked só existe lá até o app sincronizar — sem esta releitura a
+  // volta da compra caía no bloqueio de novo. Sem rede, o nativo devolve o cache.
+  const fresh = await getPolicy(true);
+  const hit = findHit(fresh ?? cached, haystack);
   if (!hit) return;
 
   // Mesmos parâmetros que a extensão do Chrome monta (background/enforcer.ts),
