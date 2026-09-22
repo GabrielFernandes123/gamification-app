@@ -9,6 +9,7 @@ import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { ScarOfferCard } from '@/features/character/ScarOfferCard';
 import { useCharacter, useProfile, type Character } from '@/features/character/hooks/useCharacter';
+import { DayCloseCard } from '@/features/day-close/DayCloseCard';
 import { YesterdayCard } from '@/features/habits/components/YesterdayCard';
 import { ModuleLauncher } from '@/features/modules/ModuleLauncher';
 import { MealVoiceButton } from '@/features/nutrition/MealVoiceButton';
@@ -195,6 +196,9 @@ export default function DashboardScreen() {
           declarar, gente a chamar, comida a registrar. */}
       <ScarOfferCard />
       <YesterdayCard />
+      {/* O ritual do fim do dia. Vem depois da correção de ontem pelo mesmo
+          critério da ordem acima: fecha-se o passado antes de selar o presente. */}
+      <DayCloseCard />
       <PlanCard />
       <PeopleQuickCard />
       <MealVoiceButton compact />
