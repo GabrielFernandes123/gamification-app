@@ -27,6 +27,24 @@ export type SleepSession = {
   endedAt: string;
 };
 
+/**
+ * O que a consulta devolveu, e não só o que sobrou dela.
+ *
+ * `sampleCount` é a contagem CRUA — antes do filtro de `ASLEEP_VALUES`. Existe
+ * por um motivo só: a Apple não informa se a leitura foi concedida (ver
+ * `healthAuthorizationAsked`), então "você não dormiu" e "o app não pode ler o
+ * seu sono" chegam aqui exatamente iguais — lista vazia, sem erro.
+ *
+ * Com a contagem crua os dois casos se separam na prática: quem usa relógio tem
+ * SEMPRE alguma amostra de sono na janela, nem que seja `inBed` ou `awake`.
+ * Zero amostras cruas é, quase sempre, leitura bloqueada; amostras cruas sem
+ * nenhuma de sono é outro problema, e merece outra frase.
+ */
+export type SleepRead = {
+  sessions: SleepSession[];
+  sampleCount: number;
+};
+
 /** Amostra de categoria como o pacote devolve (campos que usamos). */
 type CategorySample = {
   uuid: string;
@@ -147,9 +165,9 @@ export async function healthAuthorizationAsked(): Promise<boolean | null> {
  * ao pacote: sem amostra e sem erro, "não dormi nada" e "a query nem rodou"
  * ficam indistinguíveis. Quem chama decide o que fazer com a falha.
  */
-export async function readSleepSessions(since: Date): Promise<SleepSession[]> {
+export async function readSleepSessions(since: Date): Promise<SleepRead> {
   const health = nativeModule();
-  if (!health) return [];
+  if (!health) return { sessions: [], sampleCount: 0 };
 
   const samples = await health.queryCategorySamples(SLEEP_TYPE, {
     // 0 = sem teto. A janela já é de 7 dias; o limite existe na API do pacote e
@@ -168,7 +186,7 @@ export async function readSleepSessions(since: Date): Promise<SleepSession[]> {
     }))
     .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
 
-  return mergeSessions(asleep);
+  return { sessions: mergeSessions(asleep), sampleCount: samples.length };
 }
 
 /**

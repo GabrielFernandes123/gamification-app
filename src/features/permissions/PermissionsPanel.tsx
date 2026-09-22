@@ -86,6 +86,9 @@ export function PermissionsPanel() {
 const SYNC_COLOR: Record<string, string> = {
   ok: theme.colors.success,
   empty: theme.colors.gold,
+  // `blocked` grita junto com `denied`: é acionável e o usuário precisa ir aos
+  // Ajustes para resolver.
+  blocked: theme.colors.hp,
   denied: theme.colors.hp,
   error: theme.colors.hp,
   unavailable: theme.colors.textSubtle,

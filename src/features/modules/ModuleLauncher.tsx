@@ -28,10 +28,15 @@ const APP_ROUTES: Record<string, Href> = {
   // Nutrição é painel dentro de Corpo; Diário tem aba própria.
   nutrition: '/(app)/(tabs)/body',
   journal: '/(app)/(tabs)/diario',
-  // `body_goal` e `sleep` saíram desta lista em 2026-07-31: o painel de metas
-  // do corpo foi para o web e o sono nunca teve tela no app — ele entra sozinho
-  // pelo HealthKit. Apontar para a aba Corpo levaria a uma tela que não fala do
-  // assunto, que é pior do que abrir o site.
+  // `sleep` VOLTOU em 2026-09-22, agora com tela própria. Ele tinha saído em
+  // 2026-07-31 porque não havia onde cair no app; o efeito colateral foi que a
+  // importação do HealthKit ficou sem nenhuma superfície e falhou em silêncio.
+  // O `as Href` é o mesmo caso de `/(app)/livro`: as rotas tipadas do Expo são
+  // GERADAS (`.expo/types`) e só conhecem um arquivo novo depois de um
+  // `expo start`. Sem o cast, o typecheck quebra numa rota que existe.
+  sleep: '/(app)/sono' as Href,
+  // `body_goal` continua fora: o painel de metas do corpo foi para o web e
+  // apontar para a aba Corpo levaria a uma tela que não fala do assunto.
 };
 
 /**
@@ -53,10 +58,9 @@ const WEB_ROUTES: Record<string, string> = {
   bucket: '/bucket',
   relationship: '/relationships',
   work: '/work',
-  // Saíram do app em 2026-07-31 e precisam de destino explícito: o fallback
-  // `/${key}` daria `/body_goal` e `/sleep`, que não existem no web.
+  // Saiu do app em 2026-07-31 e precisa de destino explícito: o fallback
+  // `/${key}` daria `/body_goal`, que não existe no web.
   body_goal: '/body',
-  sleep: '/settings',
   // As quatro abaixo estão `ativo = false` no registry hoje, e é só por isso
   // que o fallback `/${key}` nunca as levou para o NotFoundPage — `achievement`
   // daria `/achievement`, e a rota é `/achievements`. Mapeadas para o dia em

@@ -46,7 +46,12 @@ type ImportResponse = {
 export type SleepSyncOutcome = {
   /** `Date.now()` da rodada — a tela renderiza "há X min". */
   at: number;
-  state: 'ok' | 'unavailable' | 'denied' | 'empty' | 'error';
+  /**
+   * `blocked` é diferente de `denied`: em `denied` a folha do iOS recusou na
+   * hora; em `blocked` ela disse sim e mesmo assim não veio amostra nenhuma —
+   * o jeito que uma leitura não autorizada se apresenta (ver `SleepRead`).
+   */
+  state: 'ok' | 'unavailable' | 'denied' | 'blocked' | 'empty' | 'error';
   /** Frase pronta para a interface. Sem jargão de HealthKit. */
   message: string;
   imported: number;
@@ -94,12 +99,24 @@ export async function syncSleepOnce(): Promise<SleepSyncOutcome> {
     }
 
     const since = new Date(Date.now() - LOOKBACK_DAYS * 86_400_000);
-    const sessions = await readSleepSessions(since);
+    const { sessions, sampleCount } = await readSleepSessions(since);
     if (sessions.length === 0) {
-      return finish(
-        'empty',
-        `Nenhuma noite no app Saúde nos últimos ${LOOKBACK_DAYS} dias.`,
-      );
+      // A distinção que faltava. Antes, os dois casos abaixo saíam com a MESMA
+      // frase ("nenhuma noite"), que é falsa no primeiro e mandava procurar o
+      // problema no lugar errado — exatamente o sintoma de quem tem o relógio
+      // gravando no Saúde e o app parado.
+      return sampleCount === 0
+        ? finish(
+            'blocked',
+            'O app Saúde não devolveu nenhuma amostra. Normalmente é a leitura ' +
+              'bloqueada: Ajustes › Saúde › Acesso a Dados e Dispositivos › ' +
+              'Evolve › Análise do Sono.',
+          )
+        : finish(
+            'empty',
+            `O Saúde devolveu ${sampleCount} amostra(s) na janela, mas nenhuma ` +
+              'marcada como sono.',
+          );
     }
 
     const result = await apiFetch<ImportResponse>('/sleep/sessions', {
