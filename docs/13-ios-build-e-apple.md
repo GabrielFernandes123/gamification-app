@@ -246,9 +246,10 @@ nada sozinho. Uma vez só:
 1. **developer.apple.com → Identifiers → +** → App IDs → App → identificador
    `com.gabriel.evolve.notification`, descrição "Evolve Notification".
    Marque **App Groups** e, em Configure, escolha `group.com.gabriel.evolve`.
-2. **Profiles → +** → Ad Hoc → App ID `com.gabriel.evolve.notification` →
-   o mesmo certificado de distribuição das outras → o seu iPhone → nome
-   "Evolve Notification Ad Hoc". Baixe.
+2. **Profiles → +** → **iOS App Development** (os perfis atuais são de
+   desenvolvimento, não ad hoc) → App ID `com.gabriel.evolve.notification` →
+   o mesmo certificado das outras (o de desenvolvimento, `certs/development.cer`)
+   → o seu iPhone → nome "Evolve Notification Dev". Baixe.
 3. Salve como `certs/NotificationService.mobileprovision`.
 4. Em `credentials.json`, ao lado das outras extensões:
 
@@ -283,15 +284,15 @@ tipo). Para isso a API precisa de uma chave APNs. Uma vez só:
    APNS_KEY_ID=<Key ID>
    APNS_TEAM_ID=DYT84KCFF7
    APNS_BUNDLE_ID=com.gabriel.evolve
-   APNS_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----
-...
------END PRIVATE KEY-----"
+   APNS_SANDBOX=true
+   APNS_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
    ```
 
-   (o conteúdo do .p8 numa linha só, com `
-` no lugar das quebras). Depois,
-   `docker compose up -d`. Não use `APNS_SANDBOX`: a build ad hoc é de
-   produção.
+   (o conteúdo do .p8 numa linha só, com `\n` no lugar das quebras). Depois,
+   `docker compose up -d`. **`APNS_SANDBOX=true` é obrigatório hoje**: os
+   perfis em `certs/` são de desenvolvimento (`aps-environment: development`),
+   e token de build de desenvolvimento só vale no gateway sandbox. Se um dia a
+   build passar a perfil ad hoc/App Store, tire essa linha.
 
 Sem a chave, nada quebra: o app mantém as atividades em dia sozinho enquanto
 roda (aberto ou em segundo plano) — só não há início automático pela manhã nem
