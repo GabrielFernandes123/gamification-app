@@ -60,7 +60,22 @@ export type DayClosePending = DayCloseStatus & {
     hp: { current: number; max: number };
   } | null;
   /** O diário do dia — o modal abre com ele preenchido (é o mesmo texto). */
-  journal: { text: string | null; mood: number | null } | null;
+  /**
+   * O DIA COMO COMPILADO: os registros do diário em ordem e o humor do dia
+   * como média deles. Só leitura aqui — o campo livre acrescenta um registro.
+   */
+  journal: {
+    entries: {
+      id: string;
+      time: string;
+      mood: number | null;
+      text: string | null;
+      hasPhoto: boolean;
+      hasAudio: boolean;
+    }[];
+    moodAvg: number | null;
+    count: number;
+  } | null;
 };
 
 export const dayCloseOpenKey = ['dayCloseOpen'] as const;

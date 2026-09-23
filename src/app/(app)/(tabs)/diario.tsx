@@ -12,10 +12,10 @@ import {
 import {
   Angry,
   Camera,
-  CornerDownLeft,
   Frown,
   ImageIcon,
   Laugh,
+  Lock,
   Meh,
   Mic,
   NotebookPen,
@@ -25,12 +25,14 @@ import {
   Sparkles,
   Square,
   Trash2,
+  X,
 } from 'lucide-react-native';
-import { useEffect, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Switch, View } from 'react-native';
 
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { Input } from '@/components/ui/Input';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
@@ -39,32 +41,34 @@ import {
   uploadJournalMedia,
   JOURNAL_DAY_CUTOFF_FALLBACK,
   useClearTranscription,
+  useCreateJournalEntry,
   useJournal,
   useJournalSettings,
-  useSaveJournal,
+  useRemoveJournalEntry,
   useTranscribeJournal,
+  useUpdateJournalEntry,
   useUpdateJournalSettings,
   type JournalEntry,
 } from '@/features/health/hooks/useJournal';
 import { theme } from '@/theme/theme';
 
 /**
- * Aba Diário (doc 14 §4.15).
+ * Aba Diário (doc 14 §4.15) — O DIA COMO COMPILADO.
  *
- * O caderno de papel continua sendo o caderno. Esta tela existe para trazer o
- * que está nele para dentro do sistema **sem redigitar** — por isso a hierarquia
- * é: humor (um toque) › mídia (foto/áudio) › texto › leitura da IA, nessa ordem
- * de esforço crescente. Registrar o dia tem de caber em cinco segundos.
+ * O dia não é mais "uma caixa de texto": é a soma dos registros que você
+ * sobe ao longo dele, cada um com a hora e o humor daquele momento. No topo,
+ * o compositor (humor, foto, áudio, texto → "Registrar"); embaixo, a linha do
+ * tempo do dia. O humor do dia é a MÉDIA dos registros — a mesma conta que o
+ * fechamento grava.
  *
- * Duas regras da tela, herdadas do serviço:
+ * O fechamento do dia SELA o compilado: dia fechado (ou mais antigo que
+ * ontem) é só leitura, aqui e na API. Enquanto o dia está aberto, cada
+ * registro pode ser editado ou apagado.
  *
+ * Duas regras herdadas do serviço continuam valendo:
  *  • **A mídia é a fonte da verdade.** A transcrição mora num bloco separado,
- *    visivelmente marcado como gerado, e descartá-la não encosta na foto.
- *  • **A IA só roda a pedido.** Não há transcrição automática ao salvar —
- *    mandar o diário para um modelo é escolha explícita, toda vez.
- *
- * Consulta e leitura do histórico ficam no web; aqui só o dia de hoje é
- * editável, e os dias anteriores aparecem como lembrete visual.
+ *    marcado como gerado, e descartá-la não encosta na foto.
+ *  • **A IA só roda a pedido** (ou com a transcrição automática ligada).
  */
 
 const HISTORY_DAYS = 30;
@@ -77,48 +81,136 @@ const MOODS = [
   { value: 5, label: 'Ótimo', Icon: Laugh, color: theme.colors.success },
 ] as const;
 
+type Day = {
+  date: string;
+  entries: JournalEntry[];
+  locked: boolean;
+  /** Média dos humores do dia (uma casa), ou null se ninguém disse. */
+  moodAvg: number | null;
+};
+
 export default function DiarioScreen() {
-  const toast = useToast();
   const settings = useJournalSettings();
   const updateSettings = useUpdateJournalSettings();
   const corte = settings.data?.dayCutoffHours ?? JOURNAL_DAY_CUTOFF_FALLBACK;
-  // O DIA DO DIÁRIO vira às 4h, não à meia-noite: a página escrita à 00h30
-  // sobre o dia que acabou pertence a ele. Antes, ela caía no dia seguinte e
-  // o dia vivido ficava sem diário (e o hábito ligado tomava dano).
+  // O DIA DO DIÁRIO vira às 4h, não à meia-noite: o registro das 00h30 sobre
+  // o dia que acabou pertence a ele.
   const today = journalDay(0, corte);
   const start = journalDay(-HISTORY_DAYS, corte);
   const madrugada = new Date().getHours() < corte;
 
   const { data: entries, isLoading, refetch, isRefetching } = useJournal(start, today);
-  const save = useSaveJournal();
-  const transcribe = useTranscribeJournal();
-  const clearTranscription = useClearTranscription();
 
-  const entry = entries?.find((item) => item.occurredOn === today) ?? null;
-  const past = entries?.filter((item) => item.occurredOn !== today) ?? [];
+  const days = useMemo(() => groupByDay(entries ?? []), [entries]);
+  const hoje = days.find((d) => d.date === today) ?? null;
+  const outros = days.filter((d) => d.date !== today);
+  // Hoje fechado (fechou à noite e ainda não virou): o compositor sai.
+  const hojeSelado = Boolean(hoje?.locked);
 
-  const [draft, setDraft] = useState('');
+  return (
+    <Screen scroll keyboard refreshing={isRefetching} onRefresh={() => void refetch()} contentStyle={styles.content}>
+      <View style={styles.header}>
+        <Text variant="label">Registro do dia</Text>
+        <Text variant="display">Diário</Text>
+      </View>
+
+      {hojeSelado ? (
+        <Card style={styles.card}>
+          <View style={styles.row}>
+            <Lock color={theme.colors.textMuted} size={18} />
+            <Text variant="bodyMedium" style={styles.flex}>
+              O dia de hoje já foi fechado.
+            </Text>
+          </View>
+          <Text variant="bodyMuted">
+            O diário dele está selado. Para acrescentar algo, reabra o dia no
+            fechamento.
+          </Text>
+        </Card>
+      ) : (
+        <Composer
+          today={today}
+          corte={corte}
+          madrugada={madrugada}
+          autoTranscribe={settings.data?.autoTranscribe ?? false}
+          autoDisabled={!settings.data || updateSettings.isPending}
+          onAutoChange={(valor) => updateSettings.mutate({ autoTranscribe: valor })}
+        />
+      )}
+
+      <DayHeader label="Hoje" day={hoje} />
+      {isLoading ? (
+        <ActivityIndicator color={theme.colors.primary} />
+      ) : hoje ? (
+        hoje.entries.map((entry) => (
+          <EntryCard key={entry.id} entry={entry} locked={hoje.locked} />
+        ))
+      ) : (
+        <Text variant="bodyMuted">
+          Nenhum registro hoje ainda. Suba quantos quiser ao longo do dia — o
+          fechamento junta tudo.
+        </Text>
+      )}
+
+      <View style={styles.pastHead}>
+        <Text variant="label">Dias anteriores</Text>
+      </View>
+      {outros.length === 0 && !isLoading ? (
+        <Card style={styles.empty}>
+          <NotebookPen color={theme.colors.textSubtle} size={22} />
+          <Text variant="bodyMuted">Nada registrado nos últimos {HISTORY_DAYS} dias.</Text>
+        </Card>
+      ) : (
+        outros.map((day) =>
+          day.locked ? (
+            <PastDay key={day.date} day={day} />
+          ) : (
+            // Ontem ainda aberto (antes do fechamento): dá para mexer.
+            <View key={day.date} style={styles.openDay}>
+              <DayHeader label={`${formatShortDay(day.date)} · aberto até o fechamento`} day={day} />
+              {day.entries.map((entry) => (
+                <EntryCard key={entry.id} entry={entry} locked={false} />
+              ))}
+            </View>
+          ),
+        )
+      )}
+    </Screen>
+  );
+}
+
+/**
+ * O COMPOSITOR — um registro novo. Humor, mídia e texto são todos opcionais,
+ * mas pelo menos um tem de existir. A mídia sobe na hora em que é escolhida
+ * (o caminho fica guardado aqui) e o registro nasce ao tocar em "Registrar".
+ */
+function Composer({
+  today,
+  corte,
+  madrugada,
+  autoTranscribe,
+  autoDisabled,
+  onAutoChange,
+}: {
+  today: string;
+  corte: number;
+  madrugada: boolean;
+  autoTranscribe: boolean;
+  autoDisabled: boolean;
+  onAutoChange: (value: boolean) => void;
+}) {
+  const toast = useToast();
+  const create = useCreateJournalEntry();
+  const [mood, setMood] = useState<number | null>(null);
+  const [text, setText] = useState('');
+  const [photo, setPhoto] = useState<{ path: string; uri: string } | null>(null);
+  const [audio, setAudio] = useState<{ path: string; millis: number } | null>(null);
   const [busy, setBusy] = useState<'photo' | 'audio' | null>(null);
-  // Só sincroniza o rascunho com o servidor quando a entrada MUDA de verdade.
-  // Sem isso, cada refetch enquanto você digita apagaria o que está na tela.
-  const syncedFor = useRef<string | null>(null);
-  useEffect(() => {
-    const key = entry?.id ?? 'novo';
-    if (syncedFor.current === key) return;
-    syncedFor.current = key;
-    setDraft(entry?.text ?? '');
-  }, [entry?.id, entry?.text]);
 
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const recorderState = useAudioRecorderState(recorder);
 
-  async function persist(patch: Parameters<typeof save.mutateAsync>[0]) {
-    try {
-      await save.mutateAsync({ occurredOn: today, ...patch });
-    } catch (error) {
-      toast.error('Não deu para salvar', message(error));
-    }
-  }
+  const vazio = mood === null && !text.trim() && !photo && !audio;
 
   async function pickPhoto(from: 'camera' | 'library') {
     const permission =
@@ -129,7 +221,6 @@ export default function DiarioScreen() {
       toast.error('Permissão negada', 'Libere o acesso nas configurações do iPhone.');
       return;
     }
-
     // Qualidade alta de propósito: é uma página manuscrita, e a IA vai ter de
     // ler a letra depois. Comprimir demais aqui vira [ilegível] lá na frente.
     const options = { quality: 0.9, base64: true, allowsEditing: false } as const;
@@ -137,7 +228,6 @@ export default function DiarioScreen() {
       from === 'camera'
         ? await ImagePicker.launchCameraAsync(options)
         : await ImagePicker.launchImageLibraryAsync({ ...options, mediaTypes: ['images'] });
-
     const asset = result.assets?.[0];
     if (result.canceled || !asset?.uri) return;
 
@@ -150,7 +240,7 @@ export default function DiarioScreen() {
         extensionOf(asset.uri, contentType),
         contentType,
       );
-      await persist({ photoPath: path });
+      setPhoto({ path, uri: asset.uri });
     } catch (error) {
       toast.error('Falha ao enviar a foto', message(error));
     } finally {
@@ -175,6 +265,7 @@ export default function DiarioScreen() {
 
   async function stopRecording() {
     setBusy('audio');
+    const millis = recorderState.durationMillis;
     try {
       await recorder.stop();
       const uri = recorder.uri;
@@ -183,7 +274,7 @@ export default function DiarioScreen() {
       await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
       if (!uri) throw new Error('A gravação não gerou arquivo.');
       const path = await uploadJournalMedia('audio', { uri }, 'm4a', 'audio/m4a');
-      await persist({ audioPath: path });
+      setAudio({ path, millis });
     } catch (error) {
       toast.error('Falha ao enviar o áudio', message(error));
     } finally {
@@ -191,150 +282,311 @@ export default function DiarioScreen() {
     }
   }
 
-  async function runTranscription() {
-    if (!entry) return;
+  async function registrar() {
     try {
-      await transcribe.mutateAsync(entry.id);
+      // Sem data: a API aplica a virada das 4h, a mesma régua desta tela.
+      await create.mutateAsync({
+        mood,
+        text: text.trim() || null,
+        photoPath: photo?.path ?? null,
+        audioPath: audio?.path ?? null,
+      });
+      setMood(null);
+      setText('');
+      setPhoto(null);
+      setAudio(null);
+      toast.success('Registrado', 'Entrou no diário de hoje.');
     } catch (error) {
-      toast.error('A IA não leu esta mídia', message(error));
+      toast.error('Não deu para registrar', message(error));
     }
   }
 
-  const hasMedia = Boolean(entry?.photoUrl || entry?.audioUrl);
-  const dirty = draft.trim() !== (entry?.text ?? '').trim();
-
   return (
-    <Screen scroll keyboard refreshing={isRefetching} onRefresh={() => void refetch()} contentStyle={styles.content}>
-      <View style={styles.header}>
-        <Text variant="label">Registro do dia</Text>
-        <Text variant="display">Diário</Text>
+    <Card style={styles.card}>
+      <Text variant="label">{formatFullDay(today)} · novo registro</Text>
+      {madrugada ? (
+        <Text variant="bodyMuted">Até as {corte}h, o que você registra vale para o dia que acabou.</Text>
+      ) : null}
+
+      {/* 1. Humor deste momento — o do dia é a média dos registros. */}
+      <View style={styles.moodRow}>
+        {MOODS.map(({ value, label, Icon, color }) => {
+          const selected = mood === value;
+          return (
+            <Pressable
+              key={value}
+              onPress={() => setMood(selected ? null : value)}
+              accessibilityRole="button"
+              accessibilityLabel={`Humor: ${label}`}
+              accessibilityState={{ selected }}
+              style={[styles.mood, selected && { borderColor: color, backgroundColor: theme.colors.surfaceSoft }]}
+            >
+              <Icon color={selected ? color : theme.colors.textSubtle} size={24} />
+              <Text variant="label" color={selected ? color : theme.colors.textSubtle} numberOfLines={1}>
+                {label}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
 
-      <Card style={styles.card}>
-        <Text variant="label">{formatFullDay(today)}</Text>
-        {madrugada ? (
+      {/* 2. Mídia — o jeito rápido de trazer o que já está no papel. */}
+      <View style={styles.mediaRow}>
+        <MediaButton
+          icon={<Camera color={theme.colors.primary} size={20} />}
+          label="Fotografar"
+          loading={busy === 'photo'}
+          onPress={() => void pickPhoto('camera')}
+        />
+        <MediaButton
+          icon={<ImageIcon color={theme.colors.primary} size={20} />}
+          label="Galeria"
+          loading={false}
+          onPress={() => void pickPhoto('library')}
+        />
+        <MediaButton
+          icon={
+            recorderState.isRecording ? (
+              <Square color={theme.colors.hp} size={18} fill={theme.colors.hp} />
+            ) : (
+              <Mic color={theme.colors.primary} size={20} />
+            )
+          }
+          label={recorderState.isRecording ? formatDuration(recorderState.durationMillis) : 'Gravar'}
+          active={recorderState.isRecording}
+          loading={busy === 'audio'}
+          onPress={() => void (recorderState.isRecording ? stopRecording() : startRecording())}
+        />
+      </View>
+
+      {photo ? (
+        <View>
+          <ExpoImage source={{ uri: photo.uri }} style={styles.photo} contentFit="cover" transition={150} />
+          <Pressable
+            onPress={() => setPhoto(null)}
+            style={styles.detach}
+            accessibilityRole="button"
+            accessibilityLabel="Tirar a foto do registro"
+          >
+            <X color={theme.colors.text} size={16} />
+          </Pressable>
+        </View>
+      ) : null}
+      {audio ? (
+        <View style={styles.attached}>
+          <Mic color={theme.colors.primary} size={16} />
+          <Text variant="bodyMedium" style={styles.flex}>
+            Gravação anexada · {formatDuration(audio.millis)}
+          </Text>
+          <Pressable
+            onPress={() => setAudio(null)}
+            accessibilityRole="button"
+            accessibilityLabel="Tirar a gravação do registro"
+          >
+            <X color={theme.colors.textMuted} size={16} />
+          </Pressable>
+        </View>
+      ) : null}
+
+      {/* 3. Texto — o que você quiser dizer deste momento. */}
+      <Input
+        label="Suas palavras"
+        value={text}
+        onChangeText={setText}
+        placeholder="O que está acontecendo agora..."
+        multiline
+        textAlignVertical="top"
+        style={styles.textArea}
+      />
+
+      <Button
+        label="Registrar"
+        icon={<NotebookPen color={theme.colors.textInverse} size={16} />}
+        loading={create.isPending}
+        disabled={vazio || busy !== null || recorderState.isRecording}
+        onPress={() => void registrar()}
+      />
+
+      <View style={styles.autoRow}>
+        <View style={styles.flex}>
+          <Text variant="bodyMedium">Transcrever automaticamente</Text>
           <Text variant="bodyMuted">
-            Até as {corte}h, o que você escreve vale para o dia que acabou.
+            Foto e áudio vão sozinhos para a IA. O resultado fica separado do seu texto.
+          </Text>
+        </View>
+        <Switch
+          value={autoTranscribe}
+          disabled={autoDisabled}
+          onValueChange={onAutoChange}
+          trackColor={{ true: theme.colors.primary, false: theme.colors.surfaceSoft }}
+        />
+      </View>
+    </Card>
+  );
+}
+
+function DayHeader({ label, day }: { label: string; day: Day | null }) {
+  const media = day?.moodAvg ?? null;
+  const Icone = media === null ? null : MOODS[Math.round(media) - 1];
+  return (
+    <View style={styles.dayHead}>
+      <Text variant="label" style={styles.flex}>
+        {label}
+        {day ? ` · ${day.entries.length} ${day.entries.length === 1 ? 'registro' : 'registros'}` : ''}
+      </Text>
+      {Icone && media !== null ? (
+        <View style={styles.row}>
+          <Icone.Icon color={Icone.color} size={16} />
+          <Text variant="label" color={Icone.color}>
+            {String(media).replace('.', ',')}
+          </Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * UM REGISTRO. Aberto: humor, texto e apagar editáveis. Selado: só leitura.
+ * A transcrição por IA continua disponível mesmo selado — ela é leitura da
+ * mídia, não escrita sua.
+ */
+function EntryCard({ entry, locked }: { entry: JournalEntry; locked: boolean }) {
+  const toast = useToast();
+  const confirm = useConfirm();
+  const update = useUpdateJournalEntry();
+  const remove = useRemoveJournalEntry();
+  const transcribe = useTranscribeJournal();
+  const clearTranscription = useClearTranscription();
+  const [draft, setDraft] = useState<string | null>(null);
+
+  const mood = MOODS.find((item) => item.value === entry.mood);
+  const texto = draft ?? entry.text ?? '';
+  const dirty = draft !== null && draft.trim() !== (entry.text ?? '').trim();
+  const hasMedia = Boolean(entry.photoUrl || entry.audioUrl);
+
+  async function salvar(patch: { mood?: number | null; text?: string | null }) {
+    try {
+      await update.mutateAsync({ id: entry.id, patch });
+      setDraft(null);
+    } catch (error) {
+      toast.error('Não deu para salvar', message(error));
+    }
+  }
+
+  async function apagar() {
+    const ok = await confirm({
+      title: 'Apagar este registro?',
+      message: 'A foto e o áudio dele vão junto. Isso não pode ser desfeito.',
+      confirmLabel: 'Apagar',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await remove.mutateAsync(entry.id);
+    } catch (error) {
+      toast.error('Não deu para apagar', message(error));
+    }
+  }
+
+  return (
+    <Card style={styles.entry} accent={mood?.color}>
+      <View style={styles.row}>
+        <Text variant="bodyMedium">{formatTime(entry.occurredAt)}</Text>
+        {mood ? <mood.Icon color={mood.color} size={16} /> : null}
+        {mood ? (
+          <Text variant="label" color={mood.color}>
+            {mood.label}
           </Text>
         ) : null}
+        <View style={styles.flex} />
+        {locked ? (
+          <Lock color={theme.colors.textSubtle} size={14} />
+        ) : (
+          <Pressable
+            onPress={() => void apagar()}
+            accessibilityRole="button"
+            accessibilityLabel="Apagar registro"
+            hitSlop={8}
+          >
+            <Trash2 color={theme.colors.textSubtle} size={16} />
+          </Pressable>
+        )}
+      </View>
 
-        {/* 1. Humor — um toque, salva na hora. É o registro mínimo do dia. */}
-        <View style={styles.moodRow}>
+      {locked ? null : (
+        <View style={styles.moodRowSmall}>
           {MOODS.map(({ value, label, Icon, color }) => {
-            const selected = entry?.mood === value;
+            const selected = entry.mood === value;
             return (
               <Pressable
                 key={value}
-                onPress={() => void persist({ mood: value })}
+                onPress={() => void salvar({ mood: selected ? null : value })}
                 accessibilityRole="button"
                 accessibilityLabel={`Humor: ${label}`}
                 accessibilityState={{ selected }}
-                style={[styles.mood, selected && { borderColor: color, backgroundColor: theme.colors.surfaceSoft }]}
+                style={[styles.moodSmall, selected && { borderColor: color }]}
               >
-                <Icon color={selected ? color : theme.colors.textSubtle} size={24} />
-                <Text variant="label" color={selected ? color : theme.colors.textSubtle} numberOfLines={1}>
-                  {label}
-                </Text>
+                <Icon color={selected ? color : theme.colors.textSubtle} size={16} />
               </Pressable>
             );
           })}
         </View>
+      )}
 
-        {/* 2. Mídia — o jeito rápido de registrar o que já está no papel. */}
-        <View style={styles.mediaRow}>
-          <MediaButton
-            icon={<Camera color={theme.colors.primary} size={20} />}
-            label="Fotografar"
-            loading={busy === 'photo'}
-            onPress={() => void pickPhoto('camera')}
-          />
-          <MediaButton
-            icon={<ImageIcon color={theme.colors.primary} size={20} />}
-            label="Galeria"
-            loading={false}
-            onPress={() => void pickPhoto('library')}
-          />
-          <MediaButton
-            icon={
-              recorderState.isRecording ? (
-                <Square color={theme.colors.hp} size={18} fill={theme.colors.hp} />
-              ) : (
-                <Mic color={theme.colors.primary} size={20} />
-              )
-            }
-            label={recorderState.isRecording ? formatDuration(recorderState.durationMillis) : 'Gravar'}
-            active={recorderState.isRecording}
-            loading={busy === 'audio'}
-            onPress={() => void (recorderState.isRecording ? stopRecording() : startRecording())}
-          />
-        </View>
+      {entry.photoUrl ? (
+        <ExpoImage source={{ uri: entry.photoUrl }} style={styles.photo} contentFit="cover" transition={150} />
+      ) : null}
+      {entry.audioUrl ? <AudioRow uri={entry.audioUrl} /> : null}
 
-        <View style={styles.autoRow}>
-          <View style={styles.flex}>
-            <Text variant="bodyMedium">Transcrever automaticamente</Text>
-            <Text variant="bodyMuted">
-              Foto e áudio vão sozinhos para a IA. O resultado fica separado do seu texto.
-            </Text>
+      {locked ? (
+        entry.text ? <Text variant="body">{entry.text}</Text> : null
+      ) : (
+        <>
+          <Input
+            label="Suas palavras"
+            value={texto}
+            onChangeText={setDraft}
+            placeholder="O que ficou deste momento..."
+            multiline
+            textAlignVertical="top"
+            style={styles.textAreaSmall}
+          />
+          {dirty ? (
+            <View style={styles.actions}>
+              <Button
+                label="Salvar"
+                size="sm"
+                loading={update.isPending}
+                onPress={() => void salvar({ text: texto.trim() || null })}
+              />
+              <Button label="Desfazer" size="sm" variant="ghost" onPress={() => setDraft(null)} />
+            </View>
+          ) : null}
+        </>
+      )}
+
+      {hasMedia ? (
+        <View style={styles.ai}>
+          <View style={styles.row}>
+            <Sparkles color={theme.colors.skill} size={16} />
+            <Text variant="bodyMedium">Leitura da IA</Text>
           </View>
-          <Switch
-            value={settings.data?.autoTranscribe ?? false}
-            disabled={!settings.data || updateSettings.isPending}
-            onValueChange={(valor) => updateSettings.mutate({ autoTranscribe: valor })}
-            trackColor={{ true: theme.colors.primary, false: theme.colors.surfaceSoft }}
-          />
-        </View>
-
-        {entry?.photoUrl ? (
-          <ExpoImage source={{ uri: entry.photoUrl }} style={styles.photo} contentFit="cover" transition={150} />
-        ) : null}
-
-        {entry?.audioUrl ? <AudioRow uri={entry.audioUrl} /> : null}
-
-        {/* 3. Texto — o que você quiser acrescentar por conta própria. */}
-        <Input
-          label="Suas palavras"
-          value={draft}
-          onChangeText={setDraft}
-          placeholder="O que ficou do dia..."
-          multiline
-          textAlignVertical="top"
-          style={styles.textArea}
-        />
-        {dirty ? (
-          <Button
-            label="Salvar texto"
-            icon={<CornerDownLeft color={theme.colors.textInverse} size={16} />}
-            loading={save.isPending}
-            onPress={() => void persist({ text: draft.trim() || null })}
-          />
-        ) : null}
-      </Card>
-
-      {/* 4. A IA, por último e só se houver mídia: é a etapa opcional. */}
-      {hasMedia && entry ? (
-        <Card style={styles.aiCard}>
-          <View style={styles.aiHead}>
-            <Sparkles color={theme.colors.skill} size={18} />
-            <Text variant="title" style={styles.flex}>
-              Leitura da IA
-            </Text>
-          </View>
-
           {entry.transcription ? (
             <>
-              <View style={styles.aiBadge}>
-                <Text variant="label" color={theme.colors.skill}>
-                  Gerado por IA{entry.transcriptionModel ? ` · ${entry.transcriptionModel}` : ''}
-                </Text>
-              </View>
+              <Text variant="label" color={theme.colors.skill}>
+                Gerado por IA{entry.transcriptionModel ? ` · ${entry.transcriptionModel}` : ''}
+              </Text>
               <Text variant="body">{entry.transcription}</Text>
-              <View style={styles.aiActions}>
-                <Button
-                  label="Usar como meu texto"
-                  variant="outline"
-                  size="sm"
-                  onPress={() => setDraft(entry.transcription ?? '')}
-                />
+              <View style={styles.actions}>
+                {locked ? null : (
+                  <Button
+                    label="Usar como meu texto"
+                    variant="outline"
+                    size="sm"
+                    onPress={() => setDraft(entry.transcription ?? '')}
+                  />
+                )}
                 <Button
                   label="Descartar leitura"
                   variant="ghost"
@@ -344,43 +596,56 @@ export default function DiarioScreen() {
                   onPress={() => void clearTranscription.mutateAsync(entry.id)}
                 />
               </View>
-              <Text variant="bodyMuted" style={styles.fine}>
-                Descartar apaga só a leitura. A foto e o áudio do dia continuam aqui.
-              </Text>
             </>
           ) : (
-            <>
-              <Text variant="bodyMuted">
-                {entry.audioUrl
-                  ? 'A IA transcreve o áudio literalmente, sem resumir.'
-                  : 'A IA lê a página fotografada e transcreve o que está escrito.'}
-              </Text>
-              <Button
-                label="Transcrever"
-                variant="outline"
-                loading={transcribe.isPending}
-                onPress={() => void runTranscription()}
-              />
-            </>
+            <Button
+              label="Transcrever"
+              variant="outline"
+              size="sm"
+              loading={transcribe.isPending}
+              onPress={() =>
+                void transcribe
+                  .mutateAsync(entry.id)
+                  .catch((error: unknown) => toast.error('A IA não leu esta mídia', message(error)))
+              }
+            />
           )}
-        </Card>
+        </View>
       ) : null}
+    </Card>
+  );
+}
 
-      <View style={styles.pastHead}>
-        <Text variant="label">Dias anteriores</Text>
+/** Dia selado: a linha do tempo resumida, só leitura. */
+function PastDay({ day }: { day: Day }) {
+  const media = day.moodAvg;
+  const Icone = media === null ? null : MOODS[Math.round(media) - 1];
+  return (
+    <Card style={styles.pastRow} accent={Icone?.color}>
+      <View style={styles.row}>
+        {Icone ? <Icone.Icon color={Icone.color} size={18} /> : <Meh color={theme.colors.textSubtle} size={18} />}
+        <Text variant="bodyMedium" style={styles.flex}>
+          {formatShortDay(day.date)}
+        </Text>
+        <Text variant="label">
+          {day.entries.length} {day.entries.length === 1 ? 'registro' : 'registros'}
+          {media !== null ? ` · humor ${String(media).replace('.', ',')}` : ''}
+        </Text>
       </View>
-
-      {isLoading ? (
-        <ActivityIndicator color={theme.colors.primary} />
-      ) : past.length === 0 ? (
-        <Card style={styles.empty}>
-          <NotebookPen color={theme.colors.textSubtle} size={22} />
-          <Text variant="bodyMuted">Nada registrado nos últimos {HISTORY_DAYS} dias.</Text>
-        </Card>
-      ) : (
-        past.map((item) => <PastRow key={item.id} entry={item} />)
-      )}
-    </Screen>
+      {day.entries.map((entry) => {
+        const preview = entry.text?.trim() || entry.transcription?.trim() || null;
+        return (
+          <View key={entry.id} style={styles.pastLine}>
+            <Text variant="label" style={styles.pastTime}>
+              {formatTime(entry.occurredAt)}
+            </Text>
+            <Text variant="bodyMuted" numberOfLines={2} style={styles.flex}>
+              {preview ?? (entry.audioUrl ? 'áudio' : entry.photoUrl ? 'foto' : 'só o humor')}
+            </Text>
+          </View>
+        );
+      })}
+    </Card>
   );
 }
 
@@ -413,7 +678,7 @@ function MediaButton({
   );
 }
 
-/** Toca a gravação do dia. URL assinada e de validade curta — some ao recarregar. */
+/** Toca a gravação. URL assinada e de validade curta — some ao recarregar. */
 function AudioRow({ uri }: { uri: string }) {
   const player = useAudioPlayer(uri);
   const status = useAudioPlayerStatus(player);
@@ -435,37 +700,34 @@ function AudioRow({ uri }: { uri: string }) {
         <Play color={theme.colors.primary} size={18} />
       )}
       <Text variant="bodyMedium" style={styles.flex}>
-        Gravação do dia
+        Gravação
       </Text>
       <Text variant="label">{formatDuration((status.duration || 0) * 1000)}</Text>
     </Pressable>
   );
 }
 
-function PastRow({ entry }: { entry: JournalEntry }) {
-  const mood = MOODS.find((item) => item.value === entry.mood);
-  const preview = entry.text?.trim() || entry.transcription?.trim() || null;
-
-  return (
-    <Card style={styles.pastRow} accent={mood?.color}>
-      <View style={styles.pastHeadRow}>
-        {mood ? <mood.Icon color={mood.color} size={18} /> : <Meh color={theme.colors.textSubtle} size={18} />}
-        <Text variant="bodyMedium" style={styles.flex}>
-          {formatShortDay(entry.occurredOn)}
-        </Text>
-        {entry.photoUrl ? <ImageIcon color={theme.colors.textSubtle} size={15} /> : null}
-        {entry.audioUrl ? <Mic color={theme.colors.textSubtle} size={15} /> : null}
-      </View>
-      {preview ? (
-        <Text variant="bodyMuted" numberOfLines={2}>
-          {preview}
-        </Text>
-      ) : null}
-    </Card>
-  );
+/** Agrupa por dia (mais novo primeiro) e ordena os registros pela hora. */
+function groupByDay(entries: JournalEntry[]): Day[] {
+  const map = new Map<string, Day>();
+  for (const entry of entries) {
+    let day = map.get(entry.occurredOn);
+    if (!day) {
+      day = { date: entry.occurredOn, entries: [], locked: Boolean(entry.locked), moodAvg: null };
+      map.set(entry.occurredOn, day);
+    }
+    day.entries.push(entry);
+  }
+  for (const day of map.values()) {
+    day.entries.sort((a, b) => (a.occurredAt ?? '').localeCompare(b.occurredAt ?? ''));
+    const humores = day.entries.map((e) => e.mood).filter((m): m is number => m != null);
+    if (humores.length) {
+      day.moodAvg = Math.round((humores.reduce((a, b) => a + b, 0) / humores.length) * 10) / 10;
+    }
+  }
+  return [...map.values()].sort((a, b) => b.date.localeCompare(a.date));
 }
 
-/** Data local em `YYYY-MM-DD` — a mesma que a tela mostra, sem passar por UTC. */
 /**
  * O dia do diário, deslocado `offsetDays`: a data local com a virada em
  * `cutoffHours` (a mesma regra do servidor — ver JOURNAL_DAY_CUTOFF_HOURS).
@@ -494,6 +756,11 @@ function formatShortDay(iso: string) {
   });
 }
 
+function formatTime(iso: string | undefined) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
 function formatDuration(millis: number) {
   const total = Math.round(millis / 1000);
   return `${Math.floor(total / 60)}:${`${total % 60}`.padStart(2, '0')}`;
@@ -513,16 +780,13 @@ function message(error: unknown) {
 }
 
 const styles = StyleSheet.create({
-  autoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-    marginTop: theme.spacing.xs,
-  },
   content: { paddingBottom: theme.sizes.tabBarClearance, gap: theme.spacing.md },
   header: { gap: theme.spacing.xs },
   flex: { flex: 1, minWidth: 0 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.xs },
   card: { gap: theme.spacing.lg },
+
+  autoRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm },
 
   moodRow: { flexDirection: 'row', gap: theme.spacing.xs },
   mood: {
@@ -537,6 +801,16 @@ const styles = StyleSheet.create({
     gap: theme.spacing.xs,
     paddingVertical: theme.spacing.sm,
     paddingHorizontal: 2,
+  },
+  moodRowSmall: { flexDirection: 'row', gap: theme.spacing.xs },
+  moodSmall: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   mediaRow: { flexDirection: 'row', gap: theme.spacing.sm },
@@ -563,6 +837,27 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surfaceAlt,
   },
+  detach: {
+    position: 'absolute',
+    top: theme.spacing.sm,
+    right: theme.spacing.sm,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  attached: {
+    minHeight: theme.sizes.touch,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    paddingHorizontal: theme.spacing.md,
+  },
   audioRow: {
     minHeight: theme.sizes.touch,
     flexDirection: 'row',
@@ -574,23 +869,23 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surfaceAlt,
     paddingHorizontal: theme.spacing.md,
   },
-  textArea: { minHeight: 120, paddingTop: theme.spacing.md },
+  textArea: { minHeight: 100, paddingTop: theme.spacing.md },
+  textAreaSmall: { minHeight: 70, paddingTop: theme.spacing.sm },
 
-  aiCard: { gap: theme.spacing.md, borderColor: theme.colors.skill },
-  aiHead: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm },
-  aiBadge: {
-    alignSelf: 'flex-start',
-    borderRadius: theme.radius.pill,
-    borderWidth: 1,
-    borderColor: theme.colors.skill,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 3,
+  dayHead: { flexDirection: 'row', alignItems: 'center', marginTop: theme.spacing.sm },
+  openDay: { gap: theme.spacing.md },
+  entry: { gap: theme.spacing.md, padding: theme.spacing.md },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.sm },
+  ai: {
+    gap: theme.spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+    paddingTop: theme.spacing.sm,
   },
-  aiActions: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.sm },
-  fine: { fontSize: theme.fontSizes.xs },
 
   pastHead: { marginTop: theme.spacing.sm },
   pastRow: { gap: theme.spacing.xs, padding: theme.spacing.md },
-  pastHeadRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm },
+  pastLine: { flexDirection: 'row', gap: theme.spacing.sm },
+  pastTime: { width: 44 },
   empty: { alignItems: 'center', gap: theme.spacing.sm },
 });

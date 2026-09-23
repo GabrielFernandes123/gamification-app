@@ -8,6 +8,9 @@ import { supabase } from '@/lib/supabase';
 export type JournalEntry = {
   id: string;
   occurredOn: string;
+  /** O momento do registro — a ordem do dia é a ordem destes. */
+  occurredAt: string;
+  /** Humor DAQUELE momento; o do dia é a média dos registros. */
   mood: number | null;
   /** O que VOCÊ escreveu. A IA nunca sobrescreve. */
   text: string | null;
@@ -20,7 +23,60 @@ export type JournalEntry = {
   /** O que a IA leu/ouviu. Coluna separada, editável, descartável. */
   transcription: string | null;
   transcriptionModel: string | null;
+  /**
+   * Dia SELADO pelo fechamento (ou mais antigo que ontem): só leitura. A API
+   * recusa a escrita; a tela esconde os controles.
+   */
+  locked?: boolean;
 };
+
+type EntryInput = {
+  occurredOn?: string;
+  mood?: number | null;
+  text?: string | null;
+  photoPath?: string | null;
+  audioPath?: string | null;
+};
+
+function useJournalMutation<TVars, TResult>(fn: (vars: TVars) => Promise<TResult>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['journal'] });
+      // O primeiro registro do dia paga XP trivial — o HUD precisa saber.
+      void qc.invalidateQueries({ queryKey: qk.character });
+    },
+  });
+}
+
+/**
+ * Um registro NOVO no dia — o dia é um compilado, e cada registro tem a hora
+ * e o humor do momento. Sem `occurredOn`, a API aplica a virada das 4h.
+ */
+export function useCreateJournalEntry() {
+  return useJournalMutation((input: EntryInput) =>
+    apiFetch<{ id: string; occurredOn: string; created: boolean }>('/journal/entries', {
+      method: 'POST',
+      body: input,
+    }),
+  );
+}
+
+/** Edita UM registro (texto e/ou humor). `null` limpa o campo. */
+export function useUpdateJournalEntry() {
+  return useJournalMutation(
+    ({ id, patch }: { id: string; patch: { mood?: number | null; text?: string | null } }) =>
+      apiFetch<{ id: string }>(`/journal/${id}`, { method: 'PATCH', body: patch }),
+  );
+}
+
+/** Apaga UM registro (a foto e o áudio dele vão junto). */
+export function useRemoveJournalEntry() {
+  return useJournalMutation((id: string) =>
+    apiFetch<{ removed: string }>(`/journal/${id}`, { method: 'DELETE' }),
+  );
+}
 
 export function useJournal(start: string, end: string) {
   return useQuery({

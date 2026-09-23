@@ -1,6 +1,6 @@
 import { Angry, Eye, Frown, Laugh, Meh, Smile } from 'lucide-react-native';
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -12,6 +12,7 @@ import { formatErrorMessage } from '@/utils/errors';
 import {
   useCloseDay,
   useDayClosePending,
+  type DayClosePending,
   type HabitAnswer,
   type WorkoutAnswer,
 } from './hooks/useDayClose';
@@ -71,10 +72,9 @@ export function DayCloseModal({
   const toast = useToast();
   const [respostas, setRespostas] = useState<Record<string, HabitAnswer>>({});
   const [quantas, setQuantas] = useState<Record<string, number>>({});
-  const [humor, setHumor] = useState<number | null>(null);
   const [nota, setNota] = useState('');
-  // Abre com o DIÁRIO do dia — escrito na aba Diário ou aqui, é o mesmo texto.
-  const [preenchidoPara, setPreenchidoPara] = useState<string | null>(null);
+  // O campo livre é um rascunho por dia: trocar de dia o esvazia.
+  const [rascunhoDe, setRascunhoDe] = useState<string | null>(null);
   const [treino, setTreino] = useState<WorkoutAnswer>({
     modality: 'forca',
     minutes: 40,
@@ -85,10 +85,9 @@ export function DayCloseModal({
 
   // Ajuste durante a renderização, não em efeito: o efeito pintaria o campo
   // vazio antes do texto do diário.
-  if (dados && preenchidoPara !== dados.day) {
-    setPreenchidoPara(dados.day);
-    setNota(dados.journal?.text ?? '');
-    setHumor(dados.journal?.mood ?? null);
+  if (dados && rascunhoDe !== dados.day) {
+    setRascunhoDe(dados.day);
+    setNota('');
   }
 
   // Uma pergunta só para os dois registros: sem os minutos, o hábito fecharia
@@ -108,7 +107,7 @@ export function DayCloseModal({
             .map(([id]) => [id, quantas[id] ?? 1]),
         ),
         workout: pedeTreino ? treino : null,
-        mood: humor,
+        // Sem humor: o do dia é a média dos registros do diário.
         note: nota.trim() || null,
       },
       {
@@ -119,9 +118,8 @@ export function DayCloseModal({
           );
           setRespostas({});
           setQuantas({});
-          setHumor(null);
           setNota('');
-          setPreenchidoPara(null);
+          setRascunhoDe(null);
           onClose();
         },
         onError: (error) =>
@@ -287,30 +285,11 @@ export function DayCloseModal({
             ) : null}
 
             <Text variant="label" style={styles.secao}>
-              Como foi o dia?
+              O dia no diário
             </Text>
-            <View style={styles.humor}>
-              {HUMOR.map(({ valor, Icone }) => (
-                <Pressable
-                  key={valor}
-                  onPress={() => setHumor(humor === valor ? null : valor)}
-                  style={[styles.humorBotao, humor === valor && styles.humorOn]}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: humor === valor }}
-                >
-                  <Icone
-                    size={22}
-                    color={
-                      humor === valor
-                        ? theme.colors.primary
-                        : theme.colors.textMuted
-                    }
-                  />
-                </Pressable>
-              ))}
-            </View>
+            <DiaryCompilation journal={dados?.journal ?? null} />
             <Input
-              label="O diário do dia (opcional)"
+              label="Algo mais sobre o dia? (opcional)"
               value={nota}
               onChangeText={setNota}
               placeholder="dia puxado, reunião até tarde"
@@ -318,7 +297,8 @@ export function DayCloseModal({
               maxLength={2000}
             />
             <Text variant="bodyMuted">
-              É o mesmo texto da aba Diário: o que estiver aqui vai para ele.
+              Entra como mais um registro do diário, sem apagar os outros. Ao
+              fechar, o diário do dia fica selado.
             </Text>
 
             {dados?.danger ? (
@@ -399,17 +379,18 @@ const styles = StyleSheet.create({
   contador: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   evidencia: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
   evidenciaTexto: { flex: 1 },
-  humor: { flexDirection: 'row', gap: theme.spacing.xs },
-  humorBotao: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
+  diario: { gap: theme.spacing.xs },
+  diarioMedia: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.xs },
+  diarioLinha: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: theme.spacing.sm,
+    padding: theme.spacing.sm,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.surfaceSoft,
   },
-  humorOn: { borderColor: theme.colors.primary },
+  diarioHora: { width: 42 },
+  diarioTexto: { flex: 1, minWidth: 0 },
   aviso: { marginTop: theme.spacing.xs },
   acoes: {
     flexDirection: 'row',
@@ -418,3 +399,54 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.sm,
   },
 });
+
+/**
+ * O DIÁRIO DO DIA, compilado — só leitura. Cada registro com a hora e o humor
+ * daquele momento; em cima, o humor do dia (a média, que é o que o fechamento
+ * grava).
+ */
+function DiaryCompilation({ journal }: { journal: DayClosePending['journal'] }) {
+  const registros = journal?.entries ?? [];
+  if (registros.length === 0) {
+    return (
+      <Text variant="bodyMuted">
+        Nenhum registro no diário. O que você escrever abaixo vira o primeiro — e
+        o dia fecha sem humor.
+      </Text>
+    );
+  }
+  const media = journal?.moodAvg ?? null;
+  const comHumor = registros.filter((r) => r.mood !== null).length;
+  const Media = media === null ? null : HUMOR[Math.round(media) - 1]?.Icone;
+  return (
+    <View style={styles.diario}>
+      <View style={styles.diarioMedia}>
+        {Media ? <Media size={18} color={theme.colors.primary} /> : null}
+        <Text variant="bodyMedium">
+          {media === null
+            ? 'Sem humor registrado — o dia fecha sem humor.'
+            : `Humor do dia: ${String(media).replace('.', ',')} de 5 (média de ${comHumor})`}
+        </Text>
+      </View>
+      {registros.map((registro) => {
+        const Icone = registro.mood ? HUMOR[registro.mood - 1]?.Icone : null;
+        return (
+          <View key={registro.id} style={styles.diarioLinha}>
+            <Text variant="label" style={styles.diarioHora}>
+              {registro.time}
+            </Text>
+            {Icone ? <Icone size={16} color={theme.colors.textMuted} /> : null}
+            <Text variant="bodyMuted" style={styles.diarioTexto}>
+              {registro.text ??
+                (registro.hasAudio
+                  ? 'áudio sem transcrição'
+                  : registro.hasPhoto
+                    ? 'foto sem transcrição'
+                    : 'só o humor')}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
