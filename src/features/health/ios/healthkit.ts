@@ -87,9 +87,11 @@ const HEART_RATE_TYPE = 'HKQuantityTypeIdentifierHeartRate';
  * Valores de `HKCategoryValueSleepAnalysis` que contam como SONO de verdade.
  * `inBed` (0) fica de fora: deitar lendo por duas horas não é ter dormido, e
  * contar isso inflaria a duração exatamente no critério que o usuário escolheu
- * medir.
+ * medir. Ele só volta como reserva, na noite que não tem nada além dele (ver
+ * `readSleepSessions`).
  */
 const ASLEEP_VALUES = new Set([1, 3, 4, 5]);
+const IN_BED_VALUE = 0;
 
 function nativeModule(): HealthKitModule | null {
   if (Platform.OS !== 'ios') return null;
@@ -177,16 +179,38 @@ export async function readSleepSessions(since: Date): Promise<SleepRead> {
     filter: { date: { startDate: since, endDate: new Date() } },
   });
 
-  const asleep = samples
-    .filter((sample) => ASLEEP_VALUES.has(Number(sample.value)))
-    .map((sample) => ({
-      uuid: sample.uuid,
-      startedAt: toIso(sample.startDate),
-      endedAt: toIso(sample.endDate),
-    }))
-    .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+  const toRaw = (sample: CategorySample) => ({
+    uuid: sample.uuid,
+    startedAt: toIso(sample.startDate),
+    endedAt: toIso(sample.endDate),
+  });
+  const byStart = (a: RawSession, b: RawSession) => a.startedAt.localeCompare(b.startedAt);
 
-  return { sessions: mergeSessions(asleep), sampleCount: samples.length };
+  const asleep = mergeSessions(
+    samples.filter((s) => ASLEEP_VALUES.has(Number(s.value))).map(toRaw).sort(byStart),
+  );
+
+  // RESERVA: noite que só tem `inBed`. Nem todo aparelho grava as fases — o
+  // iPhone sozinho (horário de dormir) e vários relógios de terceiros escrevem
+  // só "Tempo na cama". Descartar isso zerava a noite inteira (23/09: 6h29 na
+  // cama, "nenhuma amostra marcada como sono"). A regra de não inflar continua
+  // valendo onde ela faz sentido: se a noite TEM fases de sono, o "na cama"
+  // dela é ignorado; ele só entra quando é tudo o que existe naquela noite.
+  const inBed = mergeSessions(
+    samples.filter((s) => Number(s.value) === IN_BED_VALUE).map(toRaw).sort(byStart),
+  ).filter(
+    (night) =>
+      !asleep.some(
+        (a) =>
+          Date.parse(a.startedAt) < Date.parse(night.endedAt) &&
+          Date.parse(a.endedAt) > Date.parse(night.startedAt),
+      ),
+  );
+
+  const sessions = [...asleep, ...inBed].sort((a, b) =>
+    a.startedAt.localeCompare(b.startedAt),
+  );
+  return { sessions, sampleCount: samples.length };
 }
 
 /**
