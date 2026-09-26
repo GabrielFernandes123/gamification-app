@@ -96,7 +96,7 @@ export default function DiaryBookScreen() {
               </Text>
             </View>
 
-            {[...capitulo.dias].reverse().map((entrada) => (
+            {capitulo.dias.map((entrada) => (
               <Card key={entrada.day} style={styles.entrada}>
                 <Text variant="title">
                   {entrada.title ?? dataLonga(entrada.day)}
